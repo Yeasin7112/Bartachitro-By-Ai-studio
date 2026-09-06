@@ -1718,6 +1718,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </label>
                     <ImageUploader
                       currentImage={blogCoverImage}
+                      onImageChange={(url) => setBlogCoverImage(url)}
                       onImageSelected={(url) => setBlogCoverImage(url)}
                     />
                   </div>
@@ -2028,6 +2029,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                 <ImageUploader
                   currentImage={localSettings.logo_url || ''}
+                  onImageChange={(url) => setLocalSettings({ ...localSettings, logo_url: url })}
                   onImageSelected={(url) => setLocalSettings({ ...localSettings, logo_url: url })}
                 />
               </div>
@@ -2262,6 +2264,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <label className="block text-xs font-bold text-slate-300">সংবাদের ছবি (Featured Image)</label>
                 <ImageUploader 
                   currentImage={editNewsImage}
+                  onImageChange={(url) => setEditNewsImage(url)}
                   onImageSelected={(url) => setEditNewsImage(url)}
                 />
               </div>
@@ -2560,6 +2563,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <label className="block text-xs font-bold text-slate-300">কাভার ছবি (Cover Image)</label>
                 <ImageUploader
                   currentImage={editBlogCoverImage}
+                  onImageChange={(url) => setEditBlogCoverImage(url)}
                   onImageSelected={(url) => setEditBlogCoverImage(url)}
                 />
               </div>

@@ -6,7 +6,8 @@ import {
 
 interface ImageUploaderProps {
   currentImage: string;
-  onImageChange: (url: string) => void;
+  onImageChange?: (url: string) => void;
+  onImageSelected?: (url: string) => void;
   label?: string;
   helperText?: string;
 }
@@ -41,6 +42,7 @@ const SAMPLE_NEWS_PRESETS = [
 export const ImageUploader: React.FC<ImageUploaderProps> = ({
   currentImage,
   onImageChange,
+  onImageSelected,
   label = 'ফিচার্ড ছবি (Featured Image)',
   helperText = 'কম্পিউটার বা মোবাইল থেকে ছবি আপলোড করুন অথবা সরাসরি ইমেজ ইউআরএল প্রদান করুন'
 }) => {
@@ -50,6 +52,15 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   const [fileName, setFileName] = useState<string>('');
   const [fileSize, setFileSize] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const triggerChange = (url: string) => {
+    if (typeof onImageChange === 'function') {
+      onImageChange(url);
+    }
+    if (typeof onImageSelected === 'function') {
+      onImageSelected(url);
+    }
+  };
 
   const handleFileSelect = (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -65,7 +76,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
     reader.onload = (e) => {
       const result = e.target?.result as string;
       if (result) {
-        onImageChange(result);
+        triggerChange(result);
         setUrlInput(result);
       }
     };
@@ -92,14 +103,14 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
 
   const handleUrlSubmit = () => {
     if (urlInput.trim()) {
-      onImageChange(urlInput.trim());
+      triggerChange(urlInput.trim());
       setFileName('');
       setFileSize('');
     }
   };
 
   const handleRemoveImage = () => {
-    onImageChange('');
+    triggerChange('');
     setUrlInput('');
     setFileName('');
     setFileSize('');
@@ -225,7 +236,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
               key={idx}
               type="button"
               onClick={() => {
-                onImageChange(preset.url);
+                triggerChange(preset.url);
                 setUrlInput(preset.url);
                 setFileName(preset.title);
               }}
