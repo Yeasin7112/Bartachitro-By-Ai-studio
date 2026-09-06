@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { 
   INITIAL_CATEGORIES, INITIAL_NEWS, INITIAL_ADS, 
-  INITIAL_EPAPER, INITIAL_SETTINGS, INITIAL_MESSAGES 
+  INITIAL_EPAPER, INITIAL_SETTINGS, INITIAL_MESSAGES,
+  INITIAL_BLOGS, INITIAL_USERS
 } from './data/initialData';
-import { NewsArticle, Category, SiteSettings, ContactMessage } from './types';
+import { NewsArticle, Category, SiteSettings, ContactMessage, BlogPost, AdminUser } from './types';
+import { BackupData } from './utils/zipExporter';
 import { Header } from './components/Header';
 import { BreakingNews } from './components/BreakingNews';
 import { LeadHero } from './components/LeadHero';
@@ -16,6 +18,8 @@ import { SearchView } from './components/SearchView';
 import { ArchiveView } from './components/ArchiveView';
 import { ContactView } from './components/ContactView';
 import { AboutView } from './components/AboutView';
+import { BlogView } from './components/BlogView';
+import { HomeBlogSection } from './components/HomeBlogSection';
 import { Footer } from './components/Footer';
 import { AdminPanel } from './components/AdminPanel';
 import { downloadPhpProjectZip } from './utils/zipExporter';
@@ -28,13 +32,16 @@ export default function App() {
   const [epaper] = useState(INITIAL_EPAPER);
   const [settings, setSettings] = useState<SiteSettings>(INITIAL_SETTINGS);
   const [messages, setMessages] = useState<ContactMessage[]>(INITIAL_MESSAGES);
+  const [blogs, setBlogs] = useState<BlogPost[]>(INITIAL_BLOGS);
+  const [users, setUsers] = useState<AdminUser[]>(INITIAL_USERS);
 
   // View state
   const [currentView, setCurrentView] = useState<
-    'home' | 'article' | 'category' | 'epaper' | 'search' | 'archive' | 'contact' | 'about' | 'admin'
+    'home' | 'article' | 'category' | 'epaper' | 'search' | 'archive' | 'contact' | 'about' | 'admin' | 'blog'
   >('home');
   const [activeCategorySlug, setActiveCategorySlug] = useState<string>('home');
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
+  const [selectedBlog, setSelectedBlog] = useState<BlogPost | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   const scrollToTop = () => {
@@ -102,6 +109,36 @@ export default function App() {
     await downloadPhpProjectZip();
   };
 
+  // Blog Handlers
+  const handleNavigateBlog = () => {
+    setSelectedBlog(null);
+    setCurrentView('blog');
+    scrollToTop();
+  };
+
+  const handleOpenBlog = (blog: BlogPost) => {
+    setBlogs(prev => prev.map(b => b.id === blog.id ? { ...b, views: b.views + 1 } : b));
+    setSelectedBlog(blog);
+    setCurrentView('blog');
+    scrollToTop();
+  };
+
+  const handleLikeBlog = (id: number) => {
+    setBlogs(prev => prev.map(b => b.id === id ? { ...b, likes: b.likes + 1 } : b));
+  };
+
+  const handleAddBlog = (newBlog: BlogPost) => {
+    setBlogs(prev => [newBlog, ...prev]);
+  };
+
+  const handleUpdateBlog = (updated: BlogPost) => {
+    setBlogs(prev => prev.map(b => b.id === updated.id ? updated : b));
+  };
+
+  const handleDeleteBlog = (id: number) => {
+    setBlogs(prev => prev.filter(b => b.id !== id));
+  };
+
   // CRUD Handlers for Admin
   const handleAddNews = (newArticle: NewsArticle) => {
     setNewsList(prev => [newArticle, ...prev]);
@@ -155,6 +192,36 @@ export default function App() {
     setMessages(prev => prev.filter(m => m.id !== id));
   };
 
+  const handleAddUser = (user: AdminUser) => {
+    setUsers(prev => [user, ...prev]);
+  };
+
+  const handleUpdateUser = (user: AdminUser) => {
+    setUsers(prev => prev.map(u => u.id === user.id ? user : u));
+  };
+
+  const handleDeleteUser = (id: number) => {
+    setUsers(prev => prev.filter(u => u.id !== id));
+  };
+
+  const handleImportBackup = (backup: BackupData) => {
+    if (backup.news && Array.isArray(backup.news) && backup.news.length > 0) {
+      setNewsList(backup.news);
+    }
+    if (backup.blogs && Array.isArray(backup.blogs) && backup.blogs.length > 0) {
+      setBlogs(backup.blogs);
+    }
+    if (backup.categories && Array.isArray(backup.categories) && backup.categories.length > 0) {
+      setCategories(backup.categories);
+    }
+    if (backup.settings) {
+      setSettings(backup.settings);
+    }
+    if (backup.users && Array.isArray(backup.users) && backup.users.length > 0) {
+      setUsers(backup.users);
+    }
+  };
+
   // If in Admin Panel view
   if (currentView === 'admin') {
     return (
@@ -165,6 +232,8 @@ export default function App() {
         epaper={epaper}
         settings={settings}
         messages={messages}
+        blogs={blogs}
+        users={users}
         onAddNews={handleAddNews}
         onUpdateNews={handleUpdateNews}
         onDeleteNews={handleDeleteNews}
@@ -175,6 +244,13 @@ export default function App() {
         onCloseAdmin={handleCloseAdmin}
         onMarkMessageRead={handleMarkMessageRead}
         onDeleteMessage={handleDeleteMessage}
+        onAddBlog={handleAddBlog}
+        onUpdateBlog={handleUpdateBlog}
+        onDeleteBlog={handleDeleteBlog}
+        onAddUser={handleAddUser}
+        onUpdateUser={handleUpdateUser}
+        onDeleteUser={handleDeleteUser}
+        onImportBackup={handleImportBackup}
       />
     );
   }
@@ -202,6 +278,8 @@ export default function App() {
         onNavigateEpaper={handleNavigateEpaper}
         onNavigateSearch={handleNavigateSearch}
         onNavigateArchive={handleNavigateArchive}
+        onNavigateBlog={handleNavigateBlog}
+        isBlogActive={currentView === 'blog'}
         onOpenArticle={handleOpenArticle}
         onOpenAdmin={handleOpenAdmin}
         onDownloadZip={handleDownloadZip}
@@ -292,6 +370,13 @@ export default function App() {
               />
             </div>
 
+            {/* Editorial / Thought Blog Section */}
+            <HomeBlogSection
+              blogs={blogs}
+              onOpenBlog={handleOpenBlog}
+              onViewAllBlogs={handleNavigateBlog}
+            />
+
             {/* E-Paper Teaser Card - High Density */}
             <div className="bg-gray-900 text-white rounded p-5 sm:p-6 flex flex-col md:flex-row justify-between items-center gap-4 border border-gray-800 mb-8 shadow-xs">
               <div className="space-y-1 text-center md:text-left">
@@ -314,6 +399,18 @@ export default function App() {
               </button>
             </div>
           </div>
+        )}
+
+        {/* BLOGS AND ESSAYS VIEW */}
+        {currentView === 'blog' && (
+          <BlogView
+            blogs={blogs.filter(b => b.status === 'published')}
+            selectedBlog={selectedBlog}
+            onSelectBlog={handleOpenBlog}
+            onBackToList={() => { setSelectedBlog(null); scrollToTop(); }}
+            onNavigateHome={handleNavigateHome}
+            onLikeBlog={handleLikeBlog}
+          />
         )}
 
         {/* SINGLE ARTICLE VIEW */}
@@ -346,6 +443,7 @@ export default function App() {
             epaper={epaper}
             allNews={publishedNews}
             onNavigateHome={handleNavigateHome}
+            settings={settings}
           />
         )}
 
@@ -395,6 +493,7 @@ export default function App() {
         onNavigateEpaper={handleNavigateEpaper}
         onNavigateContact={handleNavigateContact}
         onNavigateAbout={handleNavigateAbout}
+        onNavigateBlog={handleNavigateBlog}
         onOpenAdmin={handleOpenAdmin}
       />
     </div>

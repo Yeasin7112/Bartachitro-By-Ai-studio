@@ -1,6 +1,6 @@
 import React from 'react';
 import { SiteSettings, Category } from '../types';
-import { Mail, Phone, MapPin, Newspaper, ShieldCheck } from 'lucide-react';
+import { Mail, Phone, MapPin, Newspaper, ShieldCheck, BookOpen } from 'lucide-react';
 import { SiteLogo } from './SiteLogo';
 
 interface FooterProps {
@@ -11,6 +11,7 @@ interface FooterProps {
   onNavigateEpaper: () => void;
   onNavigateContact: () => void;
   onNavigateAbout: () => void;
+  onNavigateBlog?: () => void;
   onOpenAdmin: () => void;
 }
 
@@ -22,6 +23,7 @@ export const Footer: React.FC<FooterProps> = ({
   onNavigateEpaper,
   onNavigateContact,
   onNavigateAbout,
+  onNavigateBlog,
   onOpenAdmin
 }) => {
   return (
@@ -70,6 +72,14 @@ export const Footer: React.FC<FooterProps> = ({
             ডিজিটাল সেবা
           </h4>
           <ul className="space-y-1.5 text-[11px]">
+            <li>
+              <button 
+                onClick={onNavigateBlog} 
+                className="text-amber-400 hover:text-amber-300 flex items-center gap-1 font-semibold cursor-pointer"
+              >
+                <BookOpen className="w-3 h-3 text-red-500" /> আমাদের ব্লগ ও মুক্তচিন্তা
+              </button>
+            </li>
             <li>
               <button 
                 onClick={onNavigateEpaper} 
@@ -130,7 +140,7 @@ export const Footer: React.FC<FooterProps> = ({
             className="cursor-pointer inline-flex items-center hover:opacity-95 transition-opacity"
             title="বার্তাচিত্র"
           >
-            <SiteLogo size="md" />
+            <SiteLogo size="md" logoUrl={settings.logo_url} />
           </div>
           <p className="text-gray-400 text-[11px]">
             © ২০২৬ বার্তাচিত্র মিডিয়া লিমিটেড | সর্বস্বত্ব সংরক্ষিত

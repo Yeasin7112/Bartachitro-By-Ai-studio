@@ -3,14 +3,21 @@ import {
   LayoutDashboard, FileText, PlusCircle, FolderTree, Zap, 
   Image, Sliders, Mail, User, LogOut, ExternalLink, 
   Trash2, Edit, Check, AlertCircle, Eye, Newspaper, ArrowLeft,
-  Search, X
+  Search, X, BookOpen, PenTool, Heart, Clock, Sparkles,
+  Database, ShieldCheck, UserCheck, RefreshCw, Upload, Download, Globe
 } from 'lucide-react';
 import { 
   NewsArticle, Category, Advertisement, Epaper, 
-  SiteSettings, ContactMessage 
+  SiteSettings, ContactMessage, BlogPost, AdminUser, AdminRole 
 } from '../types';
 import { bnNum, bnDate } from '../utils/bengaliHelpers';
 import { ImageUploader } from './ImageUploader';
+import { RichTextEditor } from './RichTextEditor';
+import { SeoMetaHelper } from './SeoMetaHelper';
+import { AdminUserManagement } from './admin/AdminUserManagement';
+import { AdminBackupRestore } from './admin/AdminBackupRestore';
+import { BackupData } from '../utils/zipExporter';
+import { SiteLogo } from './SiteLogo';
 
 interface AdminPanelProps {
   newsList: NewsArticle[];
@@ -19,6 +26,8 @@ interface AdminPanelProps {
   epaper: Epaper;
   settings: SiteSettings;
   messages: ContactMessage[];
+  blogs?: BlogPost[];
+  users?: AdminUser[];
   onAddNews: (news: NewsArticle) => void;
   onUpdateNews: (news: NewsArticle) => void;
   onDeleteNews: (id: number) => void;
@@ -29,6 +38,13 @@ interface AdminPanelProps {
   onCloseAdmin: () => void;
   onMarkMessageRead: (id: number) => void;
   onDeleteMessage: (id: number) => void;
+  onAddBlog?: (blog: BlogPost) => void;
+  onUpdateBlog?: (blog: BlogPost) => void;
+  onDeleteBlog?: (id: number) => void;
+  onAddUser?: (user: AdminUser) => void;
+  onUpdateUser?: (user: AdminUser) => void;
+  onDeleteUser?: (id: number) => void;
+  onImportBackup?: (backup: BackupData) => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -38,6 +54,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   epaper,
   settings,
   messages,
+  blogs = [],
+  users = [],
   onAddNews,
   onUpdateNews,
   onDeleteNews,
@@ -47,9 +65,34 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onUpdateSettings,
   onCloseAdmin,
   onMarkMessageRead,
-  onDeleteMessage
+  onDeleteMessage,
+  onAddBlog,
+  onUpdateBlog,
+  onDeleteBlog,
+  onAddUser,
+  onUpdateUser,
+  onDeleteUser,
+  onImportBackup
 }) => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'news' | 'add_news' | 'categories' | 'breaking' | 'ads' | 'messages' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<
+    'dashboard' | 'news' | 'add_news' | 'categories' | 'breaking' | 'blogs' | 'add_blog' | 'ads' | 'messages' | 'settings' | 'users' | 'backup'
+  >('dashboard');
+
+  // Active Admin Profile User (Default to first or super_admin)
+  const [currentAdminUser, setCurrentAdminUser] = useState<AdminUser>(() => {
+    return users.find(u => u.role === 'super_admin') || users[0] || {
+      id: 1,
+      name: 'আহমেদ রফিক চৌধুরী',
+      username: 'admin',
+      email: 'admin@bartachitro.com',
+      role: 'super_admin',
+      role_title: 'প্রধান সম্পাদক ও প্রকাশক',
+      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+      status: 'active',
+      created_at: '2026-01-01 10:00:00',
+      last_login: '২০২৬-০৯-০৬ ১২:৩০'
+    };
+  });
 
   // Form states for Add News
   const [newsTitle, setNewsTitle] = useState('');
@@ -61,7 +104,52 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [newsIsFeatured, setNewsIsFeatured] = useState(false);
   const [newsIsBreaking, setNewsIsBreaking] = useState(false);
   const [newsStatus, setNewsStatus] = useState<'published' | 'draft'>('published');
+  const [newsSeoTitle, setNewsSeoTitle] = useState('');
+  const [newsSeoDescription, setNewsSeoDescription] = useState('');
+  const [newsSeoKeywords, setNewsSeoKeywords] = useState('');
   const [feedback, setFeedback] = useState('');
+
+  // Blog Writing & Management States
+  const [blogTitle, setBlogTitle] = useState('');
+  const [blogCategoryTag, setBlogCategoryTag] = useState('মতামত ও কলাম');
+  const [customBlogTag, setCustomBlogTag] = useState('');
+  const [blogSummary, setBlogSummary] = useState('');
+  const [blogContent, setBlogContent] = useState('');
+  const [blogAuthorName, setBlogAuthorName] = useState('আহমেদ রফিক চৌধুরী');
+  const [blogAuthorRole, setBlogAuthorRole] = useState('সিনিয়র কলামিস্ট ও বিশ্লেষক');
+  const [blogAuthorAvatar, setBlogAuthorAvatar] = useState('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop&crop=face');
+  const [blogCoverImage, setBlogCoverImage] = useState('https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=1200&q=80');
+  const [blogReadingTime, setBlogReadingTime] = useState<number>(4);
+  const [blogIsFeatured, setBlogIsFeatured] = useState(false);
+  const [blogStatus, setBlogStatus] = useState<'published' | 'draft'>('published');
+  const [blogTagsInput, setBlogTagsInput] = useState('মতামত, চিন্তাধারা, সমসাময়িক');
+  const [blogSeoTitle, setBlogSeoTitle] = useState('');
+  const [blogSeoDescription, setBlogSeoDescription] = useState('');
+  const [blogSeoKeywords, setBlogSeoKeywords] = useState('');
+
+  // Blog Searching & Filtering
+  const [blogSearchQuery, setBlogSearchQuery] = useState('');
+  const [blogCategoryFilter, setBlogCategoryFilter] = useState('all');
+
+  // Editing Blog Modal State
+  const [editingBlog, setEditingBlog] = useState<BlogPost | null>(null);
+  const [editBlogTitle, setEditBlogTitle] = useState('');
+  const [editBlogCategoryTag, setEditBlogCategoryTag] = useState('');
+  const [editBlogSummary, setEditBlogSummary] = useState('');
+  const [editBlogContent, setEditBlogContent] = useState('');
+  const [editBlogAuthorName, setEditBlogAuthorName] = useState('');
+  const [editBlogAuthorRole, setEditBlogAuthorRole] = useState('');
+  const [editBlogAuthorAvatar, setEditBlogAuthorAvatar] = useState('');
+  const [editBlogCoverImage, setEditBlogCoverImage] = useState('');
+  const [editBlogReadingTime, setEditBlogReadingTime] = useState<number>(4);
+  const [editBlogIsFeatured, setEditBlogIsFeatured] = useState(false);
+  const [editBlogStatus, setEditBlogStatus] = useState<'published' | 'draft'>('published');
+  const [editBlogViews, setEditBlogViews] = useState<number>(0);
+  const [editBlogLikes, setEditBlogLikes] = useState<number>(0);
+  const [editBlogTagsInput, setEditBlogTagsInput] = useState('');
+  const [editBlogSeoTitle, setEditBlogSeoTitle] = useState('');
+  const [editBlogSeoDescription, setEditBlogSeoDescription] = useState('');
+  const [editBlogSeoKeywords, setEditBlogSeoKeywords] = useState('');
 
   // News list search & filtering
   const [newsSearchQuery, setNewsSearchQuery] = useState('');
@@ -80,6 +168,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [editNewsStatus, setEditNewsStatus] = useState<'published' | 'draft'>('published');
   const [editNewsPublishedAt, setEditNewsPublishedAt] = useState('');
   const [editNewsViews, setEditNewsViews] = useState<number>(0);
+  const [editNewsSeoTitle, setEditNewsSeoTitle] = useState('');
+  const [editNewsSeoDescription, setEditNewsSeoDescription] = useState('');
+  const [editNewsSeoKeywords, setEditNewsSeoKeywords] = useState('');
 
   // Category form state
   const [newCatName, setNewCatName] = useState('');
@@ -100,6 +191,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const breakingNewsCount = newsList.filter(n => n.is_breaking).length;
   const totalViews = newsList.reduce((acc, curr) => acc + curr.views, 0);
   const unreadMessages = messages.filter(m => !m.is_read).length;
+  const totalBlogs = blogs.length;
+  const publishedBlogs = blogs.filter(b => b.status === 'published').length;
+  const totalBlogViews = blogs.reduce((acc, curr) => acc + curr.views, 0);
 
   // Handlers for News Editing
   const handleStartEditNews = (article: NewsArticle) => {
@@ -107,13 +201,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setEditNewsTitle(article.title);
     setEditNewsCategory(article.category_id);
     setEditNewsSummary(article.summary || '');
-    // Clean paragraph tags for clear, natural editing in textarea
-    const cleanContent = article.content
-      .replace(/^<p>/i, '')
-      .replace(/<\/p>$/i, '')
-      .replace(/<\/p>\s*<p>/gi, '\n\n')
-      .replace(/<br\s*\/?>/gi, '\n');
-    setEditNewsContent(cleanContent);
+    setEditNewsContent(article.content);
     setEditNewsAuthor(article.author_name || 'বার্তাচিত্র প্রতিবেদক');
     setEditNewsImage(article.featured_image || '');
     setEditNewsIsFeatured(!!article.is_featured);
@@ -121,6 +209,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setEditNewsStatus(article.status || 'published');
     setEditNewsPublishedAt(article.published_at || '');
     setEditNewsViews(article.views || 0);
+    setEditNewsSeoTitle(article.seo_title || article.title);
+    setEditNewsSeoDescription(article.seo_description || article.summary || '');
+    setEditNewsSeoKeywords(article.seo_keywords || '');
   };
 
   const handleSaveEditNews = (e: React.FormEvent) => {
@@ -129,7 +220,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
     const catObj = categories.find(c => c.id === Number(editNewsCategory));
     
-    // Format paragraph structure
+    // Format paragraph structure if not already HTML
     let formattedContent = editNewsContent.trim();
     if (!formattedContent.startsWith('<')) {
       const paragraphs = formattedContent
@@ -155,7 +246,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       is_breaking: editNewsIsBreaking,
       status: editNewsStatus,
       published_at: editNewsPublishedAt.trim() || editingNews.published_at,
-      views: Number(editNewsViews) >= 0 ? Number(editNewsViews) : editingNews.views
+      views: Number(editNewsViews) >= 0 ? Number(editNewsViews) : editingNews.views,
+      seo_title: editNewsSeoTitle.trim() || editNewsTitle.trim(),
+      seo_description: editNewsSeoDescription.trim() || editNewsSummary.trim(),
+      seo_keywords: editNewsSeoKeywords.trim()
     };
 
     onUpdateNews(updatedArticle);
@@ -211,11 +305,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     return matchesSearch && matchesCategory;
   });
 
+  // Filtered blog list for the Blog management table
+  const filteredBlogs = blogs.filter((b) => {
+    const query = blogSearchQuery.toLowerCase().trim();
+    const matchesSearch = !query || 
+      b.title.toLowerCase().includes(query) ||
+      b.author_name.toLowerCase().includes(query) ||
+      b.category_tag.toLowerCase().includes(query) ||
+      b.summary.toLowerCase().includes(query);
+
+    const matchesCategory = blogCategoryFilter === 'all' || b.category_tag === blogCategoryFilter;
+    return matchesSearch && matchesCategory;
+  });
+
   const handleCreateNews = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newsTitle.trim() || !newsContent.trim()) return;
 
     const catObj = categories.find(c => c.id === Number(newsCategory));
+    const finalContent = newsContent.trim().startsWith('<') 
+      ? newsContent.trim() 
+      : `<p>${newsContent.trim().replace(/\n\n+/g, '</p><p>').replace(/\n/g, '<br/>')}</p>`;
+
     const newArticle: NewsArticle = {
       id: Date.now(),
       title: newsTitle.trim(),
@@ -224,14 +335,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       category_name: catObj?.name || 'জাতীয়',
       category_slug: catObj?.slug || 'national',
       summary: newsSummary.trim() || newsTitle.slice(0, 80),
-      content: `<p>${newsContent.trim()}</p>`,
+      content: finalContent,
       author_name: newsAuthor.trim() || 'নিজস্ব প্রতিবেদক',
       featured_image: newsImage.trim() || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80',
       views: 1,
       is_featured: newsIsFeatured,
       is_breaking: newsIsBreaking,
       status: newsStatus,
-      published_at: new Date().toISOString().replace('T', ' ').slice(0, 19)
+      published_at: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      seo_title: newsSeoTitle.trim() || newsTitle.trim(),
+      seo_description: newsSeoDescription.trim() || newsSummary.trim() || newsTitle.slice(0, 160),
+      seo_keywords: newsSeoKeywords.trim()
     };
 
     onAddNews(newArticle);
@@ -239,6 +353,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setNewsTitle('');
     setNewsSummary('');
     setNewsContent('');
+    setNewsSeoTitle('');
+    setNewsSeoDescription('');
+    setNewsSeoKeywords('');
     setTimeout(() => {
       setFeedback('');
       setActiveTab('news');
@@ -266,6 +383,168 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     onUpdateSettings(localSettings);
     setFeedback('সাইট সেটিংস সফলভাবে আপডেট হয়েছে!');
     setTimeout(() => setFeedback(''), 2000);
+  };
+
+  // Blog Handlers
+  const handleAutoCalcReadingTime = (text: string) => {
+    const words = text.trim().split(/\s+/).filter(Boolean).length;
+    const mins = Math.max(1, Math.round(words / 150));
+    setBlogReadingTime(mins);
+  };
+
+  const handleCreateBlog = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!blogTitle.trim() || !blogContent.trim()) {
+      alert('অনুগ্রহ করে ব্লগের শিরোনাম এবং বিস্তারিত কন্টেন্ট পূরণ করুন।');
+      return;
+    }
+
+    const finalTag = blogCategoryTag === 'অন্যান্য' && customBlogTag.trim() 
+      ? customBlogTag.trim() 
+      : blogCategoryTag;
+
+    const finalContent = blogContent.trim().startsWith('<')
+      ? blogContent.trim()
+      : blogContent
+          .split('\n\n')
+          .map(p => p.trim())
+          .filter(p => p.length > 0)
+          .map(p => `<p>${p.replace(/\n/g, '<br/>')}</p>`)
+          .join('\n');
+
+    const tagsArray = blogTagsInput
+      .split(',')
+      .map(t => t.trim())
+      .filter(Boolean);
+
+    const newBlogPost: BlogPost = {
+      id: Date.now(),
+      title: blogTitle.trim(),
+      slug: blogTitle.trim().toLowerCase().replace(/[^a-z0-9\u0980-\u09FF]+/g, '-'),
+      summary: blogSummary.trim() || blogContent.trim().slice(0, 140) + '...',
+      content: finalContent || `<p>${blogContent.trim()}</p>`,
+      author_name: blogAuthorName.trim() || 'কলামিস্ট',
+      author_role: blogAuthorRole.trim() || 'লেখক ও গবেষক',
+      author_avatar: blogAuthorAvatar.trim(),
+      cover_image: blogCoverImage.trim() || 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=1200&q=80',
+      category_tag: finalTag,
+      reading_time_min: Number(blogReadingTime) || 3,
+      views: 0,
+      likes: 0,
+      is_featured: blogIsFeatured,
+      status: blogStatus,
+      published_at: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      tags: tagsArray,
+      seo_title: blogSeoTitle.trim() || blogTitle.trim(),
+      seo_description: blogSeoDescription.trim() || blogSummary.trim(),
+      seo_keywords: blogSeoKeywords.trim()
+    };
+
+    if (onAddBlog) {
+      onAddBlog(newBlogPost);
+    }
+    setFeedback('অভিনন্দন! আপনার ব্লগটি সফলভাবে প্রকাশিত হয়েছে।');
+    setBlogTitle('');
+    setBlogSummary('');
+    setBlogContent('');
+    setCustomBlogTag('');
+    setBlogSeoTitle('');
+    setBlogSeoDescription('');
+    setBlogSeoKeywords('');
+    setTimeout(() => {
+      setFeedback('');
+      setActiveTab('blogs');
+    }, 1500);
+  };
+
+  const handleStartEditBlog = (blog: BlogPost) => {
+    setEditingBlog(blog);
+    setEditBlogTitle(blog.title);
+    setEditBlogCategoryTag(blog.category_tag);
+    setEditBlogSummary(blog.summary);
+    setEditBlogContent(blog.content);
+    setEditBlogAuthorName(blog.author_name);
+    setEditBlogAuthorRole(blog.author_role);
+    setEditBlogAuthorAvatar(blog.author_avatar || '');
+    setEditBlogCoverImage(blog.cover_image);
+    setEditBlogReadingTime(blog.reading_time_min);
+    setEditBlogIsFeatured(blog.is_featured);
+    setEditBlogStatus(blog.status);
+    setEditBlogViews(blog.views);
+    setEditBlogLikes(blog.likes);
+    setEditBlogTagsInput((blog.tags || []).join(', '));
+    setEditBlogSeoTitle(blog.seo_title || blog.title);
+    setEditBlogSeoDescription(blog.seo_description || blog.summary || '');
+    setEditBlogSeoKeywords(blog.seo_keywords || '');
+  };
+
+  const handleSaveEditBlog = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingBlog) return;
+
+    const finalContent = editBlogContent.trim().startsWith('<')
+      ? editBlogContent.trim()
+      : editBlogContent
+          .split('\n\n')
+          .map(p => p.trim())
+          .filter(p => p.length > 0)
+          .map(p => `<p>${p.replace(/\n/g, '<br/>')}</p>`)
+          .join('\n');
+
+    const tagsArray = editBlogTagsInput
+      .split(',')
+      .map(t => t.trim())
+      .filter(Boolean);
+
+    const updatedBlog: BlogPost = {
+      ...editingBlog,
+      title: editBlogTitle.trim(),
+      category_tag: editBlogCategoryTag.trim(),
+      summary: editBlogSummary.trim(),
+      content: finalContent || `<p>${editBlogContent.trim()}</p>`,
+      author_name: editBlogAuthorName.trim(),
+      author_role: editBlogAuthorRole.trim(),
+      author_avatar: editBlogAuthorAvatar.trim(),
+      cover_image: editBlogCoverImage.trim(),
+      reading_time_min: Number(editBlogReadingTime) || 3,
+      is_featured: editBlogIsFeatured,
+      status: editBlogStatus,
+      views: Number(editBlogViews) || 0,
+      likes: Number(editBlogLikes) || 0,
+      tags: tagsArray,
+      seo_title: editBlogSeoTitle.trim() || editBlogTitle.trim(),
+      seo_description: editBlogSeoDescription.trim() || editBlogSummary.trim(),
+      seo_keywords: editBlogSeoKeywords.trim()
+    };
+
+    if (onUpdateBlog) {
+      onUpdateBlog(updatedBlog);
+    }
+    setEditingBlog(null);
+    setFeedback('ব্লগ পোস্টটি সফলভাবে হালনাগাদ করা হয়েছে!');
+    setTimeout(() => setFeedback(''), 2000);
+  };
+
+  const handleCancelEditBlog = () => {
+    setEditingBlog(null);
+  };
+
+  const handleDeleteBlogAction = (id: number) => {
+    if (confirm('আপনি কি নিশ্চিত যে এই ব্লগটি মুছে ফেলতে চান?')) {
+      if (onDeleteBlog) {
+        onDeleteBlog(id);
+      }
+      setFeedback('ব্লগটি মুছে ফেলা হয়েছে।');
+      setTimeout(() => setFeedback(''), 2000);
+    }
+  };
+
+  const handleToggleBlogStatus = (blog: BlogPost) => {
+    if (!onUpdateBlog) return;
+    const newStatus = blog.status === 'published' ? 'draft' : 'published';
+    onUpdateBlog({ ...blog, status: newStatus });
+    setFeedback(`ব্লগ স্ট্যাটাস '${newStatus === 'published' ? 'প্রকাশিত' : 'ড্রাফট'}' করা হয়েছে`);
+    setTimeout(() => setFeedback(''), 1500);
   };
 
   return (
@@ -345,6 +624,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               )}
             </button>
 
+            {/* Blogs Management Tab */}
+            <button
+              onClick={() => setActiveTab('blogs')}
+              className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
+                activeTab === 'blogs' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <BookOpen className="w-4 h-4" /> ব্লগ ও চিন্তাধারা
+              </span>
+              <span className="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px]">
+                {bnNum(totalBlogs)}
+              </span>
+            </button>
+
+            {/* Write Blog Tab */}
+            <button
+              onClick={() => setActiveTab('add_blog')}
+              className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
+                activeTab === 'add_blog' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <PenTool className="w-4 h-4 text-amber-400" /> নতুন ব্লগ লিখুন
+            </button>
+
             <button
               onClick={() => setActiveTab('ads')}
               className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
@@ -370,6 +674,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               )}
             </button>
 
+            {/* Multi-admin & Role Management */}
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
+                activeTab === 'users' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <ShieldCheck className="w-4 h-4 text-cyan-400" /> অ্যাডমিন রোল
+              </span>
+              <span className="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px]">
+                {bnNum(users.length)} জন
+              </span>
+            </button>
+
+            {/* 1-Click Backup & Restore + cPanel MySQL */}
+            <button
+              onClick={() => setActiveTab('backup')}
+              className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
+                activeTab === 'backup' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <Database className="w-4 h-4 text-emerald-400" /> ব্যাকআপ ও cPanel
+            </button>
+
             <button
               onClick={() => setActiveTab('settings')}
               className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
@@ -384,12 +713,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         {/* User Info & Back Button */}
         <div className="border-t border-slate-800 pt-4 mt-6">
           <div className="flex items-center gap-2.5 mb-3">
-            <div className="w-8 h-8 rounded-full bg-red-800 text-white flex items-center justify-center font-bold text-xs">
-              আ
-            </div>
-            <div>
-              <p className="text-xs font-bold text-white">অ্যাডমিন (Editor)</p>
-              <p className="text-[10px] text-slate-400">admin@bartachitro.com</p>
+            {currentAdminUser.avatar ? (
+              <img 
+                src={currentAdminUser.avatar} 
+                alt={currentAdminUser.name}
+                className="w-8 h-8 rounded-full object-cover border border-red-700" 
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-red-800 text-white flex items-center justify-center font-bold text-xs">
+                {currentAdminUser.name.charAt(0)}
+              </div>
+            )}
+            <div className="overflow-hidden">
+              <p className="text-xs font-bold text-white truncate">{currentAdminUser.name}</p>
+              <p className="text-[10px] text-slate-400 truncate">
+                {currentAdminUser.role === 'super_admin' ? 'সুপার অ্যাডমিন' : currentAdminUser.role === 'editor' ? 'সম্পাদক' : 'মডারেটর'}
+              </p>
             </div>
           </div>
           <button 
@@ -693,14 +1032,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5">মূল সংবাদের বিবরণ *</label>
-                <textarea 
-                  rows={6}
-                  required
+                <RichTextEditor
                   value={newsContent}
-                  onChange={(e) => setNewsContent(e.target.value)}
-                  placeholder="বিস্তারিত সংবাদ লিখুন..."
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-red-600 font-bengali-body"
+                  onChange={setNewsContent}
+                  label="মূল সংবাদের বিবরণ (এম এস অফিসের মতো ছবি, ফন্ট, কালার ও ফরম্যাটিং যোগ করুন) *"
+                  placeholder="এখানে সংবাদের পূর্ণাঙ্গ বিস্তারিত বিবরণ লিখুন। আপনি টুলবারের ছবি আইকনে ক্লিক করে সংবাদের ভেতরেও ছবি যুক্ত করতে পারেন..."
                 />
               </div>
 
@@ -710,6 +1046,64 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 label="ফিচার্ড ছবি নির্বাচন বা আপলোড (Featured Image) *"
                 helperText="কম্পিউটার বা মোবাইল থেকে ছবি আপলোড করুন অথবা সরাসরি ইমেজ ইউআরএল পেস্ট করুন"
               />
+
+              {/* SEO Friendly Optimization Section */}
+              <div className="bg-slate-900/90 border border-slate-700/80 p-4 sm:p-5 rounded-xl space-y-4">
+                <div className="flex items-center gap-2 pb-2.5 border-b border-slate-800">
+                  <Globe className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-bold text-emerald-300">
+                    এসইও ফ্রেন্ডলি সেটিংস (Google Search & Social Share SEO)
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                      এসইও মেটা টাইটেল (SEO Title)
+                    </label>
+                    <input
+                      type="text"
+                      value={newsSeoTitle}
+                      onChange={(e) => setNewsSeoTitle(e.target.value)}
+                      placeholder={newsTitle || "গুগল সার্চ ফলাফলের টাইটেল..."}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                      মেটা ডেসক্রিপশন (Meta Description - সার্চ ও ফেসবুকে দেখাবে)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={newsSeoDescription}
+                      onChange={(e) => setNewsSeoDescription(e.target.value)}
+                      placeholder={newsSummary || "সংবাদের সারসংক্ষেপ..."}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                      এসইও কীওয়ার্ডস (Keywords - কমা দিয়ে আলাদা করুন)
+                    </label>
+                    <input
+                      type="text"
+                      value={newsSeoKeywords}
+                      onChange={(e) => setNewsSeoKeywords(e.target.value)}
+                      placeholder="যেমন: বাংলাদেশ সংবাদ, জাতীয়, রাজনীতি, অর্থনীতি"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                <SeoMetaHelper
+                  title={newsSeoTitle || newsTitle}
+                  description={newsSeoDescription || newsSummary}
+                  keywords={newsSeoKeywords}
+                  slug={newsTitle ? newsTitle.trim().toLowerCase().replace(/\s+/g, '-').slice(0, 45) : undefined}
+                />
+              </div>
 
               <div className="flex flex-wrap gap-6 pt-2">
                 <label className="flex items-center gap-2 text-xs font-bold cursor-pointer">
@@ -866,6 +1260,531 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* TAB: BLOGS LIST */}
+        {activeTab === 'blogs' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h1 className="text-2xl font-black text-white font-bengali-display flex items-center gap-2">
+                  <BookOpen className="w-6 h-6 text-red-500" />
+                  ব্লগ ও চিন্তাধারা ব্যবস্থাপনা
+                </h1>
+                <p className="text-xs text-slate-400 mt-1">
+                  মোট {bnNum(totalBlogs)}টি ব্লগের মধ্যে {bnNum(filteredBlogs.length)}টি প্রদর্শিত হচ্ছে | প্রকাশিত: {bnNum(publishedBlogs)} | মোট পাঠক ভিউ: {bnNum(totalBlogViews)}
+                </p>
+              </div>
+              <button 
+                onClick={() => setActiveTab('add_blog')}
+                className="bg-red-700 hover:bg-red-600 text-white text-xs font-bold px-4 py-2.5 rounded-lg flex items-center gap-2 transition-colors cursor-pointer shadow-md shrink-0"
+              >
+                <PenTool className="w-4 h-4 text-amber-300" /> নতুন ব্লগ লিখুন
+              </button>
+            </div>
+
+            {/* Filter and Search Bar for Blogs */}
+            <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-3.5 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input 
+                  type="text" 
+                  value={blogSearchQuery}
+                  onChange={(e) => setBlogSearchQuery(e.target.value)}
+                  placeholder="ব্লগের শিরোনাম, লেখক বা বিষয় দিয়ে খুঁজুন..." 
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-8 py-2 text-xs text-white focus:outline-none focus:border-red-500 placeholder-slate-500"
+                />
+                {blogSearchQuery && (
+                  <button 
+                    onClick={() => setBlogSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <select
+                  value={blogCategoryFilter}
+                  onChange={(e) => setBlogCategoryFilter(e.target.value)}
+                  className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-red-500 cursor-pointer"
+                >
+                  <option value="all">সকল বিষয় / ট্যাগ</option>
+                  <option value="মতামত ও কলাম">মতামত ও কলাম</option>
+                  <option value="প্রযুক্তি ও ভবিষ্যৎ">প্রযুক্তি ও ভবিষ্যৎ</option>
+                  <option value="জীবনযাপন ও মনন">জীবনযাপন ও মনন</option>
+                  <option value="সাহিত্য ও সংস্কৃতি">সাহিত্য ও সংস্কৃতি</option>
+                  <option value="ক্যারিয়ার ও শিক্ষা">ক্যারিয়ার ও শিক্ষা</option>
+                  <option value="পরিবেশ ও প্রকৃতি">পরিবেশ ও প্রকৃতি</option>
+                  <option value="আন্তর্জাতিক ভাবনা">আন্তর্জাতিক ভাবনা</option>
+                </select>
+
+                {(blogSearchQuery || blogCategoryFilter !== 'all') && (
+                  <button
+                    onClick={() => {
+                      setBlogSearchQuery('');
+                      setBlogCategoryFilter('all');
+                    }}
+                    className="bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors"
+                  >
+                    রিসেট
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Blogs Table */}
+            <div className="bg-slate-800/80 border border-slate-700 rounded-xl overflow-hidden shadow">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-900/60 text-slate-400 uppercase tracking-wider text-[10px]">
+                    <tr>
+                      <th className="p-3.5">কাভার ও শিরোনাম</th>
+                      <th className="p-3.5">বিষয় / ট্যাগ</th>
+                      <th className="p-3.5">লেখক ও পদবী</th>
+                      <th className="p-3.5 text-center">পড়ার সময়</th>
+                      <th className="p-3.5 text-center">পাঠক ও লাইক</th>
+                      <th className="p-3.5 text-center">স্ট্যাটাস</th>
+                      <th className="p-3.5 text-right">অ্যাকশন</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-700/80 text-slate-200">
+                    {filteredBlogs.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="p-8 text-center text-slate-400">
+                          <p className="font-bold text-sm text-slate-300 mb-1">কোনো ব্লগ পাওয়া যায়নি</p>
+                          <p className="text-xs text-slate-500 mb-3">আপনার সার্চ বা ফিল্টারের সাথে কোনো ব্লগের মিল নেই।</p>
+                          <button
+                            onClick={() => setActiveTab('add_blog')}
+                            className="inline-flex items-center gap-1.5 bg-red-700 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-bold"
+                          >
+                            <PlusCircle className="w-4 h-4" /> প্রথম ব্লগ লিখুন
+                          </button>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredBlogs.map((b) => (
+                        <tr key={b.id} className="hover:bg-slate-700/40 transition-colors">
+                          <td className="p-3.5 max-w-sm">
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={b.cover_image}
+                                alt={b.title}
+                                className="w-14 h-11 object-cover rounded-lg shrink-0 border border-slate-700"
+                              />
+                              <div className="min-w-0">
+                                <p className="font-bold text-white text-xs leading-snug truncate" title={b.title}>
+                                  {b.title}
+                                </p>
+                                <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
+                                  {b.summary}
+                                </p>
+                                {b.is_featured && (
+                                  <span className="inline-block mt-1 text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.2 rounded">
+                                    ★ ফিচার্ড ব্লগ
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3.5">
+                            <span className="bg-red-950/80 text-red-300 border border-red-800/80 px-2 py-1 rounded text-[11px] font-bold inline-block">
+                              {b.category_tag}
+                            </span>
+                          </td>
+                          <td className="p-3.5">
+                            <div className="flex items-center gap-2">
+                              {b.author_avatar ? (
+                                <img
+                                  src={b.author_avatar}
+                                  alt={b.author_name}
+                                  className="w-7 h-7 rounded-full object-cover border border-slate-700"
+                                />
+                              ) : (
+                                <div className="w-7 h-7 rounded-full bg-slate-700 text-slate-300 flex items-center justify-center font-bold text-xs">
+                                  {b.author_name[0]}
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-bold text-slate-200 text-xs leading-tight">{b.author_name}</p>
+                                <p className="text-[10px] text-slate-400">{b.author_role}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3.5 text-center text-slate-300 text-xs">
+                            <span className="inline-flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              {bnNum(b.reading_time_min)} মিনিট
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-center">
+                            <div className="space-y-0.5">
+                              <span className="text-amber-400 text-xs font-bold block">
+                                {bnNum(b.views)} ভিউ
+                              </span>
+                              <span className="text-rose-400 text-[10px] font-medium flex items-center justify-center gap-0.5">
+                                <Heart className="w-2.5 h-2.5 fill-rose-400" />
+                                {bnNum(b.likes)}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="p-3.5 text-center">
+                            <button
+                              onClick={() => handleToggleBlogStatus(b)}
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold border cursor-pointer transition-all ${
+                                b.status === 'published'
+                                  ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80 hover:bg-emerald-900'
+                                  : 'bg-slate-800 text-slate-400 border-slate-600 hover:bg-slate-700'
+                              }`}
+                              title="ক্লিক করে স্ট্যাটাস পরিবর্তন করুন"
+                            >
+                              {b.status === 'published' ? '● প্রকাশিত' : '○ ড্রাফট'}
+                            </button>
+                          </td>
+                          <td className="p-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => handleStartEditBlog(b)}
+                                className="bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 px-2.5 py-1 rounded text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
+                                title="সম্পাদনা করুন"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                                <span>এডিট</span>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteBlogAction(b.id)}
+                                className="text-red-400 hover:text-red-300 p-1.5 rounded hover:bg-slate-700 cursor-pointer transition-colors"
+                                title="ব্লগ মুছে ফেলুন"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: ADD BLOG WRITING STUDIO */}
+        {activeTab === 'add_blog' && (
+          <div className="space-y-6 max-w-5xl">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-slate-800">
+              <div>
+                <h1 className="text-2xl font-black text-white font-bengali-display flex items-center gap-2">
+                  <PenTool className="w-6 h-6 text-amber-400" />
+                  নতুন চিন্তাশীল ব্লগ ও কলাম লিখুন
+                </h1>
+                <p className="text-xs text-slate-400 mt-1">
+                  মতামত, সমসাময়িক বিশ্লেষণ বা মুক্তচিন্তার নিবন্ধ তৈরি ও প্রকাশ করুন।
+                </p>
+              </div>
+              <button
+                onClick={() => setActiveTab('blogs')}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" /> সকল ব্লগ তালিকায় ফিরুন
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateBlog} className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Left: Main Writing Canvas (8 cols) */}
+                <div className="lg:col-span-8 space-y-5">
+                  {/* Blog Title */}
+                  <div className="bg-slate-800/80 border border-slate-700 p-4 sm:p-5 rounded-xl space-y-2">
+                    <label className="block text-xs font-bold text-slate-200">
+                      ব্লগের আকর্ষণীয় শিরোনাম (Blog Headline / Title) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={blogTitle}
+                      onChange={(e) => setBlogTitle(e.target.value)}
+                      placeholder="যেমন: কৃত্রিম বুদ্ধিমত্তা ও আগামীর কর্মসংস্থান: আশাবাদ বনাম শঙ্কা..."
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2.5 text-sm text-white font-bengali-display focus:outline-none focus:border-red-500 font-bold"
+                    />
+                  </div>
+
+                  {/* Summary / Excerpt */}
+                  <div className="bg-slate-800/80 border border-slate-700 p-4 sm:p-5 rounded-xl space-y-2">
+                    <label className="block text-xs font-bold text-slate-200">
+                      সংক্ষেপ বা ভূমিকা (Short Excerpt / Intro) *
+                    </label>
+                    <textarea
+                      rows={2}
+                      required
+                      value={blogSummary}
+                      onChange={(e) => setBlogSummary(e.target.value)}
+                      placeholder="ব্লগের মূল সুর বা পাঠকের দৃষ্টি আকর্ষণকারী সূচনা (২-৩ বাক্য)..."
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2 text-xs text-white focus:outline-none focus:border-red-500 leading-relaxed"
+                    />
+                  </div>
+
+                  {/* Full Content */}
+                  <div className="bg-slate-800/80 border border-slate-700 p-4 sm:p-5 rounded-xl space-y-2">
+                    <RichTextEditor
+                      value={blogContent}
+                      onChange={(val) => {
+                        setBlogContent(val);
+                        handleAutoCalcReadingTime(val.replace(/<[^>]*>/g, ' '));
+                      }}
+                      label="বিস্তারিত ব্লগ কন্টেন্ট (এম এস অফিসের মতো ছবি, ফন্ট, কালার ও ফরম্যাটিং যোগ করুন) *"
+                      placeholder="এখানে আপনার ব্লগের পূর্ণাঙ্গ লেখাটি লিখুন। ইমেজ বাটন দিয়ে লেখার মাঝে যেকোনো জায়গায় ছবি যুক্ত করতে পারেন..."
+                    />
+                  </div>
+
+                  {/* Tags */}
+                  <div className="bg-slate-800/80 border border-slate-700 p-4 sm:p-5 rounded-xl space-y-2">
+                    <label className="block text-xs font-bold text-slate-200">
+                      ব্লগের ট্যাগসমূহ (Tags - কমা দিয়ে আলাদা করুন)
+                    </label>
+                    <input
+                      type="text"
+                      value={blogTagsInput}
+                      onChange={(e) => setBlogTagsInput(e.target.value)}
+                      placeholder="যেমন: মতামত, প্রযুক্তি, বিজ্ঞান, আগামী"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+
+                  {/* SEO Friendly Optimization Section for Blog */}
+                  <div className="bg-slate-900/90 border border-slate-700/80 p-4 sm:p-5 rounded-xl space-y-3">
+                    <div className="flex items-center gap-2 pb-2.5 border-b border-slate-800">
+                      <Globe className="w-4 h-4 text-emerald-400" />
+                      <span className="text-xs font-bold text-emerald-300">
+                        এসইও অপটিমাইজেশন (Google Search & Social Share SEO)
+                      </span>
+                    </div>
+
+                    <div className="space-y-3 text-xs">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                          এসইও মেটা টাইটেল (SEO Title)
+                        </label>
+                        <input
+                          type="text"
+                          value={blogSeoTitle}
+                          onChange={(e) => setBlogSeoTitle(e.target.value)}
+                          placeholder={blogTitle || "গুগল সার্চ ফলাফলের টাইটেল..."}
+                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                          মেটা ডেসক্রিপশন (Meta Description - সার্চে দেখাবে)
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={blogSeoDescription}
+                          onChange={(e) => setBlogSeoDescription(e.target.value)}
+                          placeholder={blogSummary || "ব্লগের সারসংক্ষেপ..."}
+                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                          কীওয়ার্ডস (Keywords - কমা দিয়ে আলাদা করুন)
+                        </label>
+                        <input
+                          type="text"
+                          value={blogSeoKeywords}
+                          onChange={(e) => setBlogSeoKeywords(e.target.value)}
+                          placeholder="যেমন: মতামত, বিশ্লেষণ, সাহিত্য, মুক্তচিন্তা"
+                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                    </div>
+
+                    <SeoMetaHelper
+                      title={blogSeoTitle || blogTitle}
+                      description={blogSeoDescription || blogSummary}
+                      keywords={blogSeoKeywords}
+                      slug={blogTitle ? blogTitle.trim().toLowerCase().replace(/[^a-z0-9\u0980-\u09FF]+/g, '-').slice(0, 45) : undefined}
+                    />
+                  </div>
+                </div>
+
+                {/* Right: Author, Cover & Publication Metadata (4 cols) */}
+                <div className="lg:col-span-4 space-y-5">
+                  {/* Category / Topic */}
+                  <div className="bg-slate-800/80 border border-slate-700 p-4 rounded-xl space-y-2.5">
+                    <label className="block text-xs font-bold text-slate-200">
+                      বিষয় / ক্যাটাগরি ট্যাগ *
+                    </label>
+                    <select
+                      value={blogCategoryTag}
+                      onChange={(e) => setBlogCategoryTag(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500 cursor-pointer"
+                    >
+                      <option value="মতামত ও কলাম">মতামত ও কলাম</option>
+                      <option value="প্রযুক্তি ও ভবিষ্যৎ">প্রযুক্তি ও ভবিষ্যৎ</option>
+                      <option value="জীবনযাপন ও মনন">জীবনযাপন ও মনন</option>
+                      <option value="সাহিত্য ও সংস্কৃতি">সাহিত্য ও সংস্কৃতি</option>
+                      <option value="ক্যারিয়ার ও শিক্ষা">ক্যারিয়ার ও শিক্ষা</option>
+                      <option value="পরিবেশ ও প্রকৃতি">পরিবেশ ও প্রকৃতি</option>
+                      <option value="আন্তর্জাতিক ভাবনা">আন্তর্জাতিক ভাবনা</option>
+                      <option value="অন্যান্য">অন্যান্য (নিজে লিখুন)</option>
+                    </select>
+
+                    {blogCategoryTag === 'অন্যান্য' && (
+                      <input
+                        type="text"
+                        value={customBlogTag}
+                        onChange={(e) => setCustomBlogTag(e.target.value)}
+                        placeholder="কাস্টম বিষয়ের নাম লিখুন..."
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500"
+                      />
+                    )}
+                  </div>
+
+                  {/* Author Details */}
+                  <div className="bg-slate-800/80 border border-slate-700 p-4 rounded-xl space-y-3">
+                    <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider">
+                      লেখকের তথ্য ও পরিচিতি
+                    </h3>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                        লেখকের নাম *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={blogAuthorName}
+                        onChange={(e) => setBlogAuthorName(e.target.value)}
+                        placeholder="লেখকের পূর্ণ নাম"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                        লেখকের পদবী বা পরিচয় *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={blogAuthorRole}
+                        onChange={(e) => setBlogAuthorRole(e.target.value)}
+                        placeholder="যেমন: সিনিয়র কলামিস্ট, প্রযুক্তি গবেষক"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                        লেখকের ছবি / অবতার URL
+                      </label>
+                      <input
+                        type="url"
+                        value={blogAuthorAvatar}
+                        onChange={(e) => setBlogAuthorAvatar(e.target.value)}
+                        placeholder="https://..."
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500 text-[11px]"
+                      />
+                      {/* Quick Avatar Presets */}
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-[10px] text-slate-400">দ্রুত নির্বাচন:</span>
+                        {[
+                          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop&crop=face',
+                          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
+                          'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&h=150&fit=crop&crop=face'
+                        ].map((preset, idx) => (
+                          <img
+                            key={idx}
+                            src={preset}
+                            alt="avatar"
+                            onClick={() => setBlogAuthorAvatar(preset)}
+                            className="w-6 h-6 rounded-full object-cover border border-slate-600 hover:border-red-400 cursor-pointer"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Cover Image */}
+                  <div className="bg-slate-800/80 border border-slate-700 p-4 rounded-xl space-y-3">
+                    <label className="block text-xs font-bold text-slate-200">
+                      ব্লগের কাভার ছবি (Cover Image)
+                    </label>
+                    <ImageUploader
+                      currentImage={blogCoverImage}
+                      onImageSelected={(url) => setBlogCoverImage(url)}
+                    />
+                  </div>
+
+                  {/* Reading Time & Publish Status */}
+                  <div className="bg-slate-800/80 border border-slate-700 p-4 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-200">পড়ার সময় (মিনিট)</label>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setBlogReadingTime(Math.max(1, blogReadingTime - 1))}
+                          className="w-6 h-6 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs"
+                        >
+                          -
+                        </button>
+                        <span className="text-sm font-bold text-amber-400 w-6 text-center">
+                          {bnNum(blogReadingTime)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setBlogReadingTime(blogReadingTime + 1)}
+                          className="w-6 h-6 rounded bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-medium text-slate-300 mb-1">
+                        প্রকাশনা অবস্থা
+                      </label>
+                      <select
+                        value={blogStatus}
+                        onChange={(e) => setBlogStatus(e.target.value as 'published' | 'draft')}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500 cursor-pointer"
+                      >
+                        <option value="published">সরাসরি প্রকাশিত (Published)</option>
+                        <option value="draft">ড্রাফট হিসেবে সংরক্ষণ (Draft)</option>
+                      </select>
+                    </div>
+
+                    <label className="flex items-center gap-2 pt-1 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={blogIsFeatured}
+                        onChange={(e) => setBlogIsFeatured(e.target.checked)}
+                        className="w-4 h-4 rounded text-amber-500 focus:ring-0 cursor-pointer"
+                      />
+                      <span className="text-xs font-medium text-amber-300">
+                        স্পেশাল / নির্বাচিত হিসেবে হাইলাইট করুন
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Submit Button */}
+                  <button
+                    type="submit"
+                    className="w-full bg-red-700 hover:bg-red-600 text-white font-bold py-3 rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-red-700/20 cursor-pointer"
+                  >
+                    <PenTool className="w-4 h-4 text-amber-300" />
+                    <span>ব্লগ প্রকাশ ও সংরক্ষণ করুন</span>
+                  </button>
+                </div>
+              </div>
+            </form>
           </div>
         )}
 
@@ -1074,6 +1993,45 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 />
               </div>
 
+              {/* Site Logo Upload Section */}
+              <div className="bg-slate-900 border border-slate-700 p-4 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-slate-200">
+                    পত্রিকার অফিসিয়াল লোগো (Site & E-Paper Logo)
+                  </label>
+                  {localSettings.logo_url && (
+                    <button
+                      type="button"
+                      onClick={() => setLocalSettings({ ...localSettings, logo_url: '' })}
+                      className="text-[11px] text-red-400 hover:text-red-300 underline cursor-pointer"
+                    >
+                      ডিফল্ট লোগো ফিরিয়ে আনুন
+                    </button>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  এখানে আপলোড করা লোগোটি পুরো ওয়েবসাইটের হেডার, ফুটার, ই-পত্রিকা ও মোবাইল মেনু সব জায়গায় স্বয়ংক্রিয়ভাবে কার্যকর হবে। (PNG, SVG, অথবা JPG)
+                </p>
+
+                {/* Live Preview Box */}
+                <div className="bg-white/5 border border-slate-700/80 p-3.5 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="bg-white p-3 rounded-md border border-slate-300 flex items-center justify-center min-w-[200px]">
+                    <SiteLogo size="md" logoUrl={localSettings.logo_url} />
+                  </div>
+                  <div className="text-xs text-slate-300 space-y-1 text-center sm:text-left">
+                    <span className="font-bold text-amber-400 block">বর্তমান লোগো প্রিভিউ</span>
+                    <span className="text-[11px] text-slate-400 block">
+                      {localSettings.logo_url ? 'কাস্টম আপলোড করা লোগো সক্রিয়' : 'ডিফল্ট বার্তাচিত্র ভেক্টর লোগো সক্রিয়'}
+                    </span>
+                  </div>
+                </div>
+
+                <ImageUploader
+                  currentImage={localSettings.logo_url || ''}
+                  onImageSelected={(url) => setLocalSettings({ ...localSettings, logo_url: url })}
+                />
+              </div>
+
               {/* Ads Toggle in Settings */}
               <div className="bg-slate-900 border border-slate-700 p-3.5 rounded-lg">
                 <label className="flex items-center gap-3 cursor-pointer">
@@ -1102,6 +2060,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </button>
             </form>
           </div>
+        )}
+
+        {/* TAB 9: MULTI-ADMIN ROLE MANAGEMENT */}
+        {activeTab === 'users' && (
+          <AdminUserManagement
+            users={users}
+            currentUser={currentAdminUser}
+            onAddUser={onAddUser || (() => {})}
+            onUpdateUser={onUpdateUser || (() => {})}
+            onDeleteUser={onDeleteUser || (() => {})}
+            onChangeActiveUser={setCurrentAdminUser}
+          />
+        )}
+
+        {/* TAB 10: 1-CLICK BACKUP & RESTORE + CPANEL MYSQL */}
+        {activeTab === 'backup' && (
+          <AdminBackupRestore
+            newsList={newsList}
+            blogs={blogs}
+            categories={categories}
+            settings={settings}
+            users={users}
+            onImportBackup={onImportBackup || (() => {})}
+          />
         )}
       </main>
 
@@ -1267,17 +2249,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
 
               <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <label className="block text-xs font-bold text-slate-300">মূল সংবাদ বিবরণ (Detailed Content) *</label>
-                  <span className="text-[10px] text-slate-400">একাধিক প্যারাগ্রাফের জন্য খালি লাইন (Enter) ব্যবহার করুন</span>
-                </div>
-                <textarea
-                  rows={8}
-                  required
+                <RichTextEditor
                   value={editNewsContent}
-                  onChange={(e) => setEditNewsContent(e.target.value)}
+                  onChange={setEditNewsContent}
+                  label="মূল সংবাদ বিবরণ (এম এস অফিসের মতো ছবি, ফন্ট, কালার ও ফরম্যাটিং যোগ করুন) *"
                   placeholder="সম্পূর্ণ সংবাদের বিস্তারিত বিবরণ লিখুন..."
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-red-500 font-bengali-body leading-relaxed"
                 />
               </div>
 
@@ -1338,11 +2314,346 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </label>
               </div>
 
+              {/* SEO Friendly Optimization Section for Edit News */}
+              <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl space-y-3">
+                <div className="flex items-center gap-2 pb-2.5 border-b border-slate-800">
+                  <Globe className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-bold text-emerald-300">
+                    এসইও অপটিমাইজেশন (Google Search & Social Share SEO)
+                  </span>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                      এসইও মেটা টাইটেল (SEO Title)
+                    </label>
+                    <input
+                      type="text"
+                      value={editNewsSeoTitle}
+                      onChange={(e) => setEditNewsSeoTitle(e.target.value)}
+                      placeholder={editNewsTitle || "গুগল সার্চ ফলাফলের টাইটেল..."}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                      মেটা ডেসক্রিপশন (Meta Description - সার্চে দেখাবে)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={editNewsSeoDescription}
+                      onChange={(e) => setEditNewsSeoDescription(e.target.value)}
+                      placeholder={editNewsSummary || "সংবাদের সারসংক্ষেপ..."}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                      কীওয়ার্ডস (Keywords - কমা দিয়ে আলাদা করুন)
+                    </label>
+                    <input
+                      type="text"
+                      value={editNewsSeoKeywords}
+                      onChange={(e) => setEditNewsSeoKeywords(e.target.value)}
+                      placeholder=" যেমন: বাংলাদেশ, জাতীয় সংবাদ, রাজনীতি"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                <SeoMetaHelper
+                  title={editNewsSeoTitle || editNewsTitle}
+                  description={editNewsSeoDescription || editNewsSummary}
+                  keywords={editNewsSeoKeywords}
+                  slug={editNewsTitle ? editNewsTitle.trim().toLowerCase().replace(/[^a-z0-9\u0980-\u09FF]+/g, '-').slice(0, 45) : undefined}
+                />
+              </div>
+
               {/* Modal Footer Buttons */}
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800 shrink-0">
                 <button
                   type="button"
                   onClick={handleCancelEditNews}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-5 py-2.5 rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                >
+                  বাতিল
+                </button>
+                <button
+                  type="submit"
+                  className="bg-red-700 hover:bg-red-600 text-white font-bold px-6 py-2.5 rounded-lg text-xs flex items-center gap-2 cursor-pointer shadow transition-colors"
+                >
+                  <Check className="w-4 h-4" /> হালনাগাদ ও সংরক্ষণ করুন
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT BLOG MODAL */}
+      {editingBlog && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-red-900/60 text-red-400 flex items-center justify-center">
+                  <Edit className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold text-white font-bengali-display">
+                    ব্লগ সম্পাদনা করুন (Edit Blog)
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    আইডি #{editingBlog.id} — {editingBlog.title.slice(0, 40)}...
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCancelEditBlog}
+                className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleSaveEditBlog} className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1 text-slate-200">
+              {/* Title & Category */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
+                <div className="sm:col-span-8">
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                    ব্লগ শিরোনাম *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editBlogTitle}
+                    onChange={(e) => setEditBlogTitle(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-xs text-white focus:outline-none focus:border-red-500 font-bold font-bengali-display"
+                  />
+                </div>
+
+                <div className="sm:col-span-4">
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                    বিষয় / ক্যাটাগরি ট্যাগ *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editBlogCategoryTag}
+                    onChange={(e) => setEditBlogCategoryTag(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500"
+                  />
+                </div>
+              </div>
+
+              {/* Author Information */}
+              <div className="bg-slate-950/80 border border-slate-800 p-4 rounded-xl space-y-3">
+                <span className="text-xs font-bold text-amber-400 block">লেখকের তথ্যাদি</span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] text-slate-300 mb-1">লেখকের নাম *</label>
+                    <input
+                      type="text"
+                      required
+                      value={editBlogAuthorName}
+                      onChange={(e) => setEditBlogAuthorName(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-300 mb-1">পদবী বা পরিচয় *</label>
+                    <input
+                      type="text"
+                      required
+                      value={editBlogAuthorRole}
+                      onChange={(e) => setEditBlogAuthorRole(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-300 mb-1">অবতার / ছবি URL</label>
+                    <input
+                      type="url"
+                      value={editBlogAuthorAvatar}
+                      onChange={(e) => setEditBlogAuthorAvatar(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Reading time, Views, Likes */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">পড়ার সময় (মিনিট)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editBlogReadingTime}
+                    onChange={(e) => setEditBlogReadingTime(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">পাঠক ভিউ সংখ্যা</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editBlogViews}
+                    onChange={(e) => setEditBlogViews(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">লাইক সংখ্যা</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editBlogLikes}
+                    onChange={(e) => setEditBlogLikes(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500"
+                  />
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">সংক্ষেপ বা ভূমিকা (Summary)</label>
+                <textarea
+                  rows={2}
+                  required
+                  value={editBlogSummary}
+                  onChange={(e) => setEditBlogSummary(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500"
+                />
+              </div>
+
+              {/* Full Content */}
+              <div>
+                <RichTextEditor
+                  value={editBlogContent}
+                  onChange={setEditBlogContent}
+                  label="মূল ব্লগ বিবরণ (এম এস অফিসের মতো ছবি, ফন্ট, কালার ও ফরম্যাটিং যোগ করুন) *"
+                  placeholder="এখানে আপনার ব্লগের পূর্ণাঙ্গ লেখাটি লিখুন..."
+                />
+              </div>
+
+              {/* Tags */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">ট্যাগসমূহ (কমা দিয়ে আলাদা করুন)</label>
+                <input
+                  type="text"
+                  value={editBlogTagsInput}
+                  onChange={(e) => setEditBlogTagsInput(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500"
+                />
+              </div>
+
+              {/* Cover Image */}
+              <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl space-y-3">
+                <label className="block text-xs font-bold text-slate-300">কাভার ছবি (Cover Image)</label>
+                <ImageUploader
+                  currentImage={editBlogCoverImage}
+                  onImageSelected={(url) => setEditBlogCoverImage(url)}
+                />
+              </div>
+
+              {/* Status & Featured */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">প্রকাশনা অবস্থা (Status)</label>
+                  <select
+                    value={editBlogStatus}
+                    onChange={(e) => setEditBlogStatus(e.target.value as 'published' | 'draft')}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500 cursor-pointer"
+                  >
+                    <option value="published">সরাসরি প্রকাশিত (Published)</option>
+                    <option value="draft">ড্রাফট হিসেবে সংরক্ষণ (Draft)</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center pt-6">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editBlogIsFeatured}
+                      onChange={(e) => setEditBlogIsFeatured(e.target.checked)}
+                      className="w-4 h-4 rounded text-amber-500 focus:ring-0 cursor-pointer"
+                    />
+                    <span className="text-xs font-bold text-amber-400">নির্বাচিত / স্পেশাল ব্লগ হিসেবে হাইলাইট করুন</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* SEO Friendly Optimization Section for Edit Blog */}
+              <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl space-y-3">
+                <div className="flex items-center gap-2 pb-2.5 border-b border-slate-800">
+                  <Globe className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-bold text-emerald-300">
+                    এসইও অপটিমাইজেশন (Google Search & Social Share SEO)
+                  </span>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                      এসইও মেটা টাইটেল (SEO Title)
+                    </label>
+                    <input
+                      type="text"
+                      value={editBlogSeoTitle}
+                      onChange={(e) => setEditBlogSeoTitle(e.target.value)}
+                      placeholder={editBlogTitle || "গুগল সার্চ ফলাফলের টাইটেল..."}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                      মেটা ডেসক্রিপশন (Meta Description - সার্চে দেখাবে)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={editBlogSeoDescription}
+                      onChange={(e) => setEditBlogSeoDescription(e.target.value)}
+                      placeholder={editBlogSummary || "ব্লগের সারসংক্ষেপ..."}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                      কীওয়ার্ডস (Keywords - কমা দিয়ে আলাদা করুন)
+                    </label>
+                    <input
+                      type="text"
+                      value={editBlogSeoKeywords}
+                      onChange={(e) => setEditBlogSeoKeywords(e.target.value)}
+                      placeholder="যেমন: মতামত, কলাম, সাহিত্য, বিশ্লেষণ"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                <SeoMetaHelper
+                  title={editBlogSeoTitle || editBlogTitle}
+                  description={editBlogSeoDescription || editBlogSummary}
+                  keywords={editBlogSeoKeywords}
+                  slug={editBlogTitle ? editBlogTitle.trim().toLowerCase().replace(/[^a-z0-9\u0980-\u09FF]+/g, '-').slice(0, 45) : undefined}
+                />
+              </div>
+
+              {/* Modal Footer Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleCancelEditBlog}
                   className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-5 py-2.5 rounded-lg text-xs font-bold cursor-pointer transition-colors"
                 >
                   বাতিল

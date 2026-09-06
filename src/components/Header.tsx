@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { 
   Calendar, CloudSun, Newspaper, Search, Menu, X, 
-  Download, ShieldCheck, Home, ArrowRight, ChevronRight
+  Download, ShieldCheck, Home, ArrowRight, ChevronRight,
+  BookOpen
 } from 'lucide-react';
 import { Category, NewsArticle, SiteSettings } from '../types';
 import { bnDate } from '../utils/bengaliHelpers';
@@ -15,6 +16,8 @@ interface HeaderProps {
   onNavigateEpaper: () => void;
   onNavigateSearch: (query: string) => void;
   onNavigateArchive: () => void;
+  onNavigateBlog?: () => void;
+  isBlogActive?: boolean;
   onOpenArticle: (article: NewsArticle) => void;
   onOpenAdmin: () => void;
   onDownloadZip: () => void;
@@ -31,10 +34,13 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigateEpaper,
   onNavigateSearch,
   onNavigateArchive,
+  onNavigateBlog,
+  isBlogActive = false,
   onOpenArticle,
   onOpenAdmin,
   onDownloadZip,
-  allNews
+  allNews,
+  settings
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -130,7 +136,7 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={onNavigateHome}
           title="বার্তাচিত্র - হোমপেজ"
         >
-          <SiteLogo size="md" />
+          <SiteLogo size="md" logoUrl={settings?.logo_url} />
         </div>
 
         {/* Center Desktop Navigation (lg screens and up) */}
@@ -155,6 +161,16 @@ export const Header: React.FC<HeaderProps> = ({
                 {cat.name}
               </button>
             ))}
+            <button 
+              onClick={onNavigateBlog} 
+              className={`transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                isBlogActive ? 'text-red-700 font-black' : 'text-gray-800 hover:text-red-700'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5 text-red-700" />
+              <span>ব্লগ ও মুক্তচিন্তা</span>
+              <span className="bg-red-700 text-white text-[9px] px-1.5 py-0.2 rounded-full font-bold">নতুন</span>
+            </button>
             <button 
               onClick={onNavigateEpaper} 
               className="text-gray-800 hover:text-red-700 transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1"
@@ -303,6 +319,16 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         ))}
         <button 
+          onClick={onNavigateBlog} 
+          className={`shrink-0 flex items-center gap-1 cursor-pointer ${
+            isBlogActive ? 'text-red-700 font-black' : 'text-gray-800 hover:text-red-700'
+          }`}
+        >
+          <BookOpen className="w-3 h-3 text-red-700" />
+          <span>ব্লগ</span>
+          <span className="bg-red-700 text-white text-[8px] px-1 rounded-full font-bold">নতুন</span>
+        </button>
+        <button 
           onClick={onNavigateEpaper} 
           className="shrink-0 text-red-700 hover:text-red-800 flex items-center gap-1 cursor-pointer"
         >
@@ -330,13 +356,28 @@ export const Header: React.FC<HeaderProps> = ({
               setMobileNavOpen(false);
             }}
             className={`text-left py-2.5 px-3 text-sm font-bold rounded flex items-center justify-between ${
-              activeCategory === 'home' ? 'bg-red-50 text-red-700' : 'text-gray-800 hover:bg-gray-50'
+              activeCategory === 'home' && !isBlogActive ? 'bg-red-50 text-red-700' : 'text-gray-800 hover:bg-gray-50'
             }`}
           >
             <span className="flex items-center gap-2">
               <Home className="w-4 h-4 text-red-700" /> হোমপেজ
             </span>
             <ChevronRight className="w-4 h-4 text-gray-400" />
+          </button>
+
+          <button
+            onClick={() => {
+              if (onNavigateBlog) onNavigateBlog();
+              setMobileNavOpen(false);
+            }}
+            className={`text-left py-2.5 px-3 text-sm font-bold rounded flex items-center justify-between ${
+              isBlogActive ? 'bg-red-50 text-red-700' : 'text-gray-800 hover:bg-gray-50'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-red-700" /> মুক্তচিন্তা ও আমাদের ব্লগ
+            </span>
+            <span className="bg-red-700 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">নতুন</span>
           </button>
 
           {categories.map((cat) => (

@@ -13,6 +13,7 @@ interface EpaperViewProps {
   epaper: Epaper;
   allNews?: NewsArticle[];
   onNavigateHome: () => void;
+  settings?: import('../types').SiteSettings;
 }
 
 interface BookPageData {
@@ -68,7 +69,8 @@ const playPageTurnSound = () => {
 export const EpaperView: React.FC<EpaperViewProps> = ({
   epaper,
   allNews = [],
-  onNavigateHome
+  onNavigateHome,
+  settings
 }) => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
@@ -317,7 +319,7 @@ export const EpaperView: React.FC<EpaperViewProps> = ({
             className="cursor-pointer hover:opacity-90 transition-opacity flex items-center shrink-0"
             title="বার্তাচিত্র - হোমপেজ"
           >
-            <SiteLogo size="sm" />
+            <SiteLogo size="sm" logoUrl={settings?.logo_url} />
           </button>
           <span className="hidden sm:inline-block w-px h-5 bg-amber-900/60 mx-1" />
           <span className="text-xs sm:text-base font-medium text-amber-100/90 font-bengali-display tracking-wide">
@@ -515,7 +517,7 @@ export const EpaperView: React.FC<EpaperViewProps> = ({
                         <div className="relative flex items-center justify-center">
                           {/* Authentic Original Wave-Shaped Brand Logo */}
                           <div className="flex items-center justify-center p-2">
-                            <SiteLogo size="xl" className="max-w-[280px] sm:max-w-[340px]" />
+                            <SiteLogo size="xl" className="max-w-[280px] sm:max-w-[340px]" logoUrl={settings?.logo_url} />
                           </div>
                         </div>
 
@@ -558,7 +560,7 @@ export const EpaperView: React.FC<EpaperViewProps> = ({
                             {activePageData.categorySpaced}
                           </span>
                           <div className="opacity-85 scale-90 hidden sm:block">
-                            <SiteLogo size="xs" />
+                            <SiteLogo size="xs" logoUrl={settings?.logo_url} />
                           </div>
                           <span className="text-xs sm:text-sm font-serif font-bold text-[#4d3d31]">
                             — {bnNum(activePageData.pageNumber)} —

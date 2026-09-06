@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Clock, Eye, UserPen, Share2, Copy, Check, Printer, 
   Home, ChevronRight, Newspaper, ArrowLeft 
@@ -28,6 +28,28 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
   disableAds = false
 }) => {
   const [copied, setCopied] = useState(false);
+
+  // Dynamic SEO Page Title & Meta Tags
+  useEffect(() => {
+    const originalTitle = document.title;
+    const pageTitle = article.seo_title || `${article.title} - বার্তাচিত্র`;
+    document.title = pageTitle;
+
+    // Meta description update
+    let metaDesc = document.querySelector('meta[name="description"]');
+    if (!metaDesc) {
+      metaDesc = document.createElement('meta');
+      metaDesc.setAttribute('name', 'description');
+      document.head.appendChild(metaDesc);
+    }
+    const prevDesc = metaDesc.getAttribute('content') || '';
+    metaDesc.setAttribute('content', article.seo_description || article.summary || '');
+
+    return () => {
+      document.title = originalTitle;
+      if (metaDesc) metaDesc.setAttribute('content', prevDesc);
+    };
+  }, [article]);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -165,7 +187,7 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
 
           {/* Article Main Text Content */}
           <div 
-            className="prose max-w-none text-gray-900 text-sm sm:text-base leading-relaxed font-bengali-body"
+            className="prose max-w-none text-gray-900 text-base sm:text-lg leading-relaxed font-bengali-body prose-headings:font-bengali-display prose-headings:text-gray-900 prose-img:rounded-xl prose-img:border prose-img:border-gray-200 prose-img:shadow-sm prose-blockquote:border-l-4 prose-blockquote:border-red-700 prose-blockquote:pl-4 prose-blockquote:py-1 prose-blockquote:italic prose-blockquote:bg-gray-50 prose-blockquote:text-gray-700 prose-figcaption:text-xs prose-figcaption:text-gray-500 prose-figcaption:text-center prose-figcaption:mt-1.5 prose-a:text-red-700 prose-a:font-semibold prose-a:underline"
             dangerouslySetInnerHTML={{ __html: article.content }}
           />
 

@@ -74,9 +74,34 @@ export interface ContactMessage {
   created_at: string;
 }
 
+export interface BlogPost {
+  id: number;
+  title: string;
+  slug: string;
+  summary: string;
+  content: string;
+  author_name: string;
+  author_role: string;
+  author_avatar?: string;
+  cover_image: string;
+  category_tag: string;
+  reading_time_min: number;
+  views: number;
+  likes: number;
+  is_featured: boolean;
+  status: 'published' | 'draft';
+  published_at: string;
+  tags?: string[];
+  seo_title?: string;
+  seo_description?: string;
+  seo_keywords?: string;
+}
+
 export interface SiteSettings {
   site_name: string;
   site_tagline: string;
+  logo_url?: string;
+  favicon_url?: string;
   editor_name: string;
   executive_editor: string;
   email: string;
@@ -88,4 +113,20 @@ export interface SiteSettings {
   meta_description: string;
   meta_keywords: string;
   disable_ads?: boolean;
+}
+
+export type AdminRole = 'super_admin' | 'editor' | 'moderator';
+
+export interface AdminUser {
+  id: number;
+  name: string;
+  username: string;
+  email: string;
+  role: AdminRole;
+  role_title?: string;
+  avatar?: string;
+  status: 'active' | 'suspended';
+  created_at: string;
+  last_login?: string;
+  phone?: string;
 }

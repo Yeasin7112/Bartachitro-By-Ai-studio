@@ -2,17 +2,20 @@ import React from 'react';
 
 interface SiteLogoProps {
   className?: string;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'custom';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'custom';
   showSubtitle?: boolean;
+  logoUrl?: string;
 }
 
 export const SiteLogo: React.FC<SiteLogoProps> = ({
   className = '',
   size = 'md',
-  showSubtitle = false
+  showSubtitle = false,
+  logoUrl
 }) => {
-  // Height presets maintaining exact 2:1 aspect ratio of original wave emblem
+  // Height presets maintaining exact aspect ratio
   const sizeClasses = {
+    xs: 'h-6 sm:h-7 w-auto',
     sm: 'h-9 sm:h-10 w-auto',
     md: 'h-12 sm:h-14 md:h-16 w-auto',
     lg: 'h-16 sm:h-20 md:h-24 w-auto',
@@ -20,15 +23,22 @@ export const SiteLogo: React.FC<SiteLogoProps> = ({
     custom: ''
   };
 
+  const imageSrc = logoUrl && logoUrl.trim() ? logoUrl : '/logo.svg';
+
   return (
     <div className={`inline-flex flex-col items-start ${className}`}>
       <div className="relative flex items-center">
-        {/* Original uncropped wave-shaped emblem logo matching IMG-20260905-WA0005.jpg */}
         <img 
-          src="/logo.svg" 
-          alt="বার্তাচিত্র - BartaChitro | সময়ের সাথে.." 
-          className={`${sizeClasses[size]} object-contain select-none transition-transform duration-200 group-hover:scale-102 drop-shadow-xs`}
+          src={imageSrc} 
+          alt="বার্তাচিত্র - BartaChitro" 
+          className={`${sizeClasses[size]} object-contain select-none transition-transform duration-200 group-hover:scale-102 drop-shadow-xs max-w-[280px] max-h-[80px]`}
           loading="eager"
+          onError={(e) => {
+            // Fallback to default SVG if custom URL fails to load
+            if (e.currentTarget.src !== window.location.origin + '/logo.svg') {
+              e.currentTarget.src = '/logo.svg';
+            }
+          }}
         />
       </div>
 
