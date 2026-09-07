@@ -1,17 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { 
-  Database, Download, Upload, Server, FileCode, CheckCircle2, 
-  AlertTriangle, RefreshCw, HardDrive, FileJson, Shield, ArrowRight,
-  Copy, Check, FileCheck, Layers
+  Database, Upload, Server, CheckCircle2, 
+  AlertTriangle, RefreshCw, FileJson, Layers, Check, Code, ShieldCheck
 } from 'lucide-react';
 import { NewsArticle, Category, SiteSettings, BlogPost, AdminUser } from '../../types';
-import { 
-  BackupData, 
-  downloadBackupJson, 
-  downloadSqlDump, 
-  downloadCpanelBundle, 
-  parseBackupFile 
-} from '../../utils/zipExporter';
+import { BackupData, parseBackupFile } from '../../utils/zipExporter';
 import { bnNum } from '../../utils/bengaliHelpers';
 
 interface AdminBackupRestoreProps {
@@ -31,7 +24,6 @@ export const AdminBackupRestore: React.FC<AdminBackupRestoreProps> = ({
   users,
   onImportBackup
 }) => {
-  const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [parsedPreview, setParsedPreview] = useState<{
@@ -40,69 +32,8 @@ export const AdminBackupRestore: React.FC<AdminBackupRestoreProps> = ({
     blogsCount: number;
     categoriesCount: number;
   } | null>(null);
-  const [copiedSql, setCopiedSql] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // 1-Click JSON Backup Export
-  const handleExportJson = () => {
-    try {
-      setIsExporting(true);
-      downloadBackupJson(newsList, blogs, categories, settings, users);
-      setFeedback({
-        type: 'success',
-        message: 'সম্পূর্ণ নিউজ ও ব্লগ ব্যাকআপ ফাইল (JSON) সফলভাবে ডাউনলোড হয়েছে!'
-      });
-    } catch (err) {
-      setFeedback({
-        type: 'error',
-        message: 'ব্যাকআপ ডাউনলোডে সমস্যা হয়েছে। আবার চেষ্টা করুন।'
-      });
-    } finally {
-      setIsExporting(false);
-      setTimeout(() => setFeedback(null), 4000);
-    }
-  };
-
-  // 1-Click MySQL SQL Dump
-  const handleExportSql = () => {
-    try {
-      setIsExporting(true);
-      downloadSqlDump(newsList, blogs, categories, settings, users);
-      setFeedback({
-        type: 'success',
-        message: 'MySQL ডাটাবেস স্ক্রিপ্ট (database.sql) সফলভাবে ডাউনলোড হয়েছে! এটি সরাসরি phpMyAdmin এ ইমপোর্ট করা যাবে।'
-      });
-    } catch (err) {
-      setFeedback({
-        type: 'error',
-        message: 'SQL ডাম্প তৈরিতে সমস্যা হয়েছে।'
-      });
-    } finally {
-      setIsExporting(false);
-      setTimeout(() => setFeedback(null), 4000);
-    }
-  };
-
-  // 1-Click cPanel Bundle
-  const handleExportCpanel = async () => {
-    try {
-      setIsExporting(true);
-      await downloadCpanelBundle(newsList, blogs, categories, settings, users);
-      setFeedback({
-        type: 'success',
-        message: 'অভিনন্দন! আপনার cPanel হোস্টিং এর জন্য পূর্ণাঙ্গ রেডি প্যাকেজ (ZIP) ডাউনলোড শুরু হয়েছে।'
-      });
-    } catch (err) {
-      setFeedback({
-        type: 'error',
-        message: 'cPanel বান্ডেল প্যাকেজ তৈরিতে ত্রুটি ঘটেছে।'
-      });
-    } finally {
-      setIsExporting(false);
-      setTimeout(() => setFeedback(null), 5000);
-    }
-  };
 
   // File Upload Handling for Single Click Import
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -128,7 +59,7 @@ export const AdminBackupRestore: React.FC<AdminBackupRestoreProps> = ({
       setParsedPreview(null);
       setFeedback({
         type: 'error',
-        message: res.error || 'ফাইলের ফরম্যাট সঠিক নয়। অনুগ্রহ করে বার্তাচিত্রের ব্যাকআপ JSON ফাইল আপলোড করুন।'
+        message: res.error || 'ফাইলের ফরম্যাট সঠিক নয়। অনুগ্রহ করে বার্তাচিত্রের ব্যাকআপ JSON ফাইল নির্বাচন করুন।'
       });
     }
   };
@@ -159,11 +90,11 @@ export const AdminBackupRestore: React.FC<AdminBackupRestoreProps> = ({
         <div className="flex items-center gap-2 mb-1">
           <Database className="w-6 h-6 text-emerald-400" />
           <h1 className="text-xl sm:text-2xl font-black text-white font-bengali-display">
-            নিউজ ও ব্লগ ব্যাকআপ এবং cPanel হোস্টিং এক্সপোর্ট
+            ডাটাবেস স্থিতি ও cPanel হোস্টিং ব্যবস্থাপনা
           </h1>
         </div>
         <p className="text-xs text-slate-400">
-          এক ক্লিকে সকল সংবাদ, কলাম, ছবি ও সেটিংস ব্যাকআপ ফাইল হিসেবে এক্সপোর্ট করুন অথবা পূর্বের ব্যাকআপ ফাইল থেকে রিস্টোর (Import) করুন। আপনার নিজস্ব cPanel হোস্টিং ও MySQL ডাটাবেসে সাইটটি হোস্ট করার সম্পূর্ণ ফাইলও এখানে প্রস্তুত করা আছে।
+          আপনার ওয়েবসাইটের বর্তমান লাইভ ডাটাবেস স্ট্যাটাস নিরীক্ষণ করুন, প্রয়োজনে পূর্বের ব্যাকআপ ফাইল থেকে রিস্টোর (Import) করুন এবং cPanel সংযোগ পর্যবেক্ষণ করুন।
         </p>
       </div>
 
@@ -183,26 +114,27 @@ export const AdminBackupRestore: React.FC<AdminBackupRestoreProps> = ({
         </div>
       )}
 
-      {/* 2 Main Action Columns: 1-Click Backup Export vs 1-Click Backup Import */}
+      {/* 2 Main Action Columns: Live Database Status vs 1-Click Backup Import */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Left: 1-Click Export Section */}
+        {/* Left: Live System & Database Metrics */}
         <div className="bg-slate-800/90 border border-slate-700 rounded-2xl p-5 space-y-4 flex flex-col justify-between shadow-md">
           <div className="space-y-3">
             <div className="flex items-center justify-between pb-3 border-b border-slate-700">
               <div className="flex items-center gap-2">
-                <Download className="w-5 h-5 text-emerald-400" />
+                <Layers className="w-5 h-5 text-emerald-400" />
                 <h2 className="text-base font-bold text-white font-bengali-display">
-                  ১-ক্লিকে ব্যাকআপ এক্সপোর্ট (Export)
+                  সিস্টেম ও ডাটাবেস স্ট্যাটাস
                 </h2>
               </div>
-              <span className="bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                রেডি টু ডাউনলোড
+              <span className="bg-emerald-950 text-emerald-300 border border-emerald-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                সক্রিয় (Active)
               </span>
             </div>
 
             <p className="text-xs text-slate-300 leading-relaxed">
-              আপনার ওয়েবসাইটের বর্তমান সকল ডাটা নিরাপদে সংরক্ষণ করে রাখুন:
+              আপনার ওয়েবসাইটের বর্তমান ডাটাবেস রেকর্ড ও টেবিল মেট্রিক্স:
             </p>
 
             <div className="grid grid-cols-2 gap-2.5 text-xs">
@@ -225,24 +157,15 @@ export const AdminBackupRestore: React.FC<AdminBackupRestoreProps> = ({
             </div>
           </div>
 
-          <div className="space-y-2.5 pt-4 border-t border-slate-700/80">
-            <button
-              onClick={handleExportJson}
-              disabled={isExporting}
-              className="w-full bg-emerald-700 hover:bg-emerald-600 active:scale-98 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow transition-all"
-            >
-              <FileJson className="w-4 h-4" />
-              <span>১-ক্লিকে সকল সংবাদ ও ব্লগ ডাউনলোড (JSON Backup)</span>
-            </button>
-
-            <button
-              onClick={handleExportSql}
-              disabled={isExporting}
-              className="w-full bg-slate-700 hover:bg-slate-600 active:scale-98 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer shadow-xs transition-all"
-            >
-              <Database className="w-4 h-4 text-cyan-400" />
-              <span>MySQL ডাটাবেস স্ক্রিপ্ট ডাউনলোড (.sql dump)</span>
-            </button>
+          <div className="pt-3 border-t border-slate-700/80 text-[11px] text-slate-400 space-y-1">
+            <div className="flex items-center justify-between">
+              <span>ডাটাবেস এনকোডিং:</span>
+              <span className="text-slate-200 font-mono">utf8mb4_unicode_ci</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>সার্ভার ইঞ্জিন:</span>
+              <span className="text-slate-200 font-mono">cPanel / Apache / PHP 8+ / Node.js</span>
+            </div>
           </div>
         </div>
 
@@ -262,110 +185,89 @@ export const AdminBackupRestore: React.FC<AdminBackupRestoreProps> = ({
             </div>
 
             <p className="text-xs text-slate-300 leading-relaxed">
-              পূর্বের যে কোনো JSON ব্যাকআপ ফাইল নির্বাচন করুন। এক ক্লিকেই পূর্বের সকল সংবাদ ও ব্লগ সাইটে ফিরে আসবে।
+              পূর্বে সংরক্ষিত বার্তাচিত্র JSON ব্যাকআপ ফাইল থেকে সরাসরি সকল সংবাদ, কলাম, ক্যাটাগরি ও সেটিংস রিস্টোর করুন:
             </p>
 
-            {/* File Drop / Select Area */}
-            <div 
+            {/* Hidden Native File Input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept=".json,application/json"
+              className="hidden"
+            />
+
+            {/* File Dropzone / Click Box */}
+            <div
               onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-slate-600 hover:border-blue-500 bg-slate-900/60 hover:bg-slate-900 p-6 rounded-2xl text-center cursor-pointer transition-colors space-y-2 group"
+              className="border-2 border-dashed border-slate-700 hover:border-blue-500 bg-slate-900/70 hover:bg-slate-900 rounded-xl p-5 text-center cursor-pointer transition-all space-y-2"
             >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".json,application/json"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-              <FileCode className="w-8 h-8 text-slate-400 group-hover:text-blue-400 mx-auto transition-colors" />
-              <div>
-                <p className="text-xs font-bold text-white">
-                  {isImporting ? 'ফাইল যাচাই করা হচ্ছে...' : 'ব্যাকআপ JSON ফাইল সিলেক্ট করুন'}
-                </p>
-                <p className="text-[11px] text-slate-400">
-                  অথবা ফাইলটি টেনে এনে এখানে ছেড়ে দিন
-                </p>
+              <div className="w-10 h-10 rounded-full bg-blue-950/60 border border-blue-800 flex items-center justify-center mx-auto text-blue-400">
+                <FileJson className="w-5 h-5" />
+              </div>
+              <div className="text-xs">
+                <span className="text-blue-400 font-bold block">ব্যাকআপ ফাইল (JSON) নির্বাচন করুন</span>
+                <span className="text-[11px] text-slate-400">ক্লিক করে আপনার কম্পিউটার বা ফোন থেকে ফাইলটি দিন</span>
               </div>
             </div>
 
-            {/* Preview of Loaded File */}
+            {/* Loaded Preview Box */}
             {parsedPreview && (
-              <div className="bg-slate-900 border border-blue-900/70 p-3.5 rounded-xl space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-blue-300 flex items-center gap-1.5">
-                    <FileCheck className="w-4 h-4 text-emerald-400" /> ফাইলে পাওয়া গেছে:
-                  </span>
-                  <span className="text-[10px] text-slate-400 font-mono">
-                    {parsedPreview.data.exported_at ? new Date(parsedPreview.data.exported_at).toLocaleDateString('bn-BD') : ''}
-                  </span>
+              <div className="bg-blue-950/40 border border-blue-800/80 p-3.5 rounded-xl space-y-2 text-xs">
+                <div className="flex items-center justify-between font-bold text-blue-200">
+                  <span>ফাইলের বিবরণ:</span>
+                  <span className="text-[11px] bg-blue-900/60 px-2 py-0.5 rounded">ভ্যালিড ব্যাকআপ</span>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-slate-200">
-                  <span className="bg-slate-800 px-2.5 py-1 rounded">
-                    📰 সংবাদ: <strong>{bnNum(parsedPreview.newsCount)}টি</strong>
-                  </span>
-                  <span className="bg-slate-800 px-2.5 py-1 rounded">
-                    ✍️ ব্লগ: <strong>{bnNum(parsedPreview.blogsCount)}টি</strong>
-                  </span>
-                  <span className="bg-slate-800 px-2.5 py-1 rounded">
-                    📂 ক্যাটাগরি: <strong>{bnNum(parsedPreview.categoriesCount)}টি</strong>
-                  </span>
+                <div className="grid grid-cols-3 gap-2 text-[11px] text-slate-300 pt-1">
+                  <div>সংবাদ: <strong className="text-white">{bnNum(parsedPreview.newsCount)}</strong>টি</div>
+                  <div>ব্লগ: <strong className="text-white">{bnNum(parsedPreview.blogsCount)}</strong>টি</div>
+                  <div>ক্যাটাগরি: <strong className="text-white">{bnNum(parsedPreview.categoriesCount)}</strong>টি</div>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="pt-4 border-t border-slate-700/80">
+          <div className="pt-3 border-t border-slate-700/80">
             <button
               onClick={handleConfirmRestore}
-              disabled={!parsedPreview}
-              className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow ${
-                parsedPreview
-                  ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer active:scale-98 animate-pulse'
+              disabled={!parsedPreview || isImporting}
+              className={`w-full py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                parsedPreview 
+                  ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer shadow-md active:scale-98' 
                   : 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
               }`}
             >
-              <RefreshCw className="w-4 h-4" />
-              <span>এখনই ব্যাকআপ থেকে রিস্টোর করুন (Restore All)</span>
+              <RefreshCw className={`w-4 h-4 ${isImporting ? 'animate-spin' : ''}`} />
+              <span>{isImporting ? 'ডাটা প্রসেস হচ্ছে...' : 'সকল ডাটা সম্পূর্ণ রিস্টোর করুন (Apply Restore)'}</span>
             </button>
           </div>
         </div>
 
       </div>
 
-      {/* cPanel Deployment & MySQL Setup Section */}
-      <div className="bg-linear-to-b from-slate-850 to-slate-900 border border-slate-700 rounded-2xl p-5 sm:p-6 space-y-5 shadow-lg">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-700">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Server className="w-5 h-5 text-amber-400" />
-              <h2 className="text-base sm:text-lg font-bold text-white font-bengali-display">
-                cPanel হোস্টিং ও MySQL ডাটাবেসে সাইট ডিপ্লয়মেন্ট
-              </h2>
-            </div>
-            <p className="text-xs text-slate-400">
-              আপনি যেকোনো সাধারণ cPanel শেয়ার্ড হোস্টিং বা ভিপিএস-এ এই ওয়েবসাইট ও এর MySQL ডাটাবেস এক ক্লিকেই রান করতে পারেন।
-            </p>
+      {/* cPanel Deployment & Configuration Guide */}
+      <div className="bg-slate-800/90 border border-slate-700 rounded-2xl p-5 sm:p-6 space-y-5 shadow-lg">
+        <div className="pb-4 border-b border-slate-700">
+          <div className="flex items-center gap-2 mb-1">
+            <Server className="w-5 h-5 text-amber-400" />
+            <h2 className="text-base sm:text-lg font-bold text-white font-bengali-display">
+              cPanel হোস্টিং ও MySQL ডাটাবেস ইন্টিগ্রেশন গাইড
+            </h2>
           </div>
-
-          <button
-            onClick={handleExportCpanel}
-            disabled={isExporting}
-            className="bg-amber-600 hover:bg-amber-500 text-gray-950 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 cursor-pointer shadow-md transition-all shrink-0 self-start sm:self-auto"
-          >
-            <Download className="w-4 h-4" />
-            <span>সম্পূর্ণ cPanel ডিপ্লয় প্যাকেজ (ZIP)</span>
-          </button>
+          <p className="text-xs text-slate-400">
+            আপনার cPanel হোস্টিংয়ে React ফ্রন্টএন্ড এবং PHP / Node.js ব্যাকএন্ড একযোগে পরিচালনার নির্দেশনা:
+          </p>
         </div>
 
-        {/* 4-Step cPanel Deployment Guide */}
+        {/* 4-Step cPanel Configuration Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
           <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-xl space-y-2">
             <span className="w-6 h-6 rounded-full bg-red-900/60 text-red-300 font-bold flex items-center justify-center text-xs">
               ১
             </span>
-            <h3 className="font-bold text-white">ZIP ডাউনলোড ও আপলোড</h3>
+            <h3 className="font-bold text-white">public_html ফোল্ডার</h3>
             <p className="text-slate-400 text-[11px] leading-relaxed">
-              উপরের 'cPanel ডিপ্লয় প্যাকেজ' বাটনে ক্লিক করে জিপ ফাইলটি ডাউনলোড করুন এবং cPanel এর File Manager এ <code>public_html</code> ফোল্ডারে Extract করুন।
+              cPanel এর <strong>File Manager</strong> এ গিয়ে <code>public_html</code> ফোল্ডারে বিল্ডকৃত ফাইলসমূহ আপলোড করুন। <code>.htaccess</code> ফাইল স্বয়ংক্রিয়ভাবে রুট রাউটিং পরিচালনা করে।
             </p>
           </div>
 
@@ -375,7 +277,7 @@ export const AdminBackupRestore: React.FC<AdminBackupRestoreProps> = ({
             </span>
             <h3 className="font-bold text-white">MySQL ডাটাবেস তৈরি</h3>
             <p className="text-slate-400 text-[11px] leading-relaxed">
-              cPanel এর <strong>MySQL® Databases</strong> এ গিয়ে একটি নতুন ডাটাবেস ও ইউজার তৈরি করুন এবং ইউজারকে All Privileges দিন।
+              cPanel এর <strong>MySQL® Databases</strong> উইজার্ডে গিয়ে একটি নতুন ডাটাবেস ও ইউজার তৈরি করুন এবং <em>All Privileges</em> প্রদান করুন।
             </p>
           </div>
 
@@ -383,9 +285,9 @@ export const AdminBackupRestore: React.FC<AdminBackupRestoreProps> = ({
             <span className="w-6 h-6 rounded-full bg-red-900/60 text-red-300 font-bold flex items-center justify-center text-xs">
               ৩
             </span>
-            <h3 className="font-bold text-white">phpMyAdmin এ SQL ইমপোর্ট</h3>
+            <h3 className="font-bold text-white">PHP 8+ / Node.js সাপোর্ট</h3>
             <p className="text-slate-400 text-[11px] leading-relaxed">
-              <strong>phpMyAdmin</strong> ওপেন করে আপনার তৈরি করা ডাটাবেসটি সিলেক্ট করুন এবং জিপে থাকা <code>database.sql</code> ফাইলটি Import করে নিন।
+              cPanel এর <strong>Select PHP Version</strong> থেকে PHP 8.1+ সক্রিয় রাখুন অথবা <strong>Setup Node.js App</strong> টুল ব্যবহার করে সরাসরি Node.js অ্যাপ্লিকেশন রান করতে পারেন।
             </p>
           </div>
 
@@ -393,9 +295,9 @@ export const AdminBackupRestore: React.FC<AdminBackupRestoreProps> = ({
             <span className="w-6 h-6 rounded-full bg-red-900/60 text-red-300 font-bold flex items-center justify-center text-xs">
               ৪
             </span>
-            <h3 className="font-bold text-white">config.php কনফিগারেশন</h3>
+            <h3 className="font-bold text-white">লাইভ ওয়েবসাইট সক্রিয়</h3>
             <p className="text-slate-400 text-[11px] leading-relaxed">
-              <code>config.php</code> ফাইলটিতে আপনার MySQL ডাটাবেসের নাম, ইউজারনেম ও পাসওয়ার্ড বসিয়ে সেভ করুন। ব্যস, সাইট লাইভ!
+              আপনার ডোমেইনে প্রবেশ করলেই সম্পূর্ণ বার্তাচিত্র পোর্টাল এবং অ্যাডমিন প্যানেল সরাসরি চালু হয়ে যাবে।
             </p>
           </div>
         </div>

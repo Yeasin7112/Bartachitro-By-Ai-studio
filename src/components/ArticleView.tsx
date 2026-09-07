@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { NewsArticle } from '../types';
 import { bnNum, bnDate, timeAgoBn } from '../utils/bengaliHelpers';
+import { ArticleComments } from './ArticleComments';
 
 interface ArticleViewProps {
   article: NewsArticle;
@@ -200,6 +201,9 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
               </div>
             </div>
           )}
+
+          {/* Reader Comments Section */}
+          <ArticleComments articleId={article.id} />
 
           {/* Related Articles Section */}
           {relatedArticles.length > 0 && (

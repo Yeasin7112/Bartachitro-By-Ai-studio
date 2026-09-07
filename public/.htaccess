@@ -1,0 +1,42 @@
+# ==============================================================================
+# BartaChitro (বার্তাচিত্র) - cPanel / Apache / LiteSpeed Configuration
+# Supports both React Single Page Application (SPA) and PHP 8+ Backend API
+# ==============================================================================
+
+# 1. Force UTF-8 Character Encoding for flawless Bengali text rendering
+AddDefaultCharset UTF-8
+AddCharset UTF-8 .html .css .js .json .svg .xml .php
+
+# 2. Enable URL Rewriting
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Prevent directory browsing
+  Options -Indexes
+
+  # Route API requests directly to PHP files if requested
+  RewriteCond %{REQUEST_URI} ^/api/
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteRule ^ - [L]
+
+  # Pass existing physical files and folders directly
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Forward all other requests to React index.html for client-side routing
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# 3. Gzip Compression for Fast Loading
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript application/json image/svg+xml
+</IfModule>
+
+# 4. Security & CORS Headers
+<IfModule mod_headers.c>
+  Header set Access-Control-Allow-Origin "*"
+  Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+  Header set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+</IfModule>

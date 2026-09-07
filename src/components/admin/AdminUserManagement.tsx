@@ -36,6 +36,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
   const [role, setRole] = useState<AdminRole>('editor');
   const [roleTitle, setRoleTitle] = useState('বার্তা সম্পাদক');
   const [avatar, setAvatar] = useState('https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop&crop=face');
+  const [formError, setFormError] = useState('');
 
   const isSuperAdmin = currentUser.role === 'super_admin';
 
@@ -65,13 +66,14 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
 
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError('');
     if (!name.trim() || !username.trim() || !email.trim()) {
-      alert('অনুগ্রহ করে নাম, ইউজারনেম এবং ইমেইল পূরণ করুন।');
+      setFormError('অনুগ্রহ করে নাম, ইউজারনেম এবং ইমেইল পূরণ করুন।');
       return;
     }
 
     if (users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
-      alert('এই ইউজারনেমটি ইতিমধ্যে বিদ্যমান। অন্য ইউজারনেম ব্যবহার করুন।');
+      setFormError('এই ইউজারনেমটি ইতিমধ্যে বিদ্যমান। অন্য ইউজারনেম ব্যবহার করুন।');
       return;
     }
 
@@ -96,6 +98,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
     setUsername('');
     setEmail('');
     setPhone('');
+    setFormError('');
     setTimeout(() => setFeedback(''), 3000);
   };
 
@@ -296,9 +299,9 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                           {u.role !== 'super_admin' && (
                             <button
                               onClick={() => {
-                                if (confirm(`আপনি কি নিশ্চিত যে "${u.name}" কে অ্যাডমিন তালিকা থেকে মুছে ফেলতে চান?`)) {
-                                  onDeleteUser(u.id);
-                                }
+                                onDeleteUser(u.id);
+                                setFeedback(`"${u.name}" কে অ্যাডমিন তালিকা থেকে সফলভাবে সরানো হয়েছে।`);
+                                setTimeout(() => setFeedback(''), 3000);
                               }}
                               className="bg-red-900/60 hover:bg-red-800 text-red-200 p-1.5 rounded-lg text-xs transition-colors cursor-pointer"
                               title="ব্যবহারকারী মুছে ফেলুন"
@@ -337,6 +340,12 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
             </div>
 
             <form onSubmit={handleCreateUser} className="space-y-4 text-xs">
+              {formError && (
+                <div className="bg-red-950/80 border border-red-700 text-red-300 p-2.5 rounded-lg text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+                  <span>{formError}</span>
+                </div>
+              )}
               <div>
                 <label className="block font-bold text-slate-300 mb-1">পূর্ণ নাম *</label>
                 <input

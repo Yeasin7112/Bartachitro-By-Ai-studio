@@ -4,7 +4,7 @@ import {
   Image, Sliders, Mail, User, LogOut, ExternalLink, 
   Trash2, Edit, Check, AlertCircle, Eye, Newspaper, ArrowLeft,
   Search, X, BookOpen, PenTool, Heart, Clock, Sparkles,
-  Database, ShieldCheck, UserCheck, RefreshCw, Upload, Download, Globe
+  Database, ShieldCheck, UserCheck, RefreshCw, Upload, Globe
 } from 'lucide-react';
 import { 
   NewsArticle, Category, Advertisement, Epaper, 
@@ -395,7 +395,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const handleCreateBlog = (e: React.FormEvent) => {
     e.preventDefault();
     if (!blogTitle.trim() || !blogContent.trim()) {
-      alert('অনুগ্রহ করে ব্লগের শিরোনাম এবং বিস্তারিত কন্টেন্ট পূরণ করুন।');
+      setFeedback('অনুগ্রহ করে ব্লগের শিরোনাম এবং বিস্তারিত কন্টেন্ট পূরণ করুন।');
+      setTimeout(() => setFeedback(''), 3000);
       return;
     }
 
@@ -530,13 +531,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   const handleDeleteBlogAction = (id: number) => {
-    if (confirm('আপনি কি নিশ্চিত যে এই ব্লগটি মুছে ফেলতে চান?')) {
-      if (onDeleteBlog) {
-        onDeleteBlog(id);
-      }
-      setFeedback('ব্লগটি মুছে ফেলা হয়েছে।');
-      setTimeout(() => setFeedback(''), 2000);
+    if (onDeleteBlog) {
+      onDeleteBlog(id);
     }
+    setFeedback('ব্লগটি সফলভাবে মুছে ফেলা হয়েছে।');
+    setTimeout(() => setFeedback(''), 2000);
   };
 
   const handleToggleBlogStatus = (blog: BlogPost) => {

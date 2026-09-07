@@ -7,30 +7,34 @@ import { bnNum } from '../utils/bengaliHelpers';
 
 interface SeoMetaHelperProps {
   title: string;
-  summary: string;
+  summary?: string;
+  description?: string;
+  keywords?: string;
   content?: string;
-  slug: string;
+  slug?: string;
   featuredImage?: string;
   siteName?: string;
-  seoTitle: string;
-  seoDescription: string;
-  seoKeywords: string;
-  onChangeSeoTitle: (val: string) => void;
-  onChangeSeoDescription: (val: string) => void;
-  onChangeSeoKeywords: (val: string) => void;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string;
+  onChangeSeoTitle?: (val: string) => void;
+  onChangeSeoDescription?: (val: string) => void;
+  onChangeSeoKeywords?: (val: string) => void;
   itemType?: 'news' | 'blog';
 }
 
 export const SeoMetaHelper: React.FC<SeoMetaHelperProps> = ({
   title,
-  summary,
+  summary = '',
+  description = '',
+  keywords = '',
   content = '',
-  slug,
+  slug = '',
   featuredImage,
   siteName = 'বার্তাচিত্র',
-  seoTitle,
-  seoDescription,
-  seoKeywords,
+  seoTitle = '',
+  seoDescription = '',
+  seoKeywords = '',
   onChangeSeoTitle,
   onChangeSeoDescription,
   onChangeSeoKeywords,
@@ -38,14 +42,18 @@ export const SeoMetaHelper: React.FC<SeoMetaHelperProps> = ({
 }) => {
   const [activePreview, setActivePreview] = useState<'google' | 'facebook'>('google');
 
+  const resolvedSummary = summary || description;
+  const resolvedSeoTitle = seoTitle || '';
+  const resolvedSeoDesc = seoDescription || '';
+
   // Fallback defaults if SEO fields are empty
-  const displayTitle = seoTitle.trim() || title || 'সংবাদের শিরোনাম এখানে প্রদর্শিত হবে';
-  const displayDesc = seoDescription.trim() || summary || 'সংবাদের সংক্ষিপ্ত বিবরণ ও মেটা ডেসক্রিপশন এখানে দেখা যাবে...';
+  const displayTitle = resolvedSeoTitle.trim() || title || 'সংবাদের শিরোনাম এখানে প্রদর্শিত হবে';
+  const displayDesc = resolvedSeoDesc.trim() || resolvedSummary || 'সংবাদের সংক্ষিপ্ত বিবরণ ও মেটা ডেসক্রিপশন এখানে দেখা যাবে...';
   const displayUrl = `https://bartachitro.com/${itemType === 'news' ? 'news' : 'blog'}/${slug || 'post-slug'}`;
 
   // Length calculations
-  const titleLen = seoTitle.length;
-  const descLen = seoDescription.length;
+  const titleLen = resolvedSeoTitle.length;
+  const descLen = resolvedSeoDesc.length;
 
   // Title Status
   let titleStatus: { label: string; color: string } = { label: 'খুব ছোট', color: 'text-amber-400' };

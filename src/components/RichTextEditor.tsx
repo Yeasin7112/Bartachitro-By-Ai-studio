@@ -13,6 +13,7 @@ interface RichTextEditorProps {
   onChange: (content: string) => void;
   placeholder?: string;
   minHeight?: string;
+  label?: string;
 }
 
 const PRESET_COLORS = [

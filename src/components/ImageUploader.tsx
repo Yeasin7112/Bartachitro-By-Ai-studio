@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { 
   UploadCloud, Image, Link, Check, X, 
-  Sparkles, RefreshCw, Eye 
+  Sparkles, RefreshCw, Eye, AlertCircle 
 } from 'lucide-react';
 
 interface ImageUploaderProps {
@@ -51,9 +51,11 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [fileName, setFileName] = useState<string>('');
   const [fileSize, setFileSize] = useState<string>('');
+  const [uploadError, setUploadError] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const triggerChange = (url: string) => {
+    setUploadError('');
     if (typeof onImageChange === 'function') {
       onImageChange(url);
     }
@@ -63,8 +65,9 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   };
 
   const handleFileSelect = (file: File) => {
+    setUploadError('');
     if (!file.type.startsWith('image/')) {
-      alert('অনুগ্রহ করে শুধুমাত্র ছবি ফাইল (JPEG, PNG, WebP) নির্বাচন করুন।');
+      setUploadError('অনুগ্রহ করে শুধুমাত্র ছবি ফাইল (JPEG, PNG, WebP) নির্বাচন করুন।');
       return;
     }
 
@@ -156,6 +159,13 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
 
       {helperText && (
         <p className="text-[11px] text-slate-400">{helperText}</p>
+      )}
+
+      {uploadError && (
+        <div className="bg-red-950/80 border border-red-750 text-red-300 text-xs p-2.5 rounded-lg flex items-center gap-2 animate-in fade-in">
+          <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+          <span>{uploadError}</span>
+        </div>
       )}
 
       {/* MODE 1: FILE UPLOAD (DRAG & DROP) */}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   INITIAL_CATEGORIES, INITIAL_NEWS, INITIAL_ADS, 
   INITIAL_EPAPER, INITIAL_SETTINGS, INITIAL_MESSAGES,
@@ -22,6 +22,7 @@ import { BlogView } from './components/BlogView';
 import { HomeBlogSection } from './components/HomeBlogSection';
 import { Footer } from './components/Footer';
 import { AdminPanel } from './components/AdminPanel';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { downloadPhpProjectZip } from './utils/zipExporter';
 import { Newspaper } from 'lucide-react';
 
@@ -34,6 +35,28 @@ export default function App() {
   const [messages, setMessages] = useState<ContactMessage[]>(INITIAL_MESSAGES);
   const [blogs, setBlogs] = useState<BlogPost[]>(INITIAL_BLOGS);
   const [users, setUsers] = useState<AdminUser[]>(INITIAL_USERS);
+
+  // Load saved settings from localStorage and cPanel PHP API
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('bartachitro_settings');
+      if (saved) {
+        setSettings(prev => ({ ...prev, ...JSON.parse(saved) }));
+      }
+    } catch {}
+
+    // When hosted on cPanel with MySQL & PHP API
+    try {
+      fetch('/api/settings.php')
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.status === 'ok' && data.data) {
+            setSettings(prev => ({ ...prev, ...data.data }));
+          }
+        })
+        .catch(() => {});
+    } catch {}
+  }, []);
 
   // View state
   const [currentView, setCurrentView] = useState<
@@ -172,6 +195,21 @@ export default function App() {
 
   const handleUpdateSettings = (newSettings: SiteSettings) => {
     setSettings(newSettings);
+    // Persist immediately to client local storage
+    try {
+      localStorage.setItem('bartachitro_settings', JSON.stringify(newSettings));
+    } catch (e) {
+      console.warn('Failed to save settings to localStorage:', e);
+    }
+
+    // Attempt to persist to cPanel MySQL via PHP API
+    try {
+      fetch('/api/settings.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSettings)
+      }).catch(() => {});
+    } catch {}
   };
 
   const handleSubmitContactMessage = (msg: Omit<ContactMessage, 'id' | 'is_read' | 'created_at'>) => {
@@ -225,33 +263,35 @@ export default function App() {
   // If in Admin Panel view
   if (currentView === 'admin') {
     return (
-      <AdminPanel
-        newsList={newsList}
-        categories={categories}
-        ads={ads}
-        epaper={epaper}
-        settings={settings}
-        messages={messages}
-        blogs={blogs}
-        users={users}
-        onAddNews={handleAddNews}
-        onUpdateNews={handleUpdateNews}
-        onDeleteNews={handleDeleteNews}
-        onAddCategory={handleAddCategory}
-        onUpdateCategory={handleUpdateCategory}
-        onDeleteCategory={handleDeleteCategory}
-        onUpdateSettings={handleUpdateSettings}
-        onCloseAdmin={handleCloseAdmin}
-        onMarkMessageRead={handleMarkMessageRead}
-        onDeleteMessage={handleDeleteMessage}
-        onAddBlog={handleAddBlog}
-        onUpdateBlog={handleUpdateBlog}
-        onDeleteBlog={handleDeleteBlog}
-        onAddUser={handleAddUser}
-        onUpdateUser={handleUpdateUser}
-        onDeleteUser={handleDeleteUser}
-        onImportBackup={handleImportBackup}
-      />
+      <ErrorBoundary title="অ্যাডমিন প্যানেল লোড হতে সমস্যা হয়েছে" onReset={handleCloseAdmin}>
+        <AdminPanel
+          newsList={newsList}
+          categories={categories}
+          ads={ads}
+          epaper={epaper}
+          settings={settings}
+          messages={messages}
+          blogs={blogs}
+          users={users}
+          onAddNews={handleAddNews}
+          onUpdateNews={handleUpdateNews}
+          onDeleteNews={handleDeleteNews}
+          onAddCategory={handleAddCategory}
+          onUpdateCategory={handleUpdateCategory}
+          onDeleteCategory={handleDeleteCategory}
+          onUpdateSettings={handleUpdateSettings}
+          onCloseAdmin={handleCloseAdmin}
+          onMarkMessageRead={handleMarkMessageRead}
+          onDeleteMessage={handleDeleteMessage}
+          onAddBlog={handleAddBlog}
+          onUpdateBlog={handleUpdateBlog}
+          onDeleteBlog={handleDeleteBlog}
+          onAddUser={handleAddUser}
+          onUpdateUser={handleUpdateUser}
+          onDeleteUser={handleDeleteUser}
+          onImportBackup={handleImportBackup}
+        />
+      </ErrorBoundary>
     );
   }
 
