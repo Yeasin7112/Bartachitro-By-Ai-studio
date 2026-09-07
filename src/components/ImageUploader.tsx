@@ -1,8 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { 
   UploadCloud, Image, Link, Check, X, 
-  Sparkles, RefreshCw, Eye, AlertCircle 
+  RefreshCw, AlertCircle, Loader2 
 } from 'lucide-react';
+import { uploadImageFile } from '../utils/api';
 
 interface ImageUploaderProps {
   currentImage: string;
@@ -49,6 +50,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   const [activeMode, setActiveMode] = useState<'upload' | 'url' | 'presets'>('upload');
   const [urlInput, setUrlInput] = useState(currentImage || '');
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [fileName, setFileName] = useState<string>('');
   const [fileSize, setFileSize] = useState<string>('');
   const [uploadError, setUploadError] = useState<string>('');
@@ -64,26 +66,49 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
     }
   };
 
-  const handleFileSelect = (file: File) => {
+  const handleFileSelect = async (file: File) => {
     setUploadError('');
     if (!file.type.startsWith('image/')) {
-      setUploadError('অনুগ্রহ করে শুধুমাত্র ছবি ফাইল (JPEG, PNG, WebP) নির্বাচন করুন।');
+      setUploadError('অনুগ্রহ করে শুধুমাত্র ছবি ফাইল (JPEG, PNG, WebP, SVG, GIF) নির্বাচন করুন।');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError('ফাইলের সাইজ ১০MB এর চেয়ে বেশি হওয়া যাবে না।');
       return;
     }
 
     setFileName(file.name);
     const sizeInKb = (file.size / 1024).toFixed(1);
     setFileSize(`${sizeInKb} KB`);
+    setIsUploading(true);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      if (result) {
-        triggerChange(result);
-        setUrlInput(result);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      // Direct upload to PHP backend at /api/upload.php -> saves in /uploads/
+      const uploadedUrl = await uploadImageFile(file);
+      triggerChange(uploadedUrl);
+      setUrlInput(uploadedUrl);
+    } catch (err) {
+      console.warn('Direct upload failed, attempting fallback...', err);
+      // Fallback to base64 data URI if upload script isn't reachable
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const result = e.target?.result as string;
+        if (result) {
+          try {
+            const base64Url = await uploadImageFile(result);
+            triggerChange(base64Url);
+            setUrlInput(base64Url);
+          } catch {
+            triggerChange(result);
+            setUrlInput(result);
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -174,7 +199,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => !isUploading && fileInputRef.current?.click()}
           className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all ${
             isDragging 
               ? 'border-red-500 bg-red-950/20' 
@@ -195,21 +220,26 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
 
           <div className="flex flex-col items-center justify-center gap-2">
             <div className="w-12 h-12 rounded-full bg-red-900/30 border border-red-700/50 flex items-center justify-center text-red-400">
-              <UploadCloud className="w-6 h-6" />
+              {isUploading ? (
+                <Loader2 className="w-6 h-6 animate-spin text-red-400" />
+              ) : (
+                <UploadCloud className="w-6 h-6" />
+              )}
             </div>
             <div>
               <p className="text-sm font-bold text-slate-200">
-                ছবি নির্বাচন করতে ক্লিক করুন বা ড্র্যাগ করুন
+                {isUploading ? 'ছবি আপলোড ও প্রসেসিং হচ্ছে...' : 'ছবি নির্বাচন করতে ক্লিক করুন বা ড্র্যাগ করুন'}
               </p>
               <p className="text-xs text-slate-400 mt-0.5">
-                PNG, JPG, WebP সমর্থিত • সর্বোচ্চ ৫ MB
+                PNG, JPG, WebP, SVG সমর্থিত • স্বয়ংক্রিয়ভাবে /uploads/ এ সংরক্ষিত হবে
               </p>
             </div>
             <button
               type="button"
+              disabled={isUploading}
               className="mt-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-3.5 py-1.5 rounded-lg border border-slate-600 transition-colors pointer-events-none"
             >
-              ডিভাইস থেকে ব্রাউজ করুন
+              {isUploading ? 'অপেক্ষা করুন...' : 'ডিভাইস থেকে ব্রাউজ করুন'}
             </button>
           </div>
         </div>
@@ -224,7 +254,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
               type="url"
               value={urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
-              placeholder="https://example.com/image.jpg"
+              placeholder="https://example.com/image.jpg অথবা /uploads/image.png"
               className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3.5 py-2 text-xs text-white focus:outline-none focus:border-red-600"
             />
           </div>
@@ -274,12 +304,12 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
               <div className="flex items-center gap-1.5">
                 <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 <span className="text-xs font-bold text-slate-200 truncate">
-                  {fileName || 'ছবি প্রস্তুত'}
+                  {fileName || (currentImage.startsWith('/uploads/') ? currentImage.replace('/uploads/', '') : 'ছবি প্রস্তুত')}
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 mt-0.5 truncate">
                 {fileSize ? `সাইজ: ${fileSize} • ` : ''}
-                {currentImage.startsWith('data:') ? 'লোকাল আপলোড' : 'ওয়েব লিঙ্ক'}
+                {currentImage.startsWith('/uploads/') ? 'সার্ভার আপলোড (/uploads/)' : 'ওয়েব লিঙ্ক'}
               </p>
             </div>
           </div>

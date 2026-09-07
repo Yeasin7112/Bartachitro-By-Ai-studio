@@ -38,17 +38,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 header("Location: " . BASE_URL . "/admin/index.php");
                 exit;
-            } elseif ($username === 'admin' && $password === 'admin123') {
-                // Safety fallback for fresh local installations
-                $_SESSION['admin_logged_in'] = true;
-                $_SESSION['admin_id'] = 1;
-                $_SESSION['admin_name'] = 'প্রধান সম্পাদক';
-                $_SESSION['admin_user'] = 'admin';
-                $_SESSION['admin_email'] = 'admin@bartachitro.com';
-                $_SESSION['admin_role'] = 'admin';
-
-                header("Location: " . BASE_URL . "/admin/index.php");
-                exit;
             } else {
                 $error = 'ভুল ইউজারনেম বা পাসওয়ার্ড!';
             }

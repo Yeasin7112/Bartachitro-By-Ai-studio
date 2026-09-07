@@ -20,7 +20,7 @@ interface HeaderProps {
   isBlogActive?: boolean;
   onOpenArticle: (article: NewsArticle) => void;
   onOpenAdmin: () => void;
-  onDownloadZip: () => void;
+  onDownloadZip?: () => void;
   allNews: NewsArticle[];
   settings?: SiteSettings;
   disableAds?: boolean;
@@ -115,14 +115,6 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <ShieldCheck className="w-3 h-3 text-gray-600" />
               <span>অ্যাডমিন</span>
-            </button>
-            <button 
-              onClick={onDownloadZip}
-              className="hidden sm:flex bg-emerald-700 hover:bg-emerald-800 text-white px-2 py-0.5 rounded text-[10px] font-bold items-center gap-1 transition-colors cursor-pointer ml-1 shadow-xs"
-              title="সম্পূর্ণ PHP 8+ / MySQL কোডবেস ডাউনলোড করুন"
-            >
-              <Download className="w-3 h-3" />
-              PHP
             </button>
           </div>
         </div>
@@ -423,15 +415,6 @@ export const Header: React.FC<HeaderProps> = ({
               className="text-left py-2 px-3 text-sm text-gray-700 font-bold hover:bg-gray-50 rounded flex items-center gap-2"
             >
               <ShieldCheck className="w-4 h-4" /> অ্যাডমিন সিএমএস পোর্টাল
-            </button>
-            <button 
-              onClick={() => {
-                onDownloadZip();
-                setMobileNavOpen(false);
-              }}
-              className="text-left py-2 px-3 text-xs text-emerald-700 font-bold hover:bg-emerald-50 rounded flex items-center gap-2"
-            >
-              <Download className="w-4 h-4" /> PHP 8+ / MySQL কোডবেস জিপ
             </button>
           </div>
         </div>

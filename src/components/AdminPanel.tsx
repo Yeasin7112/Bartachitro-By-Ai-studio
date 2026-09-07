@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, FileText, PlusCircle, FolderTree, Zap, 
   Image, Sliders, Mail, User, LogOut, ExternalLink, 
@@ -75,7 +75,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onImportBackup
 }) => {
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'news' | 'add_news' | 'categories' | 'breaking' | 'blogs' | 'add_blog' | 'ads' | 'messages' | 'settings' | 'users' | 'backup'
+    'dashboard' | 'news' | 'add_news' | 'categories' | 'breaking' | 'blogs' | 'add_blog' | 'ads' | 'messages' | 'settings' | 'users'
   >('dashboard');
 
   // Active Admin Profile User (Default to first or super_admin)
@@ -184,6 +184,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   // Settings form state
   const [localSettings, setLocalSettings] = useState<SiteSettings>(settings);
+
+  useEffect(() => {
+    if (settings) {
+      setLocalSettings(settings);
+    }
+  }, [settings]);
 
   // Stats calculation
   const totalNews = newsList.length;
@@ -380,9 +386,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateSettings(localSettings);
-    setFeedback('সাইট সেটিংস সফলভাবে আপডেট হয়েছে!');
-    setTimeout(() => setFeedback(''), 2000);
+    try {
+      onUpdateSettings(localSettings);
+      setFeedback('সাইট সেটিংস সফলভাবে আপডেট হয়েছে!');
+      setTimeout(() => setFeedback(''), 3000);
+    } catch (err) {
+      console.error('Settings update error:', err);
+      setFeedback('সেটিংস সংরক্ষণে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।');
+      setTimeout(() => setFeedback(''), 3000);
+    }
   };
 
   // Blog Handlers
@@ -686,16 +698,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <span className="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px]">
                 {bnNum(users.length)} জন
               </span>
-            </button>
-
-            {/* 1-Click Backup & Restore + cPanel MySQL */}
-            <button
-              onClick={() => setActiveTab('backup')}
-              className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
-                activeTab === 'backup' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              <Database className="w-4 h-4 text-emerald-400" /> ব্যাকআপ ও cPanel
             </button>
 
             <button
@@ -1983,11 +1985,34 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">অফিসিয়াল ইমেইল</label>
+                  <input 
+                    type="email" 
+                    value={localSettings.email || ''}
+                    onChange={(e) => setLocalSettings({ ...localSettings, email: e.target.value })}
+                    placeholder="editor@bartachitro.com"
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-xs text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">যোগাযোগ ফোন নম্বর</label>
+                  <input 
+                    type="text" 
+                    value={localSettings.phone || ''}
+                    onChange={(e) => setLocalSettings({ ...localSettings, phone: e.target.value })}
+                    placeholder="+৮৮০ ২ ৯৮৭৬৫৪৩"
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-xs text-white"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1">অফিসিয়াল ঠিকানা</label>
                 <textarea 
                   rows={2}
-                  value={localSettings.address}
+                  value={localSettings.address || ''}
                   onChange={(e) => setLocalSettings({ ...localSettings, address: e.target.value })}
                   className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-xs text-white"
                 />
@@ -2033,6 +2058,104 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 />
               </div>
 
+              {/* Site Favicon Upload Section */}
+              <div className="bg-slate-900 border border-slate-700 p-4 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-slate-200">
+                    সাইট ফেভিকন (Browser Favicon / App Icon)
+                  </label>
+                  {localSettings.favicon_url && (
+                    <button
+                      type="button"
+                      onClick={() => setLocalSettings({ ...localSettings, favicon_url: '' })}
+                      className="text-[11px] text-red-400 hover:text-red-300 underline cursor-pointer"
+                    >
+                      ফেভিকন মুছে ফেলুন
+                    </button>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  ব্রাউজার ট্যাবে প্রদর্শিত ছোট আইকন। (PNG, ICO বা SVG, ৩২x৩২ বা ৬৪x৬৪ পিক্সেল উত্তম)
+                </p>
+
+                {localSettings.favicon_url && (
+                  <div className="flex items-center gap-3 p-3 bg-slate-800 rounded-lg border border-slate-700">
+                    <img src={localSettings.favicon_url} alt="Favicon" className="w-8 h-8 object-contain rounded bg-white p-1" />
+                    <span className="text-xs text-slate-300">বর্তমান ফেভিকন সক্রিয় রয়েছে</span>
+                  </div>
+                )}
+
+                <ImageUploader
+                  currentImage={localSettings.favicon_url || ''}
+                  label="ফেভিকন আপলোড"
+                  helperText="ছোট সাইজের স্কয়ার (১:১) ছবি নির্বাচন করুন"
+                  onImageChange={(url) => setLocalSettings({ ...localSettings, favicon_url: url })}
+                  onImageSelected={(url) => setLocalSettings({ ...localSettings, favicon_url: url })}
+                />
+              </div>
+
+              {/* Social Media Links */}
+              <div className="bg-slate-900/60 border border-slate-700 p-4 rounded-xl space-y-3">
+                <h4 className="text-xs font-bold text-slate-200">সামাজিক যোগাযোগ মাধ্যম লিংক</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">ফেসবুক পেজ</label>
+                    <input 
+                      type="url" 
+                      value={localSettings.facebook_url || ''}
+                      onChange={(e) => setLocalSettings({ ...localSettings, facebook_url: e.target.value })}
+                      placeholder="https://facebook.com/..."
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">টুইটার / এক্স (X)</label>
+                    <input 
+                      type="url" 
+                      value={localSettings.twitter_url || ''}
+                      onChange={(e) => setLocalSettings({ ...localSettings, twitter_url: e.target.value })}
+                      placeholder="https://x.com/..."
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">ইউটিউব চ্যানেল</label>
+                    <input 
+                      type="url" 
+                      value={localSettings.youtube_url || ''}
+                      onChange={(e) => setLocalSettings({ ...localSettings, youtube_url: e.target.value })}
+                      placeholder="https://youtube.com/..."
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SEO Meta Tags */}
+              <div className="bg-slate-900/60 border border-slate-700 p-4 rounded-xl space-y-3">
+                <h4 className="text-xs font-bold text-slate-200">সার্চ ইঞ্জিন অপটিমাইজেশন (SEO Meta)</h4>
+                <div>
+                  <label className="block text-[11px] text-slate-400 mb-1">মেটা বিবরণ (Meta Description)</label>
+                  <textarea 
+                    rows={2}
+                    value={localSettings.meta_description || ''}
+                    onChange={(e) => setLocalSettings({ ...localSettings, meta_description: e.target.value })}
+                    placeholder="সংবাদ পোর্টালের সংক্ষিপ্ত পরিচয়..."
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-slate-400 mb-1">কীওয়ার্ডস (কমা দিয়ে আলাদা করুন)</label>
+                  <input 
+                    type="text" 
+                    value={localSettings.meta_keywords || ''}
+                    onChange={(e) => setLocalSettings({ ...localSettings, meta_keywords: e.target.value })}
+                    placeholder="বাংলা সংবাদ, জাতীয়, আন্তর্জাতিক, খবর..."
+                    className="w-full bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white"
+                  />
+                </div>
+              </div>
+
               {/* Ads Toggle in Settings */}
               <div className="bg-slate-900 border border-slate-700 p-3.5 rounded-lg">
                 <label className="flex items-center gap-3 cursor-pointer">
@@ -2072,18 +2195,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             onUpdateUser={onUpdateUser || (() => {})}
             onDeleteUser={onDeleteUser || (() => {})}
             onChangeActiveUser={setCurrentAdminUser}
-          />
-        )}
-
-        {/* TAB 10: 1-CLICK BACKUP & RESTORE + CPANEL MYSQL */}
-        {activeTab === 'backup' && (
-          <AdminBackupRestore
-            newsList={newsList}
-            blogs={blogs}
-            categories={categories}
-            settings={settings}
-            users={users}
-            onImportBackup={onImportBackup || (() => {})}
           />
         )}
       </main>

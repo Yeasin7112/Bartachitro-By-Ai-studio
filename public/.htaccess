@@ -1,40 +1,50 @@
 # ==============================================================================
-# BartaChitro (বার্তাচিত্র) - cPanel / Apache / LiteSpeed Configuration
-# Supports both React Single Page Application (SPA) and PHP 8+ Backend API
+# BartaChitro (বার্তাচিত্র) - Production cPanel / Apache / LiteSpeed Configuration
+# Integrates React SPA + PHP 8+ REST API + MySQL Backend
 # ==============================================================================
 
 # 1. Force UTF-8 Character Encoding for flawless Bengali text rendering
 AddDefaultCharset UTF-8
 AddCharset UTF-8 .html .css .js .json .svg .xml .php
 
-# 2. Enable URL Rewriting
+# 2. Disable directory listing for security
+Options -Indexes
+
+# 3. URL Rewriting Engine
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
 
-  # Prevent directory browsing
-  Options -Indexes
-
-  # Route API requests directly to PHP files if requested
-  RewriteCond %{REQUEST_URI} ^/api/
+  # Allow direct execution of existing PHP scripts in /api/
+  RewriteCond %{REQUEST_URI} ^/api/.*\.php$
   RewriteCond %{REQUEST_FILENAME} -f
   RewriteRule ^ - [L]
 
-  # Pass existing physical files and folders directly
+  # Route /api/something to /api/something.php if the .php file exists
+  RewriteCond %{DOCUMENT_ROOT}/api/$1.php -f [OR]
+  RewriteCond %{REQUEST_FILENAME}.php -f
+  RewriteRule ^api/([a-zA-Z0-9_-]+)/?$ api/$1.php [L,QSA]
+
+  # Allow direct access to uploaded files in /uploads/
+  RewriteCond %{REQUEST_URI} ^/uploads/
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteRule ^ - [L]
+
+  # Allow direct access to any real file or directory (assets, images, scripts)
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # Forward all other requests to React index.html for client-side routing
+  # Forward all other non-file requests to index.html for React SPA client-side routing
   RewriteRule ^ index.html [L]
 </IfModule>
 
-# 3. Gzip Compression for Fast Loading
+# 4. Gzip / Deflate Compression
 <IfModule mod_deflate.c>
   AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript application/json image/svg+xml
 </IfModule>
 
-# 4. Security & CORS Headers
+# 5. Security & Cross-Origin Resource Sharing (CORS)
 <IfModule mod_headers.c>
   Header set Access-Control-Allow-Origin "*"
   Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"

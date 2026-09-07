@@ -19,6 +19,7 @@ $defaultSettings = [
     'meta_description' => 'বার্তাচিত্র - বাংলাদেশের অন্যতম জনপ্রিয় বাংলা অনলাইন সংবাদপত্র ও ডিজিটাল ই-পত্রিকা।',
     'meta_keywords' => 'বার্তাচিত্র, বাংলা সংবাদ, বাংলাদেশ, ই-পত্রিকা, ব্রেকিং নিউজ',
     'logo_url' => '',
+    'favicon_url' => '',
     'disable_ads' => false
 ];
 
@@ -29,11 +30,11 @@ if (!$db) {
 
 try {
     if ($method === 'GET') {
-        $stmt = $db->query("SELECT setting_key, setting_value FROM site_settings");
+        $stmt = $db->query("SELECT key_name, key_value FROM settings");
         $settings = $defaultSettings;
         while ($row = $stmt->fetch()) {
-            $key = $row['setting_key'];
-            $val = $row['setting_value'];
+            $key = $row['key_name'];
+            $val = $row['key_value'];
             if ($key === 'disable_ads') {
                 $settings[$key] = ($val === '1' || $val === 'true');
             } else {
@@ -48,9 +49,9 @@ try {
             sendResponse(['error' => 'Invalid JSON input'], 400);
         }
 
-        $stmt = $db->prepare("INSERT INTO site_settings (setting_key, setting_value) 
+        $stmt = $db->prepare("INSERT INTO settings (key_name, key_value) 
                               VALUES (:key, :val) 
-                              ON DUPLICATE KEY UPDATE setting_value = :val");
+                              ON DUPLICATE KEY UPDATE key_value = :val");
 
         foreach ($input as $key => $val) {
             $valStr = is_bool($val) ? ($val ? '1' : '0') : (string)$val;

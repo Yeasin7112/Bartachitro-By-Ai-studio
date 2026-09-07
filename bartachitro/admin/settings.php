@@ -23,8 +23,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($fields as $field) {
             if (isset($_POST[$field])) {
                 $val = trim($_POST[$field]);
-                $stmt = $db->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (:k, :v) 
-                                      ON DUPLICATE KEY UPDATE setting_value = :v2");
+                $stmt = $db->prepare("INSERT INTO settings (key_name, key_value) VALUES (:k, :v) 
+                                      ON DUPLICATE KEY UPDATE key_value = :v2");
                 $stmt->execute([':k' => $field, ':v' => $val, ':v2' => $val]);
             }
         }
@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $settingsRows = $db->query("SELECT * FROM settings")->fetchAll();
 $s = [];
 foreach ($settingsRows as $row) {
-    $s[$row['setting_key']] = $row['setting_value'];
+    $s[$row['key_name']] = $row['key_value'];
 }
 ?>
 

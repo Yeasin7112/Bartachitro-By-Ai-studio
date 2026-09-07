@@ -66,11 +66,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             try {
-                $stmt = $db->prepare("INSERT INTO news (category_id, user_id, title, slug, summary, content, author_name, featured_image, image_caption, is_featured, is_breaking, status, seo_title, seo_description, seo_keywords, published_at) 
-                                      VALUES (:category_id, :user_id, :title, :slug, :summary, :content, :author_name, :featured_image, :image_caption, :is_featured, :is_breaking, :status, :seo_title, :seo_description, :seo_keywords, NOW())");
+                $stmt = $db->prepare("INSERT INTO news (category_id, author_id, title, slug, summary, content, author_name, featured_image, image_caption, is_featured, is_breaking, status, seo_title, seo_description, seo_keywords, published_at) 
+                                      VALUES (:category_id, :author_id, :title, :slug, :summary, :content, :author_name, :featured_image, :image_caption, :is_featured, :is_breaking, :status, :seo_title, :seo_description, :seo_keywords, NOW())");
                 $stmt->execute([
                     ':category_id' => $categoryId,
-                    ':user_id' => $adminUser['id'],
+                    ':author_id' => $adminUser['id'] ?? 1,
                     ':title' => $title,
                     ':slug' => $slug,
                     ':summary' => $summary,

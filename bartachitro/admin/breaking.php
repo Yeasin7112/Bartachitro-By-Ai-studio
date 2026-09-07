@@ -29,11 +29,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'ব্রেকিং শিরোনাম আবশ্যক।';
         } else {
             $slug = generateSlug($title) . '-' . time();
-            $stmt = $db->prepare("INSERT INTO news (category_id, user_id, title, slug, summary, content, author_name, featured_image, is_breaking, status, published_at) 
-                                  VALUES (:cid, :uid, :title, :slug, :summary, :content, :author, :img, 1, 'published', NOW())");
+            $stmt = $db->prepare("INSERT INTO news (category_id, author_id, title, slug, summary, content, author_name, featured_image, is_breaking, status, published_at) 
+                                  VALUES (:cid, :aid, :title, :slug, :summary, :content, :author, :img, 1, 'published', NOW())");
             $stmt->execute([
                 ':cid' => $categoryId,
-                ':uid' => $adminUser['id'],
+                ':aid' => $adminUser['id'] ?? 1,
                 ':title' => $title,
                 ':slug' => $slug,
                 ':summary' => $title,
