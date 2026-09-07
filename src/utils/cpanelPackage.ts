@@ -169,15 +169,15 @@ CREATE TABLE \`blogs\` (
     sql += blogRows.join(',\n') + ';\n\n';
   }
 
-  // Site Settings Table
+  // Site Settings Table (Standardized with key_name and key_value)
   sql += `--
--- Table structure for \`site_settings\`
+-- Table structure for \`settings\`
 --
-DROP TABLE IF EXISTS \`site_settings\`;
-CREATE TABLE \`site_settings\` (
-  \`setting_key\` varchar(100) NOT NULL,
-  \`setting_value\` longtext DEFAULT NULL,
-  PRIMARY KEY (\`setting_key\`)
+DROP TABLE IF EXISTS \`settings\`;
+CREATE TABLE \`settings\` (
+  \`key_name\` varchar(100) NOT NULL,
+  \`key_value\` longtext DEFAULT NULL,
+  PRIMARY KEY (\`key_name\`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 `;
@@ -200,7 +200,7 @@ CREATE TABLE \`site_settings\` (
     ['disable_ads', settings.disable_ads ? '1' : '0']
   ];
 
-  sql += `INSERT INTO \`site_settings\` (\`setting_key\`, \`setting_value\`) VALUES\n`;
+  sql += `INSERT INTO \`settings\` (\`key_name\`, \`key_value\`) VALUES\n`;
   sql += settingsEntries.map(([k, v]) => `(${escapeSql(k)}, ${escapeSql(v)})`).join(',\n') + ';\n\n';
 
   // Advertisements Table

@@ -43,16 +43,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Upload new file if provided
         if (isset($_FILES['image_file']) && $_FILES['image_file']['error'] === UPLOAD_ERR_OK) {
-            $uploadDir = __DIR__ . '/../assets/uploads/';
+            $uploadDir = dirname(__DIR__, 2) . '/uploads/';
             if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0777, true);
+                @mkdir($uploadDir, 0755, true);
+            }
+            if (!is_dir($uploadDir)) {
+                $uploadDir = __DIR__ . '/../uploads/';
+                if (!is_dir($uploadDir)) {
+                    @mkdir($uploadDir, 0755, true);
+                }
             }
             $fileExt = strtolower(pathinfo($_FILES['image_file']['name'], PATHINFO_EXTENSION));
             $allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
             if (in_array($fileExt, $allowedExts)) {
                 $fileName = 'news_' . time() . '_' . rand(100, 999) . '.' . $fileExt;
                 if (move_uploaded_file($_FILES['image_file']['tmp_name'], $uploadDir . $fileName)) {
-                    $featuredImage = BASE_URL . '/assets/uploads/' . $fileName;
+                    @chmod($uploadDir . $fileName, 0644);
+                    $featuredImage = '/uploads/' . $fileName;
                 }
             }
         }
