@@ -17,8 +17,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $fields = [
             'site_name', 'site_tagline', 'editor_name', 'executive_editor',
             'email', 'phone', 'address', 'facebook_url', 'twitter_url',
-            'youtube_url', 'meta_description', 'meta_keywords'
+            'youtube_url', 'instagram_url', 'meta_description', 'meta_keywords',
+            'site_logo', 'logo_url', 'favicon_url', 'watermark_url'
         ];
+
+        $centralUploadDir = dirname(__DIR__, 2) . '/uploads/';
+        if (!is_dir($centralUploadDir)) {
+            @mkdir($centralUploadDir, 0755, true);
+        }
+        if (!is_dir($centralUploadDir) || !is_writable($centralUploadDir)) {
+            $centralUploadDir = dirname(__DIR__) . '/uploads/';
+            if (!is_dir($centralUploadDir)) {
+                @mkdir($centralUploadDir, 0755, true);
+            }
+        }
+
+        // Handle logo file upload
+        if (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] === UPLOAD_ERR_OK) {
+            $ext = strtolower(pathinfo($_FILES['logo_file']['name'], PATHINFO_EXTENSION));
+            if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'svg', 'gif', 'ico'])) {
+                $fname = 'logo-' . time() . '.' . $ext;
+                if (move_uploaded_file($_FILES['logo_file']['tmp_name'], $centralUploadDir . $fname)) {
+                    @chmod($centralUploadDir . $fname, 0644);
+                    $_POST['site_logo'] = '/uploads/' . $fname;
+                    $_POST['logo_url'] = '/uploads/' . $fname;
+                }
+            }
+        }
+
+        // Handle favicon file upload
+        if (isset($_FILES['favicon_file']) && $_FILES['favicon_file']['error'] === UPLOAD_ERR_OK) {
+            $ext = strtolower(pathinfo($_FILES['favicon_file']['name'], PATHINFO_EXTENSION));
+            if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'svg', 'gif', 'ico'])) {
+                $fname = 'favicon-' . time() . '.' . $ext;
+                if (move_uploaded_file($_FILES['favicon_file']['tmp_name'], $centralUploadDir . $fname)) {
+                    @chmod($centralUploadDir . $fname, 0644);
+                    $_POST['favicon_url'] = '/uploads/' . $fname;
+                }
+            }
+        }
 
         foreach ($fields as $field) {
             if (isset($_POST[$field])) {
@@ -51,12 +88,36 @@ foreach ($settingsRows as $row) {
         <h3><i class="fa-solid fa-sliders"></i> মূল পত্রিকা সেটিংস</h3>
     </div>
     <div class="admin-card-body">
-        <form action="<?= BASE_URL ?>/admin/settings.php" method="POST">
+        <form action="<?= BASE_URL ?>/admin/settings.php" method="POST" enctype="multipart/form-data">
             <?= csrfField() ?>
 
             <h4 style="font-size:16px;font-weight:700;margin-bottom:16px;border-bottom:1px solid #e2e8f0;padding-bottom:6px;color:#b91c1c;">
-                ব্র্যান্ড ও পরিচিতি
+                ব্র্যান্ড, লোগো ও পরিচিতি
             </h4>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:16px;">
+                <div class="form-group">
+                    <label class="form-label">পত্রিকার লোগো (Upload Image)</label>
+                    <input type="file" name="logo_file" class="form-control" accept="image/*">
+                    <input type="text" name="site_logo" class="form-control" style="margin-top:6px;" placeholder="অথবা লোগো URL" value="<?= e($s['site_logo'] ?? ($s['logo_url'] ?? '')) ?>">
+                    <?php if (!empty($s['site_logo']) || !empty($s['logo_url'])): ?>
+                        <div style="margin-top:8px;padding:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;display:inline-block;">
+                            <img src="<?= e($s['site_logo'] ?? $s['logo_url']) ?>" alt="Logo Preview" style="max-height:45px;display:block;">
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">ওয়েবসাইট ফেভিকন (Upload Favicon)</label>
+                    <input type="file" name="favicon_file" class="form-control" accept="image/*">
+                    <input type="text" name="favicon_url" class="form-control" style="margin-top:6px;" placeholder="অথবা ফেভিকন URL" value="<?= e($s['favicon_url'] ?? '') ?>">
+                    <?php if (!empty($s['favicon_url'])): ?>
+                        <div style="margin-top:8px;padding:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:4px;display:inline-block;">
+                            <img src="<?= e($s['favicon_url']) ?>" alt="Favicon Preview" style="max-height:30px;display:block;">
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
                 <div class="form-group">

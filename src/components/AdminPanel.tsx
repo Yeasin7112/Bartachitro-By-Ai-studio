@@ -12,6 +12,7 @@ import {
 } from '../types';
 import { bnNum, bnDate } from '../utils/bengaliHelpers';
 import { ImageUploader } from './ImageUploader';
+import { VideoUploader } from './VideoUploader';
 import { RichTextEditor } from './RichTextEditor';
 import { SeoMetaHelper } from './SeoMetaHelper';
 import { AdminUserManagement } from './admin/AdminUserManagement';
@@ -101,6 +102,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [newsContent, setNewsContent] = useState('');
   const [newsAuthor, setNewsAuthor] = useState('বার্তাচিত্র প্রতিবেদক');
   const [newsImage, setNewsImage] = useState('https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80');
+  const [newsVideoUrl, setNewsVideoUrl] = useState('');
   const [newsIsFeatured, setNewsIsFeatured] = useState(false);
   const [newsIsBreaking, setNewsIsBreaking] = useState(false);
   const [newsStatus, setNewsStatus] = useState<'published' | 'draft'>('published');
@@ -119,6 +121,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [blogAuthorRole, setBlogAuthorRole] = useState('সিনিয়র কলামিস্ট ও বিশ্লেষক');
   const [blogAuthorAvatar, setBlogAuthorAvatar] = useState('https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop&crop=face');
   const [blogCoverImage, setBlogCoverImage] = useState('https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=1200&q=80');
+  const [blogVideoUrl, setBlogVideoUrl] = useState('');
   const [blogReadingTime, setBlogReadingTime] = useState<number>(4);
   const [blogIsFeatured, setBlogIsFeatured] = useState(false);
   const [blogStatus, setBlogStatus] = useState<'published' | 'draft'>('published');
@@ -141,6 +144,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [editBlogAuthorRole, setEditBlogAuthorRole] = useState('');
   const [editBlogAuthorAvatar, setEditBlogAuthorAvatar] = useState('');
   const [editBlogCoverImage, setEditBlogCoverImage] = useState('');
+  const [editBlogVideoUrl, setEditBlogVideoUrl] = useState('');
   const [editBlogReadingTime, setEditBlogReadingTime] = useState<number>(4);
   const [editBlogIsFeatured, setEditBlogIsFeatured] = useState(false);
   const [editBlogStatus, setEditBlogStatus] = useState<'published' | 'draft'>('published');
@@ -163,6 +167,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [editNewsContent, setEditNewsContent] = useState('');
   const [editNewsAuthor, setEditNewsAuthor] = useState('');
   const [editNewsImage, setEditNewsImage] = useState('');
+  const [editNewsVideoUrl, setEditNewsVideoUrl] = useState('');
   const [editNewsIsFeatured, setEditNewsIsFeatured] = useState(false);
   const [editNewsIsBreaking, setEditNewsIsBreaking] = useState(false);
   const [editNewsStatus, setEditNewsStatus] = useState<'published' | 'draft'>('published');
@@ -210,6 +215,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setEditNewsContent(article.content);
     setEditNewsAuthor(article.author_name || 'বার্তাচিত্র প্রতিবেদক');
     setEditNewsImage(article.featured_image || '');
+    setEditNewsVideoUrl(article.video_url || '');
     setEditNewsIsFeatured(!!article.is_featured);
     setEditNewsIsBreaking(!!article.is_breaking);
     setEditNewsStatus(article.status || 'published');
@@ -248,6 +254,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       content: formattedContent,
       author_name: editNewsAuthor.trim() || 'বার্তাচিত্র প্রতিবেদক',
       featured_image: editNewsImage.trim() || editingNews.featured_image,
+      video_url: editNewsVideoUrl.trim() || undefined,
       is_featured: editNewsIsFeatured,
       is_breaking: editNewsIsBreaking,
       status: editNewsStatus,
@@ -344,6 +351,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       content: finalContent,
       author_name: newsAuthor.trim() || 'নিজস্ব প্রতিবেদক',
       featured_image: newsImage.trim() || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80',
+      video_url: newsVideoUrl.trim() || undefined,
       views: 1,
       is_featured: newsIsFeatured,
       is_breaking: newsIsBreaking,
@@ -359,6 +367,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setNewsTitle('');
     setNewsSummary('');
     setNewsContent('');
+    setNewsVideoUrl('');
     setNewsSeoTitle('');
     setNewsSeoDescription('');
     setNewsSeoKeywords('');
@@ -440,6 +449,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       author_role: blogAuthorRole.trim() || 'লেখক ও গবেষক',
       author_avatar: blogAuthorAvatar.trim(),
       cover_image: blogCoverImage.trim() || 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=1200&q=80',
+      video_url: blogVideoUrl.trim() || undefined,
       category_tag: finalTag,
       reading_time_min: Number(blogReadingTime) || 3,
       views: 0,
@@ -460,6 +470,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setBlogTitle('');
     setBlogSummary('');
     setBlogContent('');
+    setBlogVideoUrl('');
     setCustomBlogTag('');
     setBlogSeoTitle('');
     setBlogSeoDescription('');
@@ -480,6 +491,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setEditBlogAuthorRole(blog.author_role);
     setEditBlogAuthorAvatar(blog.author_avatar || '');
     setEditBlogCoverImage(blog.cover_image);
+    setEditBlogVideoUrl(blog.video_url || '');
     setEditBlogReadingTime(blog.reading_time_min);
     setEditBlogIsFeatured(blog.is_featured);
     setEditBlogStatus(blog.status);
@@ -519,6 +531,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       author_role: editBlogAuthorRole.trim(),
       author_avatar: editBlogAuthorAvatar.trim(),
       cover_image: editBlogCoverImage.trim(),
+      video_url: editBlogVideoUrl.trim() || undefined,
       reading_time_min: Number(editBlogReadingTime) || 3,
       is_featured: editBlogIsFeatured,
       status: editBlogStatus,
@@ -1046,6 +1059,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 onImageChange={(url) => setNewsImage(url)}
                 label="ফিচার্ড ছবি নির্বাচন বা আপলোড (Featured Image) *"
                 helperText="কম্পিউটার বা মোবাইল থেকে ছবি আপলোড করুন অথবা সরাসরি ইমেজ ইউআরএল পেস্ট করুন"
+              />
+
+              <VideoUploader
+                currentVideo={newsVideoUrl}
+                onVideoChange={(url) => setNewsVideoUrl(url)}
+                label="সংবাদের ভিডিও সংযুক্ত করুন (ঐচ্ছিক - Video Upload / YouTube Link)"
+                helperText="কম্পিউটার বা মোবাইল থেকে সরাসরি ভিডিও আপলোড করুন (MP4, WebM) অথবা ইউটিউব ভিডিও লিংক পেস্ট করুন"
               />
 
               {/* SEO Friendly Optimization Section */}
@@ -1724,6 +1744,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     />
                   </div>
 
+                  {/* Blog Video */}
+                  <div className="bg-slate-800/80 border border-slate-700 p-4 rounded-xl space-y-3">
+                    <VideoUploader
+                      currentVideo={blogVideoUrl}
+                      onVideoChange={(url) => setBlogVideoUrl(url)}
+                      label="ব্লগের ভিডিও সংযুক্ত করুন (ঐচ্ছিক - Video Upload / YouTube Link)"
+                      helperText="কম্পিউটার বা মোবাইল থেকে সরাসরি ভিডিও ফাইল আপলোড করুন (MP4, WebM) অথবা ইউটিউব লিংক পেস্ট করুন"
+                    />
+                  </div>
+
                   {/* Reading Time & Publish Status */}
                   <div className="bg-slate-800/80 border border-slate-700 p-4 rounded-xl space-y-3">
                     <div className="flex items-center justify-between">
@@ -2379,6 +2409,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 />
               </div>
 
+              {/* Video Uploader for News */}
+              <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl space-y-3">
+                <VideoUploader
+                  currentVideo={editNewsVideoUrl}
+                  onVideoChange={(url) => setEditNewsVideoUrl(url)}
+                  label="সংবাদের ভিডিও সংযুক্ত করুন (ঐচ্ছিক - Video Upload / YouTube Link)"
+                  helperText="কম্পিউটার বা মোবাইল থেকে সরাসরি ভিডিও আপলোড করুন (MP4, WebM) অথবা ইউটিউব লিংক পেস্ট করুন"
+                />
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-300 mb-1.5">প্রকাশের সময় ও তারিখ</label>
@@ -2675,6 +2715,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   currentImage={editBlogCoverImage}
                   onImageChange={(url) => setEditBlogCoverImage(url)}
                   onImageSelected={(url) => setEditBlogCoverImage(url)}
+                />
+              </div>
+
+              {/* Video Uploader for Blog */}
+              <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl space-y-3">
+                <VideoUploader
+                  currentVideo={editBlogVideoUrl}
+                  onVideoChange={(url) => setEditBlogVideoUrl(url)}
+                  label="ব্লগের ভিডিও সংযুক্ত করুন (ঐচ্ছিক - Video Upload / YouTube Link)"
+                  helperText="কম্পিউটার বা মোবাইল থেকে সরাসরি ভিডিও আপলোড করুন (MP4, WebM) অথবা ইউটিউব লিংক পেস্ট করুন"
                 />
               </div>
 

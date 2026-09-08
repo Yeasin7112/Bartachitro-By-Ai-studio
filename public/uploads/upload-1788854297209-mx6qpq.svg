@@ -1,0 +1,244 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 500" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <!-- 1. Wave Background Linear Gradient: Red tips, Lime-Green central body -->
+    <linearGradient id="waveFillGrad" x1="0%" y1="35%" x2="100%" y2="65%">
+      <stop offset="0%" stop-color="#cc181e" />
+      <stop offset="10%" stop-color="#e03714" />
+      <stop offset="22%" stop-color="#ea6512" />
+      <stop offset="34%" stop-color="#93be23" />
+      <stop offset="48%" stop-color="#73aa1b" />
+      <stop offset="62%" stop-color="#88be24" />
+      <stop offset="76%" stop-color="#ea6512" />
+      <stop offset="90%" stop-color="#dc2416" />
+      <stop offset="100%" stop-color="#c4141a" />
+    </linearGradient>
+
+    <!-- 2. Subtle 3D glossy highlight on the leaf -->
+    <linearGradient id="glossGrad" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.16" />
+      <stop offset="60%" stop-color="#ffffff" stop-opacity="0" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.1" />
+    </linearGradient>
+
+    <!-- 3. Soft drop shadow under the entire logo emblem -->
+    <filter id="logoElevation" x="-10%" y="-10%" width="125%" height="125%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.18" />
+    </filter>
+
+    <!-- 4. Crisp drop shadow for the 3D white extrusion on typography -->
+    <filter id="textExtrusionShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="-8" dy="14" stdDeviation="3" flood-color="#000000" flood-opacity="0.25" />
+    </filter>
+
+    <!-- Style definition with authentic Bengali typography import -->
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@700;800;900&amp;family=Noto+Serif+Bengali:wght@700;800;900&amp;family=Tiro+Bangla:ital,wght@0,700;1,700&amp;display=swap');
+      
+      .bengali-title {
+        font-family: 'Noto Serif Bengali', 'Hind Siliguri', 'Tiro Bangla', sans-serif;
+        font-weight: 900;
+        font-style: normal;
+      }
+
+      .bengali-slogan {
+        font-family: 'Tiro Bangla', 'Hind Siliguri', 'Noto Serif Bengali', cursive, sans-serif;
+        font-weight: 700;
+        font-style: italic;
+      }
+    </style>
+  </defs>
+
+  <!-- Main Emblem Container with Filter Elevation -->
+  <g filter="url(#logoElevation)">
+    <!-- OUTER GREEN BORDER OF THE WAVE SHAPE -->
+    <!-- Authentic leaf curve contour matching IMG-20260905-WA0005.jpg -->
+    <path 
+      d="M 22 175 
+         C 140 120, 310 20, 520 20 
+         C 720 20, 880 110, 975 315 
+         C 880 375, 680 475, 420 475 
+         C 220 475, 95 340, 22 175 Z"
+      fill="url(#waveFillGrad)" 
+      stroke="#126826" 
+      stroke-width="9" 
+      stroke-linejoin="round"
+      stroke-linecap="round"
+    />
+
+    <!-- INNER RED BORDER FOLLOWING THE EXACT CONTOUR -->
+    <path 
+      d="M 32 177 
+         C 146 125, 312 28, 518 28 
+         C 712 28, 868 116, 963 313 
+         C 870 370, 674 466, 420 466 
+         C 224 466, 102 335, 32 177 Z"
+      fill="none" 
+      stroke="#dc2626" 
+      stroke-width="7" 
+      stroke-linejoin="round"
+      stroke-linecap="round"
+    />
+
+    <!-- Glossy ambient light overlay -->
+    <path 
+      d="M 34 179 
+         C 147 127, 313 30, 518 30 
+         C 711 30, 866 118, 960 312 
+         C 868 368, 673 464, 420 464 
+         C 225 464, 104 334, 34 179 Z"
+      fill="url(#glossGrad)"
+      pointer-events="none"
+    />
+
+    <!-- MAIN BENGALI TYPOGRAPHY: বার্তাচিত্র (BARTACHITRO) -->
+    <!-- Positioned dynamically across the central green leaf -->
+    <g transform="translate(130, 110)" filter="url(#textExtrusionShadow)">
+      
+      <!-- 1. MULTI-LAYERED 3D SOLID WHITE EXTRUSION SHADOW (Projecting Down-Left) -->
+      <!-- Step 5 (Deepest white layer) -->
+      <text x="360" y="170" 
+            text-anchor="middle" 
+            font-size="142" 
+            class="bengali-title" 
+            fill="#ffffff" 
+            stroke="#ffffff" 
+            stroke-width="26" 
+            stroke-linejoin="round" 
+            stroke-linecap="round" 
+            transform="translate(-14, 16)">
+        বার্তাচিত্র
+      </text>
+
+      <!-- Step 4 -->
+      <text x="360" y="170" 
+            text-anchor="middle" 
+            font-size="142" 
+            class="bengali-title" 
+            fill="#ffffff" 
+            stroke="#ffffff" 
+            stroke-width="24" 
+            stroke-linejoin="round" 
+            stroke-linecap="round" 
+            transform="translate(-10, 12)">
+        বার্তাচিত্র
+      </text>
+
+      <!-- Step 3 -->
+      <text x="360" y="170" 
+            text-anchor="middle" 
+            font-size="142" 
+            class="bengali-title" 
+            fill="#ffffff" 
+            stroke="#ffffff" 
+            stroke-width="20" 
+            stroke-linejoin="round" 
+            stroke-linecap="round" 
+            transform="translate(-7, 8)">
+        বার্তাচিত্র
+      </text>
+
+      <!-- Step 2 -->
+      <text x="360" y="170" 
+            text-anchor="middle" 
+            font-size="142" 
+            class="bengali-title" 
+            fill="#ffffff" 
+            stroke="#ffffff" 
+            stroke-width="16" 
+            stroke-linejoin="round" 
+            stroke-linecap="round" 
+            transform="translate(-4, 4)">
+        বার্তাচিত্র
+      </text>
+
+      <!-- Step 1 (White border base) -->
+      <text x="360" y="170" 
+            text-anchor="middle" 
+            font-size="142" 
+            class="bengali-title" 
+            fill="#ffffff" 
+            stroke="#ffffff" 
+            stroke-width="14" 
+            stroke-linejoin="round" 
+            stroke-linecap="round">
+        বার্তাচিত্র
+      </text>
+
+      <!-- 2. FOREGROUND VIBRANT RED TYPOGRAPHY -->
+      <text x="360" y="170" 
+            text-anchor="middle" 
+            font-size="142" 
+            class="bengali-title" 
+            fill="#dc2626" 
+            stroke="#b91c1c" 
+            stroke-width="3" 
+            stroke-linejoin="round" 
+            letter-spacing="-1">
+        বার্তাচিত্র
+      </text>
+
+      <!-- 3. TOP MATRA STYLIZED ACCENTS (Sharp left wing + extended right wing) -->
+      <!-- Left matra sharp wing extending left from 'ব' -->
+      <polygon points="12,52 90,52 75,70 -4,70" fill="#ffffff" />
+      <polygon points="14,54 88,54 75,68 0,68" fill="#dc2626" />
+
+      <!-- Characteristic high canopy flourish on the Ikar (ি) over 'চ' -->
+      <path 
+        d="M 465 52 C 465 -8, 540 -18, 580 18 C 612 48, 608 65, 608 65" 
+        fill="none" 
+        stroke="#ffffff" 
+        stroke-width="24" 
+        stroke-linecap="round" 
+        transform="translate(-8, 10)"
+      />
+      <path 
+        d="M 465 52 C 465 -8, 540 -18, 580 18 C 612 48, 608 65, 608 65" 
+        fill="none" 
+        stroke="#dc2626" 
+        stroke-width="14" 
+        stroke-linecap="round" 
+      />
+
+      <!-- Ref (র্) sharp diagonal flame above 'ত' -->
+      <polygon points="340,38 375,-25 392,-12 360,42" fill="#ffffff" transform="translate(-8, 10)" />
+      <polygon points="342,40 375,-22 390,-12 362,42" fill="#dc2626" />
+    </g>
+
+    <!-- 4. BOTTOM-RIGHT YELLOW OVAL BADGE: সময়ের সাথে.. -->
+    <!-- Positioned overlapping the bottom-right curve exactly as in IMG-20260905-WA0005.jpg -->
+    <g id="slogan-badge" transform="translate(560, 360)">
+      <!-- Outer White Outline / Separation -->
+      <ellipse 
+        cx="140" 
+        cy="40" 
+        rx="142" 
+        ry="42" 
+        fill="#ffffff" 
+      />
+
+      <!-- Yellow Oval Badge with Bold Red Border -->
+      <ellipse 
+        cx="140" 
+        cy="40" 
+        rx="136" 
+        ry="37" 
+        fill="#ffea00" 
+        stroke="#dc2626" 
+        stroke-width="7" 
+      />
+
+      <!-- Slogan Text: সময়ের সাথে.. in deep wine burgundy cursive script -->
+      <text 
+        x="140" 
+        y="50" 
+        text-anchor="middle" 
+        fill="#3f0713" 
+        font-size="34" 
+        class="bengali-slogan"
+        letter-spacing="0.5"
+      >
+        সময়ের সাথে..
+      </text>
+    </g>
+  </g>
+</svg>

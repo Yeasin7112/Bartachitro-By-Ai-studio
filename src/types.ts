@@ -24,6 +24,7 @@ export interface NewsArticle {
   author_name: string;
   featured_image: string;
   image_caption?: string;
+  video_url?: string;
   views: number;
   is_featured: boolean;
   is_breaking: boolean;
@@ -84,6 +85,7 @@ export interface BlogPost {
   author_role: string;
   author_avatar?: string;
   cover_image: string;
+  video_url?: string;
   category_tag: string;
   reading_time_min: number;
   views: number;

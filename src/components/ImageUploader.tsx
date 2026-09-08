@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   UploadCloud, Image, Link, Check, X, 
   RefreshCw, AlertCircle, Loader2 
@@ -56,6 +56,10 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   const [uploadError, setUploadError] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    setUrlInput(currentImage || '');
+  }, [currentImage]);
+
   const triggerChange = (url: string) => {
     setUploadError('');
     if (typeof onImageChange === 'function') {
@@ -84,28 +88,13 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
     setIsUploading(true);
 
     try {
-      // Direct upload to PHP backend at /api/upload.php -> saves in /uploads/
+      // Direct upload to server at /api/upload.php -> saves in /uploads/
       const uploadedUrl = await uploadImageFile(file);
       triggerChange(uploadedUrl);
       setUrlInput(uploadedUrl);
-    } catch (err) {
-      console.warn('Direct upload failed, attempting fallback...', err);
-      // Fallback to base64 data URI if upload script isn't reachable
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const result = e.target?.result as string;
-        if (result) {
-          try {
-            const base64Url = await uploadImageFile(result);
-            triggerChange(base64Url);
-            setUrlInput(base64Url);
-          } catch {
-            triggerChange(result);
-            setUrlInput(result);
-          }
-        }
-      };
-      reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.error('Image upload failed:', err);
+      setUploadError(err?.message || 'ছবি আপলোড করতে ব্যর্থ হয়েছে। পুনরায় চেষ্টা করুন অথবা সরাসরি ইমেজ ইউআরএল লিংক ব্যবহার করুন।');
     } finally {
       setIsUploading(false);
     }

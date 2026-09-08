@@ -5,7 +5,7 @@ $db = getDb();
 $method = $_SERVER['REQUEST_METHOD'];
 
 if (!$db) {
-    sendResponse(['status' => 'ok', 'data' => null, 'source' => 'fallback']);
+    sendResponse(['error' => 'Database connection failed'], 500);
 }
 
 try {
@@ -54,6 +54,10 @@ try {
         }
     }
     elseif ($method === 'POST') {
+        if (!checkAdminAuth()) {
+            sendResponse(['error' => 'অননুমোদিত অ্যাক্সেস। অনুগ্রহ করে অ্যাডমিন হিসেবে লগইন করুন।'], 401);
+        }
+
         $input = json_decode(file_get_contents('php://input'), true);
         if (!$input) {
             sendResponse(['error' => 'Invalid data'], 400);

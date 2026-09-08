@@ -121,6 +121,10 @@ try {
         sendResponse(['status' => 'ok', 'data' => $news]);
     }
     elseif ($method === 'POST') {
+        if (!checkAdminAuth()) {
+            sendResponse(['error' => 'অননুমোদিত অ্যাক্সেস। অনুগ্রহ করে অ্যাডমিন হিসেবে লগইন করুন।'], 401);
+        }
+
         $input = json_decode(file_get_contents('php://input'), true);
         if (!$input || empty($input['title'])) {
             sendResponse(['error' => 'Title is required'], 400);
@@ -130,9 +134,9 @@ try {
         $slug = !empty($input['slug']) ? $input['slug'] : ('news-' . time() . '-' . rand(100, 999));
 
         $stmt = $db->prepare("INSERT INTO news 
-            (category_id, author_id, title, slug, summary, content, author_name, featured_image, image_caption, views, is_featured, is_breaking, status, published_at, seo_title, seo_description, seo_keywords) 
+            (category_id, author_id, title, slug, summary, content, author_name, featured_image, image_caption, video_url, views, is_featured, is_breaking, status, published_at, seo_title, seo_description, seo_keywords) 
             VALUES 
-            (:category_id, :author_id, :title, :slug, :summary, :content, :author_name, :featured_image, :image_caption, :views, :is_featured, :is_breaking, :status, :published_at, :seo_title, :seo_description, :seo_keywords)");
+            (:category_id, :author_id, :title, :slug, :summary, :content, :author_name, :featured_image, :image_caption, :video_url, :views, :is_featured, :is_breaking, :status, :published_at, :seo_title, :seo_description, :seo_keywords)");
         
         $stmt->execute([
             ':category_id' => (int)($input['category_id'] ?? 1),
@@ -144,6 +148,7 @@ try {
             ':author_name' => $input['author_name'] ?? 'বার্তাচিত্র প্রতিবেদক',
             ':featured_image' => $input['featured_image'] ?? '',
             ':image_caption' => $input['image_caption'] ?? '',
+            ':video_url' => $input['video_url'] ?? '',
             ':views' => (int)($input['views'] ?? 0),
             ':is_featured' => !empty($input['is_featured']) ? 1 : 0,
             ':is_breaking' => !empty($input['is_breaking']) ? 1 : 0,
@@ -170,11 +175,15 @@ try {
             sendResponse(['error' => 'Article ID is required for update'], 400);
         }
 
-        // Special case: increment view count
+        // Special case: increment view count (public)
         if (isset($input['action']) && $input['action'] === 'increment_view') {
             $stmt = $db->prepare("UPDATE news SET views = views + 1 WHERE id = :id");
             $stmt->execute([':id' => $id]);
             sendResponse(['status' => 'ok', 'message' => 'Views incremented']);
+        }
+
+        if (!checkAdminAuth()) {
+            sendResponse(['error' => 'অননুমোদিত অ্যাক্সেস। অনুগ্রহ করে অ্যাডমিন হিসেবে লগইন করুন।'], 401);
         }
 
         $authorId = (int)($input['author_id'] ?? $input['user_id'] ?? 1);
@@ -189,6 +198,7 @@ try {
             author_name = :author_name,
             featured_image = :featured_image,
             image_caption = :image_caption,
+            video_url = :video_url,
             is_featured = :is_featured,
             is_breaking = :is_breaking,
             status = :status,
@@ -207,6 +217,7 @@ try {
             ':author_name' => $input['author_name'] ?? 'বার্তাচিত্র প্রতিবেদক',
             ':featured_image' => $input['featured_image'] ?? '',
             ':image_caption' => $input['image_caption'] ?? '',
+            ':video_url' => $input['video_url'] ?? '',
             ':is_featured' => !empty($input['is_featured']) ? 1 : 0,
             ':is_breaking' => !empty($input['is_breaking']) ? 1 : 0,
             ':status' => $input['status'] ?? 'published',
@@ -219,6 +230,9 @@ try {
         sendResponse(['status' => 'ok', 'message' => 'Article updated successfully', 'data' => $input]);
     }
     elseif ($method === 'DELETE') {
+        if (!checkAdminAuth()) {
+            sendResponse(['error' => 'অননুমোদিত অ্যাক্সেস। অনুগ্রহ করে অ্যাডমিন হিসেবে লগইন করুন।'], 401);
+        }
         $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
         if (!$id) {
             $input = json_decode(file_get_contents('php://input'), true);

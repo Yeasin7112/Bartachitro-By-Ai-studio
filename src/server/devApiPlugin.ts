@@ -58,6 +58,34 @@ export function devApiPlugin(): Plugin {
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         const urlStr = req.url || '';
+
+        // Serve uploaded files statically
+        if (urlStr.startsWith('/uploads/')) {
+          const fileName = path.basename(urlStr.split('?')[0]);
+          const filePath = path.join(uploadDir, fileName);
+          if (fs.existsSync(filePath)) {
+            const ext = path.extname(fileName).toLowerCase();
+            const mimeTypes: Record<string, string> = {
+              '.jpg': 'image/jpeg',
+              '.jpeg': 'image/jpeg',
+              '.png': 'image/png',
+              '.webp': 'image/webp',
+              '.svg': 'image/svg+xml',
+              '.gif': 'image/gif',
+              '.ico': 'image/x-icon',
+              '.mp4': 'video/mp4',
+              '.webm': 'video/webm',
+              '.ogg': 'video/ogg',
+              '.mov': 'video/quicktime'
+            };
+            res.statusCode = 200;
+            res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            fs.createReadStream(filePath).pipe(res);
+            return;
+          }
+        }
+
         if (!urlStr.startsWith('/api/')) {
           return next();
         }
@@ -65,6 +93,19 @@ export function devApiPlugin(): Plugin {
         const urlObj = new URL(urlStr, 'http://localhost:3000');
         const pathname = urlObj.pathname.replace(/\.php$/, ''); // Normalize /api/news.php to /api/news
         const method = req.method?.toUpperCase() || 'GET';
+
+        // Helper to read raw body buffer
+        const readRawBodyBuffer = async (): Promise<Buffer> => {
+          return new Promise((resolve) => {
+            const chunks: Buffer[] = [];
+            req.on('data', (chunk) => {
+              chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+            });
+            req.on('end', () => {
+              resolve(Buffer.concat(chunks));
+            });
+          });
+        };
 
         // Helper to read JSON request body
         const readJsonBody = async (): Promise<any> => {
@@ -173,6 +214,7 @@ export function devApiPlugin(): Plugin {
               author_name: body.author_name || 'বার্তাচিত্র প্রতিবেদক',
               featured_image: body.featured_image || '',
               image_caption: body.image_caption || '',
+              video_url: body.video_url || '',
               views: Number(body.views) || 0,
               is_featured: Boolean(body.is_featured),
               is_breaking: Boolean(body.is_breaking),
@@ -238,8 +280,22 @@ export function devApiPlugin(): Plugin {
           }
           if (method === 'PUT') {
             const body = await readJsonBody();
+            if (body.action === 'reorder' && Array.isArray(body.orders)) {
+              const orderMap = new Map<number, number>(body.orders.map((o: any) => [Number(o.id), Number(o.display_order)]));
+              categories = categories.map(c => {
+                if (orderMap.has(c.id)) {
+                  return { ...c, display_order: orderMap.get(c.id)! };
+                }
+                return c;
+              });
+              categories.sort((a, b) => a.display_order - b.display_order);
+              persist('categories.json', categories);
+              return sendJson({ status: 'ok', message: 'Categories reordered successfully', data: categories });
+            }
+
             const id = parseInt(urlObj.searchParams.get('id') || body.id, 10);
             categories = categories.map(c => c.id === id ? { ...c, ...body, id } : c);
+            categories.sort((a, b) => a.display_order - b.display_order);
             persist('categories.json', categories);
             return sendJson({ status: 'ok', message: 'Category updated', data: body });
           }
@@ -374,6 +430,7 @@ export function devApiPlugin(): Plugin {
               author_role: body.author_role || 'কলামিস্ট',
               author_avatar: body.author_avatar || '',
               cover_image: body.cover_image || '',
+              video_url: body.video_url || '',
               category_tag: body.category_tag || 'মতামত',
               reading_time_min: Number(body.reading_time_min) || 4,
               views: 0,
@@ -499,29 +556,111 @@ export function devApiPlugin(): Plugin {
           }
         }
 
-        // 10. File Upload API
+        // 10. File Upload API (Supports multipart FormData and base64 JSON for images & videos)
         if (pathname === '/api/upload') {
           if (method === 'POST') {
-            const body = await readJsonBody();
-            if (body && body.image) {
-              const base64Str = body.image;
-              const matches = base64Str.match(/^data:image\/(\w+);base64,(.+)$/);
-              if (matches) {
-                const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
-                const buffer = Buffer.from(matches[2], 'base64');
-                const filename = `img-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
-                const filePath = path.join(uploadDir, filename);
-                fs.writeFileSync(filePath, buffer);
-                const fileUrl = `/uploads/${filename}`;
-                return sendJson({
-                  status: 'ok',
-                  url: fileUrl,
-                  filename,
-                  message: 'Image uploaded successfully'
-                });
+            const contentType = req.headers['content-type'] || '';
+            const rawBuffer = await readRawBodyBuffer();
+
+            // 1. Multipart Form Data (from FormData in browser)
+            if (contentType.includes('multipart/form-data')) {
+              const boundaryMatch = contentType.match(/boundary=(?:"([^"]+)"|([^;]+))/i);
+              const boundary = boundaryMatch ? (boundaryMatch[1] || boundaryMatch[2]).trim() : '';
+
+              if (boundary && rawBuffer.length > 0) {
+                const boundaryBuffer = Buffer.from(`--${boundary}`);
+                const boundaryIndex = rawBuffer.indexOf(boundaryBuffer);
+                if (boundaryIndex !== -1) {
+                  const headerStart = boundaryIndex + boundaryBuffer.length;
+                  const headerEnd = rawBuffer.indexOf(Buffer.from('\r\n\r\n'), headerStart);
+                  if (headerEnd !== -1) {
+                    const headerStr = rawBuffer.subarray(headerStart, headerEnd).toString('latin1');
+                    const filenameMatch = headerStr.match(/filename="([^"]+)"/i) || headerStr.match(/filename=([^\s;]+)/i);
+                    const originalFilename = filenameMatch ? filenameMatch[1].replace(/^.*[\\\/]/, '') : 'upload_media';
+                    
+                    const dataStart = headerEnd + 4;
+                    const nextBoundaryIndex = rawBuffer.indexOf(boundaryBuffer, dataStart);
+                    if (nextBoundaryIndex !== -1) {
+                      let dataEnd = nextBoundaryIndex;
+                      // Strip trailing CRLF right before next boundary
+                      if (dataEnd >= 2 && rawBuffer[dataEnd - 2] === 13 && rawBuffer[dataEnd - 1] === 10) {
+                        dataEnd -= 2;
+                      }
+                      const fileData = rawBuffer.subarray(dataStart, dataEnd);
+
+                      let ext = path.extname(originalFilename).toLowerCase().replace('.', '');
+                      if (!ext) {
+                        const ctMatch = headerStr.match(/Content-Type:\s*([^\s;]+)/i);
+                        const ct = ctMatch ? ctMatch[1].toLowerCase() : '';
+                        if (ct.includes('png')) ext = 'png';
+                        else if (ct.includes('webp')) ext = 'webp';
+                        else if (ct.includes('svg')) ext = 'svg';
+                        else if (ct.includes('gif')) ext = 'gif';
+                        else if (ct.includes('ico')) ext = 'ico';
+                        else if (ct.includes('mp4')) ext = 'mp4';
+                        else if (ct.includes('webm')) ext = 'webm';
+                        else if (ct.includes('ogg')) ext = 'ogg';
+                        else if (ct.includes('mov') || ct.includes('quicktime')) ext = 'mov';
+                        else ext = 'jpg';
+                      }
+
+                      const isVideo = ['mp4', 'webm', 'ogg', 'mov', 'mkv', 'avi'].includes(ext);
+                      const prefix = isVideo ? 'video-' : 'upload-';
+                      const safeFilename = `${prefix}${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
+                      const filePath = path.join(uploadDir, safeFilename);
+
+                      fs.writeFileSync(filePath, fileData);
+                      return sendJson({
+                        status: 'ok',
+                        url: `/uploads/${safeFilename}`,
+                        filename: safeFilename,
+                        size: fileData.length,
+                        message: 'File uploaded successfully'
+                      });
+                    }
+                  }
+                }
               }
             }
-            return sendJson({ error: 'No valid image data received' }, 400);
+
+            // 2. Base64 JSON Body
+            try {
+              const body = JSON.parse(rawBuffer.toString('utf8') || '{}');
+              const base64Str = body.image || body.file || body.video;
+              if (base64Str && typeof base64Str === 'string') {
+                const matches = base64Str.match(/^data:([^;]+);base64,(.+)$/s);
+                if (matches) {
+                  const mime = matches[1].toLowerCase();
+                  let ext = 'jpg';
+                  let prefix = 'upload-';
+
+                  if (mime.includes('png')) ext = 'png';
+                  else if (mime.includes('webp')) ext = 'webp';
+                  else if (mime.includes('svg')) ext = 'svg';
+                  else if (mime.includes('gif')) ext = 'gif';
+                  else if (mime.includes('ico')) ext = 'ico';
+                  else if (mime.includes('mp4')) { ext = 'mp4'; prefix = 'video-'; }
+                  else if (mime.includes('webm')) { ext = 'webm'; prefix = 'video-'; }
+                  else if (mime.includes('ogg')) { ext = 'ogg'; prefix = 'video-'; }
+                  else if (mime.includes('quicktime') || mime.includes('mov')) { ext = 'mov'; prefix = 'video-'; }
+
+                  const buffer = Buffer.from(matches[2], 'base64');
+                  const filename = `${prefix}${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
+                  const filePath = path.join(uploadDir, filename);
+                  fs.writeFileSync(filePath, buffer);
+                  const fileUrl = `/uploads/${filename}`;
+                  return sendJson({
+                    status: 'ok',
+                    url: fileUrl,
+                    filename,
+                    size: buffer.length,
+                    message: 'Media uploaded successfully'
+                  });
+                }
+              }
+            } catch {}
+
+            return sendJson({ error: 'No valid image or video file received' }, 400);
           }
         }
 

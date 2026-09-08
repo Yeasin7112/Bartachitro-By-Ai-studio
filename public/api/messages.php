@@ -5,11 +5,15 @@ $db = getDb();
 $method = $_SERVER['REQUEST_METHOD'];
 
 if (!$db) {
-    sendResponse(['status' => 'ok', 'data' => [], 'source' => 'fallback']);
+    sendResponse(['error' => 'Database connection failed'], 500);
 }
 
 try {
     if ($method === 'GET') {
+        if (!checkAdminAuth()) {
+            sendResponse(['error' => 'অননুমোদিত অ্যাক্সেস। অনুগ্রহ করে অ্যাডমিন হিসেবে লগইন করুন।'], 401);
+        }
+
         $stmt = $db->query("SELECT * FROM contact_messages ORDER BY created_at DESC LIMIT 200");
         $msgs = $stmt->fetchAll();
 
@@ -45,6 +49,10 @@ try {
         ], 201);
     }
     elseif ($method === 'PUT') {
+        if (!checkAdminAuth()) {
+            sendResponse(['error' => 'অননুমোদিত অ্যাক্সেস। অনুগ্রহ করে অ্যাডমিন হিসেবে লগইন করুন।'], 401);
+        }
+
         $input = json_decode(file_get_contents('php://input'), true);
         $id = isset($_GET['id']) ? (int)$_GET['id'] : (int)($input['id'] ?? 0);
 
@@ -60,6 +68,9 @@ try {
         sendResponse(['status' => 'ok', 'message' => 'Message updated successfully']);
     }
     elseif ($method === 'DELETE') {
+        if (!checkAdminAuth()) {
+            sendResponse(['error' => 'অননুমোদিত অ্যাক্সেস। অনুগ্রহ করে অ্যাডমিন হিসেবে লগইন করুন।'], 401);
+        }
         $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
         if (!$id) {
             $input = json_decode(file_get_contents('php://input'), true);

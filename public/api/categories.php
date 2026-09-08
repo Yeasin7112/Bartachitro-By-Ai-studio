@@ -5,7 +5,7 @@ $db = getDb();
 $method = $_SERVER['REQUEST_METHOD'];
 
 if (!$db) {
-    sendResponse(['status' => 'ok', 'data' => [], 'source' => 'fallback']);
+    sendResponse(['error' => 'Database connection failed'], 500);
 }
 
 try {
@@ -23,7 +23,26 @@ try {
         sendResponse(['status' => 'ok', 'data' => $categories]);
     }
     elseif ($method === 'POST') {
+        if (!checkAdminAuth()) {
+            sendResponse(['error' => 'অননুমোদিত অ্যাক্সেস। অনুগ্রহ করে অ্যাডমিন হিসেবে লগইন করুন।'], 401);
+        }
+
         $input = json_decode(file_get_contents('php://input'), true);
+
+        // Check for batch reorder action via POST
+        if (isset($input['action']) && $input['action'] === 'reorder' && !empty($input['orders']) && is_array($input['orders'])) {
+            $stmt = $db->prepare("UPDATE categories SET display_order = :order WHERE id = :id");
+            foreach ($input['orders'] as $item) {
+                if (isset($item['id']) && isset($item['display_order'])) {
+                    $stmt->execute([
+                        ':order' => (int)$item['display_order'],
+                        ':id' => (int)$item['id']
+                    ]);
+                }
+            }
+            sendResponse(['status' => 'ok', 'message' => 'ক্যাটাগরির ক্রম সফলভাবে আপডেট করা হয়েছে']);
+        }
+
         if (!$input || empty($input['name'])) {
             sendResponse(['error' => 'Category name is required'], 400);
         }
@@ -57,7 +76,26 @@ try {
         ], 201);
     }
     elseif ($method === 'PUT') {
+        if (!checkAdminAuth()) {
+            sendResponse(['error' => 'অননুমোদিত অ্যাক্সেস। অনুগ্রহ করে অ্যাডমিন হিসেবে লগইন করুন।'], 401);
+        }
+
         $input = json_decode(file_get_contents('php://input'), true);
+
+        // Check for batch reorder action via PUT
+        if (isset($input['action']) && $input['action'] === 'reorder' && !empty($input['orders']) && is_array($input['orders'])) {
+            $stmt = $db->prepare("UPDATE categories SET display_order = :order WHERE id = :id");
+            foreach ($input['orders'] as $item) {
+                if (isset($item['id']) && isset($item['display_order'])) {
+                    $stmt->execute([
+                        ':order' => (int)$item['display_order'],
+                        ':id' => (int)$item['id']
+                    ]);
+                }
+            }
+            sendResponse(['status' => 'ok', 'message' => 'ক্যাটাগরির ক্রম সফলভাবে আপডেট করা হয়েছে']);
+        }
+
         $id = isset($_GET['id']) ? (int)$_GET['id'] : (int)($input['id'] ?? 0);
 
         if (!$id) {
@@ -82,6 +120,10 @@ try {
         sendResponse(['status' => 'ok', 'message' => 'Category updated successfully', 'data' => $input]);
     }
     elseif ($method === 'DELETE') {
+        if (!checkAdminAuth()) {
+            sendResponse(['error' => 'অননুমোদিত অ্যাক্সেস। অনুগ্রহ করে অ্যাডমিন হিসেবে লগইন করুন।'], 401);
+        }
+
         $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
         if (!$id) {
             $input = json_decode(file_get_contents('php://input'), true);

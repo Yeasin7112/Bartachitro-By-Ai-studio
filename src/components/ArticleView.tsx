@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Clock, Eye, UserPen, Share2, Copy, Check, Printer, 
-  Home, ChevronRight, Newspaper, ArrowLeft 
+  Home, ChevronRight, Newspaper, ArrowLeft, Play, Video 
 } from 'lucide-react';
 import { NewsArticle } from '../types';
 import { bnNum, bnDate, timeAgoBn } from '../utils/bengaliHelpers';
 import { ArticleComments } from './ArticleComments';
+import { getYouTubeEmbedUrl } from './VideoUploader';
 
 interface ArticleViewProps {
   article: NewsArticle;
@@ -140,6 +141,39 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
               </figcaption>
             )}
           </figure>
+
+          {/* Video Player (if video_url is provided) */}
+          {article.video_url && (
+            <div className="mb-6 rounded-lg overflow-hidden bg-black border border-gray-300 shadow-sm">
+              <div className="bg-gray-900 text-white text-xs px-3.5 py-2 flex items-center justify-between border-b border-gray-800">
+                <div className="flex items-center gap-2 font-bold">
+                  <Play className="w-3.5 h-3.5 text-red-500 fill-red-500" />
+                  <span>সংবাদের সাথে যুক্ত ভিডিও</span>
+                </div>
+                <span className="text-[10px] text-gray-400">বার্তাচিত্র মিডিয়া প্লেয়ার</span>
+              </div>
+              <div className="aspect-video w-full bg-black">
+                {getYouTubeEmbedUrl(article.video_url) ? (
+                  <iframe
+                    src={getYouTubeEmbedUrl(article.video_url)!}
+                    title={article.title}
+                    className="w-full h-full border-0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <video
+                    src={article.video_url}
+                    controls
+                    preload="metadata"
+                    className="w-full h-full object-contain"
+                  >
+                    আপনার ব্রাউজার ভিডিওটি প্লে করতে পারছে না।
+                  </video>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Social Share Strip */}
           <div className="flex flex-wrap items-center gap-2 mb-6 p-2.5 bg-gray-50 rounded border border-gray-200">

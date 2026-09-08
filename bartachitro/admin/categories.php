@@ -36,6 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'অবৈধ সিকিউরিটি টোকেন।';
     } else {
         $name = trim($_POST['name'] ?? '');
+        $nameEn = trim($_POST['name_en'] ?? '');
         $slug = trim($_POST['slug'] ?? '');
         $description = trim($_POST['description'] ?? '');
         $displayOrder = (int)($_POST['display_order'] ?? 0);
@@ -45,16 +46,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($name)) {
             $error = 'ক্যাটাগরির নাম আবশ্যক।';
         } else {
+            if (empty($nameEn)) {
+                $nameEn = $name;
+            }
             if (empty($slug)) {
                 $slug = generateSlug($name);
             }
 
             if ($editId > 0) {
                 // Update
-                $stmt = $db->prepare("UPDATE categories SET name = :name, slug = :slug, description = :desc, display_order = :order, status = :status WHERE id = :id");
+                $stmt = $db->prepare("UPDATE categories SET name = :name, slug = :slug, name_en = :name_en, description = :desc, display_order = :order, status = :status WHERE id = :id");
                 $stmt->execute([
                     ':name' => $name,
                     ':slug' => $slug,
+                    ':name_en' => $nameEn,
                     ':desc' => $description,
                     ':order' => $displayOrder,
                     ':status' => $status,
@@ -64,10 +69,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $editCat = null;
             } else {
                 // Insert
-                $stmt = $db->prepare("INSERT INTO categories (name, slug, description, display_order, status) VALUES (:name, :slug, :desc, :order, :status)");
+                $stmt = $db->prepare("INSERT INTO categories (name, slug, name_en, description, display_order, status) VALUES (:name, :slug, :name_en, :desc, :order, :status)");
                 $stmt->execute([
                     ':name' => $name,
                     ':slug' => $slug,
+                    ':name_en' => $nameEn,
                     ':desc' => $description,
                     ':order' => $displayOrder,
                     ':status' => $status

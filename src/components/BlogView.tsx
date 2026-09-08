@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   BookOpen, Clock, Heart, Eye, Share2, Copy, Check, 
   ArrowLeft, Search, User, ChevronRight, Home, 
-  Sparkles, MessageSquareQuote, Bookmark
+  Sparkles, MessageSquareQuote, Bookmark, Play, Video
 } from 'lucide-react';
 import { BlogPost } from '../types';
 import { bnNum, bnDate, timeAgoBn } from '../utils/bengaliHelpers';
+import { getYouTubeEmbedUrl } from './VideoUploader';
 
 interface BlogViewProps {
   blogs: BlogPost[];
@@ -199,6 +200,39 @@ export const BlogView: React.FC<BlogViewProps> = ({
                   alt={selectedBlog.title}
                   className="w-full max-h-[420px] object-cover"
                 />
+              </div>
+            )}
+
+            {/* Attached Video Player (if video_url is present) */}
+            {selectedBlog.video_url && (
+              <div className="my-6 rounded-xl overflow-hidden bg-black border border-gray-300 shadow-sm">
+                <div className="bg-gray-900 text-white text-xs px-3.5 py-2 flex items-center justify-between border-b border-gray-800">
+                  <div className="flex items-center gap-2 font-bold">
+                    <Play className="w-3.5 h-3.5 text-red-500 fill-red-500" />
+                    <span>ব্লগের সাথে যুক্ত ভিডিও</span>
+                  </div>
+                  <span className="text-[10px] text-gray-400">বার্তাচিত্র মিডিয়া প্লেয়ার</span>
+                </div>
+                <div className="aspect-video w-full bg-black">
+                  {getYouTubeEmbedUrl(selectedBlog.video_url) ? (
+                    <iframe
+                      src={getYouTubeEmbedUrl(selectedBlog.video_url)!}
+                      title={selectedBlog.title}
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <video
+                      src={selectedBlog.video_url}
+                      controls
+                      preload="metadata"
+                      className="w-full h-full object-contain"
+                    >
+                      আপনার ব্রাউজার ভিডিওটি প্লে করতে পারছে না।
+                    </video>
+                  )}
+                </div>
               </div>
             )}
 

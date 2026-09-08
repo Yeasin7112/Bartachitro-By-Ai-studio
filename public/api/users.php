@@ -5,10 +5,14 @@ $db = getDb();
 $method = $_SERVER['REQUEST_METHOD'];
 
 if (!$db) {
-    sendResponse(['status' => 'ok', 'data' => [], 'source' => 'fallback']);
+    sendResponse(['error' => 'Database connection failed'], 500);
 }
 
 try {
+    if (!checkAdminAuth()) {
+        sendResponse(['error' => 'অননুমোদিত অ্যাক্সেস। অনুগ্রহ করে অ্যাডমিন হিসেবে লগইন করুন।'], 401);
+    }
+
     if ($method === 'GET') {
         $stmt = $db->query("SELECT id, name, username, email, role, avatar, status, created_at FROM users ORDER BY id ASC");
         $users = $stmt->fetchAll();

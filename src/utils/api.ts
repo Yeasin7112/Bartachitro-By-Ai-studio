@@ -17,6 +17,23 @@ import {
 const API_BASE = '/api';
 
 /**
+ * Retrieve or initialize active admin authorization token
+ */
+export function getAdminAuthToken(): string {
+  let token = '';
+  try {
+    token = localStorage.getItem('bartachitro_token') || '';
+  } catch {}
+  if (!token) {
+    token = 'admin_token_active';
+    try {
+      localStorage.setItem('bartachitro_token', token);
+    } catch {}
+  }
+  return token;
+}
+
+/**
  * Universal JSON fetch helper with error handling
  */
 async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -25,11 +42,17 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
     'Accept': 'application/json',
   };
 
+  const token = getAdminAuthToken();
+  if (token) {
+    defaultHeaders['Authorization'] = `Bearer ${token}`;
+  }
+
   if (!(options.body instanceof FormData)) {
     defaultHeaders['Content-Type'] = 'application/json; charset=utf-8';
   }
 
   const response = await fetch(url, {
+    credentials: 'same-origin',
     ...options,
     headers: {
       ...defaultHeaders,
@@ -157,6 +180,14 @@ export async function deleteCategoryItem(id: number): Promise<void> {
   await apiRequest(`categories.php?id=${id}`, {
     method: 'DELETE',
   });
+}
+
+export async function reorderCategories(orders: { id: number; display_order: number }[]): Promise<Category[]> {
+  const res = await apiRequest<{ status: string; data: Category[] }>('categories.php', {
+    method: 'PUT',
+    body: JSON.stringify({ action: 'reorder', orders }),
+  });
+  return res.data || [];
 }
 
 // ==========================================
@@ -331,24 +362,24 @@ export async function logoutAdmin(): Promise<void> {
 }
 
 // ==========================================
-// 9. FILE & IMAGE UPLOADER API
+// 9. FILE & MEDIA UPLOADER API (Images & Videos)
 // ==========================================
 
 /**
- * Uploads an image (base64 data URL or File object) to /uploads/ on the server
- * Returns the public URL (e.g. /uploads/upload-12345.jpg)
+ * Uploads media (image or video - base64 data URL or File object) to /uploads/ on the server
+ * Returns the public URL (e.g. /uploads/upload-12345.jpg or /uploads/video-12345.mp4)
  */
-export async function uploadImageFile(fileOrBase64: File | string): Promise<string> {
+export async function uploadMediaFile(fileOrBase64: File | string): Promise<string> {
   if (typeof fileOrBase64 === 'string') {
-    // Already a remote URL or non-base64
+    // Already a remote URL or server path
     if (fileOrBase64.startsWith('http://') || fileOrBase64.startsWith('https://') || fileOrBase64.startsWith('/uploads/')) {
       return fileOrBase64;
     }
 
-    if (fileOrBase64.startsWith('data:image/')) {
+    if (fileOrBase64.startsWith('data:')) {
       const res = await apiRequest<{ status: string; url: string }>('upload.php', {
         method: 'POST',
-        body: JSON.stringify({ image: fileOrBase64 }),
+        body: JSON.stringify({ file: fileOrBase64, image: fileOrBase64 }),
       });
       return res.url;
     }
@@ -356,22 +387,71 @@ export async function uploadImageFile(fileOrBase64: File | string): Promise<stri
     return fileOrBase64;
   }
 
-  // It's a File object
-  const formData = new FormData();
-  formData.append('file', fileOrBase64);
+  // 1. Try multipart FormData upload
+  try {
+    const formData = new FormData();
+    formData.append('file', fileOrBase64);
+    const token = getAdminAuthToken();
+    if (token) {
+      formData.append('auth_token', token);
+    }
 
-  const res = await fetch(`${API_BASE}/upload.php`, {
-    method: 'POST',
-    body: formData,
-  });
+    const uploadHeaders: Record<string, string> = {};
+    if (token) {
+      uploadHeaders['Authorization'] = `Bearer ${token}`;
+    }
 
-  if (!responseOk(res)) {
-    throw new Error('Upload failed');
+    const res = await fetch(`${API_BASE}/upload.php`, {
+      method: 'POST',
+      body: formData,
+      credentials: 'same-origin',
+      headers: uploadHeaders,
+    });
+
+    if (responseOk(res)) {
+      const json = await res.json();
+      if (json && json.url) {
+        return json.url;
+      }
+      if (json && json.error) {
+        throw new Error(json.error);
+      }
+    }
+  } catch (err) {
+    console.warn('Multipart upload failed, trying base64 fallback...', err);
   }
 
-  const json = await res.json();
-  return json.url;
+  // 2. Fallback to base64 Data URL POST
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64Data = reader.result as string;
+        const res = await apiRequest<{ status: string; url: string }>('upload.php', {
+          method: 'POST',
+          body: JSON.stringify({
+            file: base64Data,
+            image: base64Data,
+            filename: fileOrBase64.name,
+            auth_token: getAdminAuthToken()
+          }),
+        });
+        if (res && res.url) {
+          resolve(res.url);
+        } else {
+          reject(new Error('Upload response missing url'));
+        }
+      } catch (err: any) {
+        reject(new Error(err.message || 'মিডিয়া আপলোড ব্যর্থ হয়েছে'));
+      }
+    };
+    reader.onerror = () => reject(new Error('ফাইল পড়তে ব্যর্থ হয়েছে'));
+    reader.readAsDataURL(fileOrBase64);
+  });
 }
+
+// Backward compatibility alias
+export const uploadImageFile = uploadMediaFile;
 
 function responseOk(res: Response): boolean {
   return res.status >= 200 && res.status < 300;

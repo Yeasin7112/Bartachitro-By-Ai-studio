@@ -63,6 +63,10 @@ try {
         sendResponse(['status' => 'ok', 'data' => $blogs]);
     }
     elseif ($method === 'POST') {
+        if (!checkAdminAuth()) {
+            sendResponse(['error' => 'অননুমোদিত অ্যাক্সেস। অনুগ্রহ করে অ্যাডমিন হিসেবে লগইন করুন।'], 401);
+        }
+
         $input = json_decode(file_get_contents('php://input'), true);
         if (!$input || empty($input['title'])) {
             sendResponse(['error' => 'Title is required'], 400);
@@ -72,9 +76,9 @@ try {
         $tags = isset($input['tags']) && is_array($input['tags']) ? implode(',', $input['tags']) : ($input['tags'] ?? '');
 
         $stmt = $db->prepare("INSERT INTO blogs 
-            (title, slug, summary, content, author_name, author_role, author_avatar, cover_image, category_tag, reading_time_min, views, likes, is_featured, status, tags, seo_title, seo_description, seo_keywords, published_at, created_at) 
+            (title, slug, summary, content, author_name, author_role, author_avatar, cover_image, video_url, category_tag, reading_time_min, views, likes, is_featured, status, tags, seo_title, seo_description, seo_keywords, published_at, created_at) 
             VALUES 
-            (:title, :slug, :summary, :content, :author_name, :author_role, :author_avatar, :cover_image, :category_tag, :reading_time_min, :views, :likes, :is_featured, :status, :tags, :seo_title, :seo_description, :seo_keywords, :published_at, NOW())");
+            (:title, :slug, :summary, :content, :author_name, :author_role, :author_avatar, :cover_image, :video_url, :category_tag, :reading_time_min, :views, :likes, :is_featured, :status, :tags, :seo_title, :seo_description, :seo_keywords, :published_at, NOW())");
 
         $stmt->execute([
             ':title' => $input['title'],
@@ -85,6 +89,7 @@ try {
             ':author_role' => $input['author_role'] ?? 'কলামিস্ট ও বিশ্লেষক',
             ':author_avatar' => $input['author_avatar'] ?? '',
             ':cover_image' => $input['cover_image'] ?? '',
+            ':video_url' => $input['video_url'] ?? '',
             ':category_tag' => $input['category_tag'] ?? 'মতামত',
             ':reading_time_min' => (int)($input['reading_time_min'] ?? 4),
             ':views' => (int)($input['views'] ?? 0),
@@ -114,18 +119,22 @@ try {
             sendResponse(['error' => 'Blog ID is required'], 400);
         }
 
-        // Special: Like blog
+        // Special: Like blog (public)
         if (isset($input['action']) && $input['action'] === 'like') {
             $stmt = $db->prepare("UPDATE blogs SET likes = likes + 1 WHERE id = :id");
             $stmt->execute([':id' => $id]);
             sendResponse(['status' => 'ok', 'message' => 'Blog liked']);
         }
 
-        // Special: Increment views
+        // Special: Increment views (public)
         if (isset($input['action']) && $input['action'] === 'view') {
             $stmt = $db->prepare("UPDATE blogs SET views = views + 1 WHERE id = :id");
             $stmt->execute([':id' => $id]);
             sendResponse(['status' => 'ok', 'message' => 'Blog view counted']);
+        }
+
+        if (!checkAdminAuth()) {
+            sendResponse(['error' => 'অননুমোদিত অ্যাক্সেস। অনুগ্রহ করে অ্যাডমিন হিসেবে লগইন করুন।'], 401);
         }
 
         $tags = isset($input['tags']) && is_array($input['tags']) ? implode(',', $input['tags']) : ($input['tags'] ?? '');
@@ -139,6 +148,7 @@ try {
             author_role = :author_role, 
             author_avatar = :author_avatar, 
             cover_image = :cover_image, 
+            video_url = :video_url, 
             category_tag = :category_tag, 
             reading_time_min = :reading_time_min, 
             is_featured = :is_featured, 
@@ -158,6 +168,7 @@ try {
             ':author_role' => $input['author_role'] ?? 'কলামিস্ট ও বিশ্লেষক',
             ':author_avatar' => $input['author_avatar'] ?? '',
             ':cover_image' => $input['cover_image'] ?? '',
+            ':video_url' => $input['video_url'] ?? '',
             ':category_tag' => $input['category_tag'] ?? 'মতামত',
             ':reading_time_min' => (int)($input['reading_time_min'] ?? 4),
             ':is_featured' => !empty($input['is_featured']) ? 1 : 0,
@@ -172,6 +183,9 @@ try {
         sendResponse(['status' => 'ok', 'message' => 'Blog updated successfully', 'data' => $input]);
     }
     elseif ($method === 'DELETE') {
+        if (!checkAdminAuth()) {
+            sendResponse(['error' => 'অননুমোদিত অ্যাক্সেস। অনুগ্রহ করে অ্যাডমিন হিসেবে লগইন করুন।'], 401);
+        }
         $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
         if (!$id) {
             $input = json_decode(file_get_contents('php://input'), true);
