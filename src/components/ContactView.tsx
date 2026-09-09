@@ -5,7 +5,7 @@ import { SiteSettings, ContactMessage } from '../types';
 interface ContactViewProps {
   settings: SiteSettings;
   onNavigateHome: () => void;
-  onSubmitMessage: (msg: Omit<ContactMessage, 'id' | 'is_read' | 'created_at'>) => void;
+  onSubmitMessage: (msg: Omit<ContactMessage, 'id' | 'is_read' | 'created_at'>) => Promise<void> | void;
 }
 
 export const ContactView: React.FC<ContactViewProps> = ({
@@ -21,14 +21,24 @@ export const ContactView: React.FC<ContactViewProps> = ({
     message: ''
   });
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.email || !formData.subject || !formData.message) return;
 
-    onSubmitMessage(formData);
-    setSubmitted(true);
-    setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+    setIsSubmitting(true);
+    setErrorMessage('');
+    try {
+      await onSubmitMessage(formData);
+      setSubmitted(true);
+      setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+    } catch (err: any) {
+      setErrorMessage(err.message || 'বার্তা পাঠাতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -96,6 +106,12 @@ export const ContactView: React.FC<ContactViewProps> = ({
             </div>
           )}
 
+          {errorMessage && (
+            <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded mb-6 flex items-center gap-2 text-sm">
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -155,9 +171,12 @@ export const ContactView: React.FC<ContactViewProps> = ({
 
             <button 
               type="submit"
-              className="bg-red-700 hover:bg-red-800 text-white font-bold px-6 py-2.5 rounded text-sm flex items-center gap-2 transition-colors cursor-pointer"
+              disabled={isSubmitting}
+              className={`bg-red-700 hover:bg-red-800 text-white font-bold px-6 py-2.5 rounded text-sm flex items-center gap-2 transition-colors cursor-pointer ${
+                isSubmitting ? 'opacity-60 cursor-not-allowed' : ''
+              }`}
             >
-              <Send className="w-4 h-4" /> বার্তা পাঠান
+              <Send className="w-4 h-4" /> {isSubmitting ? 'পাঠানো হচ্ছে...' : 'বার্তা পাঠান'}
             </button>
           </form>
         </div>

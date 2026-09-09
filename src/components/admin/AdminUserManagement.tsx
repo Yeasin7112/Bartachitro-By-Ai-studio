@@ -10,9 +10,9 @@ import { bnNum } from '../../utils/bengaliHelpers';
 interface AdminUserManagementProps {
   users: AdminUser[];
   currentUser: AdminUser;
-  onAddUser: (user: AdminUser) => void;
-  onUpdateUser: (user: AdminUser) => void;
-  onDeleteUser: (id: number) => void;
+  onAddUser: (user: AdminUser) => Promise<void> | void;
+  onUpdateUser: (user: AdminUser) => Promise<void> | void;
+  onDeleteUser: (id: number) => Promise<void> | void;
   onChangeActiveUser: (user: AdminUser) => void;
 }
 
@@ -64,7 +64,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
     }
   };
 
-  const handleCreateUser = (e: React.FormEvent) => {
+  const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
     if (!name.trim() || !username.trim() || !email.trim()) {
@@ -91,25 +91,34 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
       last_login: 'নতুন নিবন্ধিত'
     };
 
-    onAddUser(newUser);
-    setFeedback(`"${newUser.name}" কে সফলভাবে ${roleMeta[newUser.role].label} হিসেবে যুক্ত করা হয়েছে!`);
-    setShowAddModal(false);
-    setName('');
-    setUsername('');
-    setEmail('');
-    setPhone('');
-    setFormError('');
-    setTimeout(() => setFeedback(''), 3000);
+    try {
+      await onAddUser(newUser);
+      setFeedback(`"${newUser.name}" কে সফলভাবে ${roleMeta[newUser.role].label} হিসেবে যুক্ত করা হয়েছে!`);
+      setShowAddModal(false);
+      setName('');
+      setUsername('');
+      setEmail('');
+      setPhone('');
+      setFormError('');
+      setTimeout(() => setFeedback(''), 3000);
+    } catch (err: any) {
+      setFormError(err.message || 'অ্যাডমিন ইউজার যুক্ত করতে ব্যর্থ হয়েছে।');
+    }
   };
 
-  const handleSaveEdit = (e: React.FormEvent) => {
+  const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUser) return;
 
-    onUpdateUser(editingUser);
-    setFeedback(`"${editingUser.name}" এর তথ্য ও রোল সফলভাবে আপডেট করা হয়েছে!`);
-    setEditingUser(null);
-    setTimeout(() => setFeedback(''), 3000);
+    try {
+      await onUpdateUser(editingUser);
+      setFeedback(`"${editingUser.name}" এর তথ্য ও রোল সফলভাবে আপডেট করা হয়েছে!`);
+      setEditingUser(null);
+      setTimeout(() => setFeedback(''), 3000);
+    } catch (err: any) {
+      setFeedback(err.message || 'ইউজার আপডেট করতে ব্যর্থ হয়েছে।');
+      setTimeout(() => setFeedback(''), 4000);
+    }
   };
 
   return (
@@ -298,10 +307,16 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                           </button>
                           {u.role !== 'super_admin' && (
                             <button
-                              onClick={() => {
-                                onDeleteUser(u.id);
-                                setFeedback(`"${u.name}" কে অ্যাডমিন তালিকা থেকে সফলভাবে সরানো হয়েছে।`);
-                                setTimeout(() => setFeedback(''), 3000);
+                              onClick={async () => {
+                                if (!window.confirm(`আপনি কি "${u.name}" কে অ্যাডমিন তালিকা থেকে মুছে ফেলতে চান?`)) return;
+                                try {
+                                  await onDeleteUser(u.id);
+                                  setFeedback(`"${u.name}" কে অ্যাডমিন তালিকা থেকে সফলভাবে সরানো হয়েছে।`);
+                                  setTimeout(() => setFeedback(''), 3000);
+                                } catch (err: any) {
+                                  setFeedback(err.message || 'ইউজার মুছতে ব্যর্থ হয়েছে।');
+                                  setTimeout(() => setFeedback(''), 4000);
+                                }
                               }}
                               className="bg-red-900/60 hover:bg-red-800 text-red-200 p-1.5 rounded-lg text-xs transition-colors cursor-pointer"
                               title="ব্যবহারকারী মুছে ফেলুন"

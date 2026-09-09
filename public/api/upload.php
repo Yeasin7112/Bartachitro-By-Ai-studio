@@ -7,6 +7,29 @@ if (!file_exists($uploadDir)) {
     @mkdir($uploadDir, 0755, true);
 }
 
+// Ensure .htaccess prevents any script execution in uploads directory
+$htaccessFile = $uploadDir . '/.htaccess';
+if (!file_exists($htaccessFile)) {
+    $htaccessContent = <<<HTACCESS
+# Block execution of any server scripts in uploads directory
+<FilesMatch "\.(php|phtml|php3|php4|php5|php7|php8|phps|cgi|pl|py|sh|bash|exe|asp|aspx|jsp|phar)$">
+    Require all denied
+</FilesMatch>
+
+RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .cgi .pl .py .sh
+RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .cgi .pl .py .sh
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php8.c>
+    php_flag engine off
+</IfModule>
+
+Options -Indexes -ExecCGI
+HTACCESS;
+    @file_put_contents($htaccessFile, $htaccessContent);
+}
+
 $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method !== 'POST') {
@@ -17,6 +40,22 @@ if (!checkAdminAuth()) {
     sendResponse(['error' => 'অননুমোদিত অ্যাক্সেস। ফাইল আপলোড করতে অনুগ্রহ করে অ্যাডমিন হিসেবে লগইন করুন।'], 401);
 }
 
+$allowedMimes = [
+    'image/jpeg' => 'jpg',
+    'image/pjpeg' => 'jpg',
+    'image/png' => 'png',
+    'image/webp' => 'webp',
+    'image/gif' => 'gif',
+    'image/svg+xml' => 'svg',
+    'image/x-icon' => 'ico',
+    'image/vnd.microsoft.icon' => 'ico',
+    'application/pdf' => 'pdf',
+    'video/mp4' => 'mp4',
+    'video/webm' => 'webm',
+    'video/ogg' => 'ogg',
+    'video/quicktime' => 'mov'
+];
+
 try {
     // 1. Check if multipart file was uploaded
     $uploadedFile = $_FILES['file'] ?? $_FILES['image'] ?? $_FILES['video'] ?? null;
@@ -26,21 +65,35 @@ try {
             sendResponse(['error' => 'File upload error code: ' . $uploadedFile['error']], 400);
         }
 
-        // Limit size to 50MB for videos, 15MB for images
-        if ($uploadedFile['size'] > 50 * 1024 * 1024) {
-            sendResponse(['error' => 'File size exceeds 50MB limit'], 400);
+        // Validate real MIME type via finfo
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $detectedMime = finfo_file($finfo, $uploadedFile['tmp_name']);
+        finfo_close($finfo);
+
+        if (!$detectedMime || !isset($allowedMimes[$detectedMime])) {
+            sendResponse(['error' => 'নিরাপত্তাজনিত কারণে এই ধরণের ফাইল আপলোড নিষিদ্ধ। শুধু ছবি (JPG, PNG, WebP, SVG, GIF) বা ভিডিও (MP4, WebM) অনুমোদিত।'], 400);
         }
 
-        $origName = basename($uploadedFile['name']);
-        $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
-        $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'svg', 'gif', 'ico', 'pdf', 'mp4', 'webm', 'ogg', 'mov', 'mkv', 'avi'];
+        $cleanExt = $allowedMimes[$detectedMime];
+        $isVideo = in_array($cleanExt, ['mp4', 'webm', 'ogg', 'mov']);
 
-        if (!in_array($ext, $allowedExtensions)) {
-            sendResponse(['error' => 'Invalid file type. Allowed: images (jpg, png, webp, svg, gif, ico) and videos (mp4, webm, mov, ogg)'], 400);
+        // Size limits: 50MB for video, 15MB for image/pdf
+        $maxSize = $isVideo ? (50 * 1024 * 1024) : (15 * 1024 * 1024);
+        if ($uploadedFile['size'] > $maxSize) {
+            sendResponse(['error' => 'ফাইল সাইজ অনুমোদিত সীমার বেশি। ছবি সর্বোচ্চ ১৫ মেগাবাইট এবং ভিডিও সর্বোচ্চ ৫০ মেগাবাইট।'], 400);
         }
 
-        $prefix = in_array($ext, ['mp4', 'webm', 'ogg', 'mov', 'mkv', 'avi']) ? 'video-' : 'upload-';
-        $filename = $prefix . time() . '-' . substr(md5(uniqid(rand(), true)), 0, 8) . '.' . $ext;
+        // If SVG, check for embedded scripts or dangerous markup
+        if ($cleanExt === 'svg') {
+            $svgContent = file_get_contents($uploadedFile['tmp_name']);
+            if (preg_match('/<script|javascript:|onload=|onerror=|onclick=|<iframe|<embed|<object/i', $svgContent)) {
+                sendResponse(['error' => 'নিরাপত্তাজনিত কারণে বিপজ্জনক স্ক্রিপ্টযুক্ত SVG ফাইল গ্রহণ করা হয়নি।'], 400);
+            }
+        }
+
+        $prefix = $isVideo ? 'video-' : 'upload-';
+        $randomHex = bin2hex(random_bytes(8));
+        $filename = $prefix . time() . '-' . $randomHex . '.' . $cleanExt;
         $targetPath = $uploadDir . '/' . $filename;
 
         if (move_uploaded_file($uploadedFile['tmp_name'], $targetPath)) {
@@ -66,27 +119,43 @@ try {
 
     if ($data && !empty($base64Input)) {
         if (preg_match('/^data:([^;]+);base64,(.+)$/s', $base64Input, $matches)) {
-            $mime = strtolower(trim($matches[1]));
+            $headerMime = strtolower(trim($matches[1]));
             $base64Data = $matches[2];
-            
-            $ext = 'jpg';
-            $prefix = 'upload-';
-            if (strpos($mime, 'png') !== false) $ext = 'png';
-            elseif (strpos($mime, 'webp') !== false) $ext = 'webp';
-            elseif (strpos($mime, 'svg') !== false) $ext = 'svg';
-            elseif (strpos($mime, 'gif') !== false) $ext = 'gif';
-            elseif (strpos($mime, 'ico') !== false) $ext = 'ico';
-            elseif (strpos($mime, 'mp4') !== false) { $ext = 'mp4'; $prefix = 'video-'; }
-            elseif (strpos($mime, 'webm') !== false) { $ext = 'webm'; $prefix = 'video-'; }
-            elseif (strpos($mime, 'ogg') !== false) { $ext = 'ogg'; $prefix = 'video-'; }
-            elseif (strpos($mime, 'quicktime') !== false || strpos($mime, 'mov') !== false) { $ext = 'mov'; $prefix = 'video-'; }
 
-            $decoded = base64_decode($base64Data);
+            if (!isset($allowedMimes[$headerMime])) {
+                sendResponse(['error' => 'অননুমোদিত মিডিয়া ফরম্যাট।'], 400);
+            }
+
+            $decoded = base64_decode($base64Data, true);
             if ($decoded === false) {
                 sendResponse(['error' => 'Base64 decode failed'], 400);
             }
 
-            $filename = $prefix . time() . '-' . substr(md5(uniqid(rand(), true)), 0, 8) . '.' . $ext;
+            $cleanExt = $allowedMimes[$headerMime];
+            $isVideo = in_array($cleanExt, ['mp4', 'webm', 'ogg', 'mov']);
+            $maxSize = $isVideo ? (50 * 1024 * 1024) : (15 * 1024 * 1024);
+
+            if (strlen($decoded) > $maxSize) {
+                sendResponse(['error' => 'ফাইলের আকার অনুমোদিত সীমার বাইরে।'], 400);
+            }
+
+            // Verify MIME with finfo on decoded buffer
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $verifiedMime = finfo_buffer($finfo, $decoded);
+            finfo_close($finfo);
+
+            // Allow match if verified MIME is allowed or matches svg/xml
+            if ($verifiedMime && !isset($allowedMimes[$verifiedMime]) && strpos($verifiedMime, 'text/plain') === false && strpos($verifiedMime, 'text/xml') === false) {
+                sendResponse(['error' => 'ফাইল কনটেন্ট যাচাইকরণে ত্রুটি হয়েছে।'], 400);
+            }
+
+            if ($cleanExt === 'svg' && preg_match('/<script|javascript:|onload=|onerror=|onclick=|<iframe|<embed|<object/i', $decoded)) {
+                sendResponse(['error' => 'বিপজ্জনক স্ক্রিপ্টযুক্ত SVG ফাইল গ্রহণ করা হয়নি।'], 400);
+            }
+
+            $prefix = $isVideo ? 'video-' : 'upload-';
+            $randomHex = bin2hex(random_bytes(8));
+            $filename = $prefix . time() . '-' . $randomHex . '.' . $cleanExt;
             $targetPath = $uploadDir . '/' . $filename;
 
             if (file_put_contents($targetPath, $decoded)) {

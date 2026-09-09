@@ -5,7 +5,7 @@ $db = getDb();
 $method = $_SERVER['REQUEST_METHOD'];
 
 if (!$db) {
-    sendResponse(['status' => 'ok', 'data' => [], 'source' => 'fallback']);
+    sendResponse(['error' => 'Database connection failed'], 500);
 }
 
 try {

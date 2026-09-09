@@ -8,6 +8,13 @@ header('Content-Type: application/json; charset=utf-8');
 
 // Start secure session with cookie security
 if (session_status() === PHP_SESSION_NONE) {
+    $headers = function_exists('getallheaders') ? getallheaders() : [];
+    $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? ($_SERVER['HTTP_AUTHORIZATION'] ?? ($_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? ''));
+
+    if (!empty($authHeader) && preg_match('/Bearer\s+([a-zA-Z0-9,-]{16,128})/i', $authHeader, $matches)) {
+        @session_id(trim($matches[1]));
+    }
+
     @session_start([
         'cookie_lifetime' => 86400 * 7,
         'cookie_httponly' => true,
@@ -70,34 +77,22 @@ function sendResponse($data, $status = 200) {
  */
 function checkAdminAuth() {
     if (session_status() === PHP_SESSION_NONE) {
-        @session_start();
-    }
-    if (!empty($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true) {
-        return true;
-    }
+        $headers = function_exists('getallheaders') ? getallheaders() : [];
+        $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? ($_SERVER['HTTP_AUTHORIZATION'] ?? ($_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? ''));
 
-    $headers = function_exists('getallheaders') ? getallheaders() : [];
-    $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? ($_SERVER['HTTP_AUTHORIZATION'] ?? ($_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? ''));
-
-    $token = '';
-    if (!empty($authHeader) && preg_match('/Bearer\s+(\S+)/i', $authHeader, $matches)) {
-        $token = trim($matches[1]);
-    } elseif (!empty($_POST['auth_token'])) {
-        $token = trim($_POST['auth_token']);
-    } elseif (!empty($_GET['auth_token'])) {
-        $token = trim($_GET['auth_token']);
-    } elseif (!empty($_COOKIE['bartachitro_token'])) {
-        $token = trim($_COOKIE['bartachitro_token']);
-    }
-
-    if (!empty($token)) {
-        if ($token === 'admin_token_active' || $token === session_id() || !empty($_SESSION['admin_id']) || strlen($token) >= 10) {
-            return true;
+        if (!empty($authHeader) && preg_match('/Bearer\s+([a-zA-Z0-9,-]{16,128})/i', $authHeader, $matches)) {
+            $sessId = trim($matches[1]);
+            session_id($sessId);
         }
+
+        @session_start([
+            'cookie_lifetime' => 86400 * 7,
+            'cookie_httponly' => true,
+            'cookie_samesite' => 'Lax'
+        ]);
     }
 
-    $remote = $_SERVER['REMOTE_ADDR'] ?? '';
-    if (in_array($remote, ['127.0.0.1', '::1', 'localhost'])) {
+    if (!empty($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true && !empty($_SESSION['admin_id'])) {
         return true;
     }
 

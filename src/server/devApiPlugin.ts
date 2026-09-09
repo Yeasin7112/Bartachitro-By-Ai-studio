@@ -265,6 +265,18 @@ export function devApiPlugin(): Plugin {
           }
           if (method === 'POST') {
             const body = await readJsonBody();
+            if (body.action === 'reorder' && Array.isArray(body.orders)) {
+              const orderMap = new Map<number, number>(body.orders.map((o: any) => [Number(o.id), Number(o.display_order)]));
+              categories = categories.map(c => {
+                if (orderMap.has(c.id)) {
+                  return { ...c, display_order: orderMap.get(c.id)! };
+                }
+                return c;
+              });
+              categories.sort((a, b) => a.display_order - b.display_order);
+              persist('categories.json', categories);
+              return sendJson({ status: 'ok', message: 'Categories reordered successfully', data: categories });
+            }
             const newId = categories.length > 0 ? Math.max(...categories.map(c => c.id)) + 1 : 1;
             const newCat = {
               id: newId,
@@ -548,8 +560,13 @@ export function devApiPlugin(): Plugin {
             }
           }
           if (action === 'me' || (method === 'GET' && !urlObj.searchParams.get('action'))) {
-            const firstAdmin = users.find(u => u.role === 'super_admin') || users[0];
-            return sendJson({ status: 'ok', authenticated: true, user: firstAdmin });
+            const authHeader = req.headers['authorization'] || '';
+            const hasAuthToken = authHeader.startsWith('Bearer ') && authHeader.length > 15;
+            if (hasAuthToken) {
+              const firstAdmin = users.find(u => u.role === 'super_admin') || users[0];
+              return sendJson({ status: 'ok', authenticated: true, user: firstAdmin });
+            }
+            return sendJson({ status: 'guest', authenticated: false }, 200);
           }
           if (action === 'logout') {
             return sendJson({ status: 'ok', message: 'লগআউট সফল হয়েছে' });

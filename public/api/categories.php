@@ -40,7 +40,14 @@ try {
                     ]);
                 }
             }
-            sendResponse(['status' => 'ok', 'message' => 'ক্যাটাগরির ক্রম সফলভাবে আপডেট করা হয়েছে']);
+            $stmtFetch = $db->query("SELECT * FROM categories WHERE status = 'active' ORDER BY display_order ASC, id ASC");
+            $updatedCats = $stmtFetch->fetchAll();
+            $updatedCats = array_map(function($cat) {
+                $cat['id'] = (int)$cat['id'];
+                $cat['display_order'] = (int)$cat['display_order'];
+                return $cat;
+            }, $updatedCats);
+            sendResponse(['status' => 'ok', 'message' => 'ক্যাটাগরির ক্রম সফলভাবে আপডেট করা হয়েছে', 'data' => $updatedCats]);
         }
 
         if (!$input || empty($input['name'])) {
@@ -93,7 +100,14 @@ try {
                     ]);
                 }
             }
-            sendResponse(['status' => 'ok', 'message' => 'ক্যাটাগরির ক্রম সফলভাবে আপডেট করা হয়েছে']);
+            $stmtFetch = $db->query("SELECT * FROM categories WHERE status = 'active' ORDER BY display_order ASC, id ASC");
+            $updatedCats = $stmtFetch->fetchAll();
+            $updatedCats = array_map(function($cat) {
+                $cat['id'] = (int)$cat['id'];
+                $cat['display_order'] = (int)$cat['display_order'];
+                return $cat;
+            }, $updatedCats);
+            sendResponse(['status' => 'ok', 'message' => 'ক্যাটাগরির ক্রম সফলভাবে আপডেট করা হয়েছে', 'data' => $updatedCats]);
         }
 
         $id = isset($_GET['id']) ? (int)$_GET['id'] : (int)($input['id'] ?? 0);

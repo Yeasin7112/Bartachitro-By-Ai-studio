@@ -21,17 +21,19 @@ import { BlogView } from './components/BlogView';
 import { HomeBlogSection } from './components/HomeBlogSection';
 import { Footer } from './components/Footer';
 import { AdminPanel } from './components/AdminPanel';
+import { AdminLogin } from './components/AdminLogin';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Newspaper } from 'lucide-react';
 import { 
   fetchSiteSettings, saveSiteSettings,
   fetchNewsList, createNewsArticle, updateNewsArticle, deleteNewsArticle, recordNewsView,
-  fetchCategoriesList, createCategoryItem, updateCategoryItem, deleteCategoryItem,
+  fetchCategoriesList, createCategoryItem, updateCategoryItem, deleteCategoryItem, reorderCategories,
   fetchAdvertisements,
   fetchEpaperData,
   fetchContactMessages, submitContactMessage, markMessageAsRead, deleteContactMessage,
   fetchBlogPosts, createBlogPost, updateBlogPost, deleteBlogPost, likeBlogPost,
-  fetchAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser
+  fetchAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser,
+  checkAdminAuth, logoutAdmin
 } from './utils/api';
 
 export default function App() {
@@ -43,6 +45,7 @@ export default function App() {
   const [messages, setMessages] = useState<ContactMessage[]>(INITIAL_MESSAGES);
   const [blogs, setBlogs] = useState<BlogPost[]>(INITIAL_BLOGS);
   const [users, setUsers] = useState<AdminUser[]>(INITIAL_USERS);
+  const [currentAdminUser, setCurrentAdminUser] = useState<AdminUser | null>(null);
 
   // View routing state
   const [currentView, setCurrentView] = useState<
@@ -56,6 +59,15 @@ export default function App() {
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // Check existing admin session
+  useEffect(() => {
+    checkAdminAuth()
+      .then(user => {
+        if (user) setCurrentAdminUser(user);
+      })
+      .catch(() => {});
+  }, []);
 
   // 1. Initial Data Fetch from PHP API / MySQL
   useEffect(() => {
@@ -91,7 +103,8 @@ export default function App() {
     fetchCategoriesList()
       .then(dbCats => {
         if (isMounted && Array.isArray(dbCats) && dbCats.length > 0) {
-          setCategories(dbCats);
+          const sorted = [...dbCats].sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
+          setCategories(sorted);
         }
       })
       .catch(err => console.warn('Categories API fetch fallback to defaults:', err));
@@ -274,79 +287,59 @@ export default function App() {
     } catch {}
   };
 
-  // CRUD Handlers connected to PHP MySQL Backend
-  const handleAddBlog = async (newBlog: BlogPost) => {
+  const handleAdminLoginSuccess = (user: AdminUser) => {
+    setCurrentAdminUser(user);
+  };
+
+  const handleAdminLogout = async () => {
     try {
-      const saved = await createBlogPost(newBlog);
-      setBlogs(prev => [saved, ...prev]);
+      await logoutAdmin();
     } catch (err) {
-      console.warn('Backend add blog failed, using fallback:', err);
-      setBlogs(prev => [newBlog, ...prev]);
+      console.error('Logout error:', err);
     }
+    setCurrentAdminUser(null);
+    handleNavigateHome();
+  };
+
+  // CRUD Handlers strictly connected to PHP MySQL Backend (No silent fallbacks)
+  const handleAddBlog = async (newBlog: BlogPost) => {
+    const saved = await createBlogPost(newBlog);
+    setBlogs(prev => [saved, ...prev]);
   };
 
   const handleUpdateBlog = async (updated: BlogPost) => {
-    try {
-      const saved = await updateBlogPost(updated);
-      setBlogs(prev => prev.map(b => b.id === saved.id ? saved : b));
-    } catch (err) {
-      console.warn('Backend update blog failed, using fallback:', err);
-      setBlogs(prev => prev.map(b => b.id === updated.id ? updated : b));
-    }
+    const saved = await updateBlogPost(updated);
+    setBlogs(prev => prev.map(b => b.id === saved.id ? saved : b));
   };
 
   const handleDeleteBlog = async (id: number) => {
-    try {
-      await deleteBlogPost(id);
-    } catch {}
+    await deleteBlogPost(id);
     setBlogs(prev => prev.filter(b => b.id !== id));
   };
 
   const handleAddNews = async (newArticle: NewsArticle) => {
-    try {
-      const saved = await createNewsArticle(newArticle);
-      setNewsList(prev => [saved, ...prev]);
-    } catch (err) {
-      console.warn('Backend add news failed, adding locally:', err);
-      setNewsList(prev => [newArticle, ...prev]);
-    }
+    const saved = await createNewsArticle(newArticle);
+    setNewsList(prev => [saved, ...prev]);
   };
 
   const handleUpdateNews = async (updated: NewsArticle) => {
-    try {
-      const saved = await updateNewsArticle(updated);
-      setNewsList(prev => prev.map(n => n.id === saved.id ? saved : n));
-    } catch (err) {
-      console.warn('Backend update news failed, updating locally:', err);
-      setNewsList(prev => prev.map(n => n.id === updated.id ? updated : n));
-    }
+    const saved = await updateNewsArticle(updated);
+    setNewsList(prev => prev.map(n => n.id === saved.id ? saved : n));
   };
 
   const handleDeleteNews = async (id: number) => {
-    try {
-      await deleteNewsArticle(id);
-    } catch {}
+    await deleteNewsArticle(id);
     setNewsList(prev => prev.filter(n => n.id !== id));
   };
 
   const handleAddCategory = async (cat: Category) => {
-    try {
-      const saved = await createCategoryItem(cat);
-      setCategories(prev => [...prev, saved]);
-    } catch (err) {
-      console.warn('Backend add category failed, adding locally:', err);
-      setCategories(prev => [...prev, cat]);
-    }
+    const saved = await createCategoryItem(cat);
+    setCategories(prev => [...prev, saved]);
   };
 
   const handleUpdateCategory = async (updatedCat: Category) => {
-    try {
-      const saved = await updateCategoryItem(updatedCat);
-      setCategories(prev => prev.map(c => c.id === saved.id ? saved : c));
-    } catch (err) {
-      console.warn('Backend update category failed, updating locally:', err);
-      setCategories(prev => prev.map(c => c.id === updatedCat.id ? updatedCat : c));
-    }
+    const saved = await updateCategoryItem(updatedCat);
+    setCategories(prev => prev.map(c => c.id === saved.id ? saved : c));
     setNewsList(prev => prev.map(n => n.category_id === updatedCat.id ? {
       ...n,
       category_name: updatedCat.name,
@@ -355,85 +348,83 @@ export default function App() {
   };
 
   const handleDeleteCategory = async (id: number) => {
-    try {
-      await deleteCategoryItem(id);
-    } catch {}
+    await deleteCategoryItem(id);
     setCategories(prev => prev.filter(c => c.id !== id));
   };
 
-  const handleUpdateSettings = async (newSettings: SiteSettings) => {
-    setSettings(newSettings);
+  const handleReorderCategories = async (newOrderedCategories: Category[]) => {
+    const indexed = newOrderedCategories.map((cat, idx) => ({
+      ...cat,
+      display_order: idx + 1
+    }));
+    setCategories(indexed);
+
+    const orders = indexed.map(cat => ({
+      id: cat.id,
+      display_order: cat.display_order
+    }));
+
     try {
-      localStorage.setItem('bartachitro_settings', JSON.stringify(newSettings));
-    } catch (e) {
-      console.warn('localStorage quota warning:', e);
-    }
-    try {
-      const saved = await saveSiteSettings(newSettings);
-      if (saved) {
-        setSettings(prev => ({ ...prev, ...saved }));
+      const updated = await reorderCategories(orders);
+      if (Array.isArray(updated) && updated.length > 0) {
+        setCategories(updated.sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0)));
       }
     } catch (err) {
-      console.warn('Backend save settings failed:', err);
+      console.error('Category reorder error:', err);
+      throw err;
+    }
+  };
+
+  const handleUpdateSettings = async (newSettings: SiteSettings) => {
+    const saved = await saveSiteSettings(newSettings);
+    if (saved) {
+      setSettings(prev => ({ ...prev, ...saved }));
+    } else {
+      setSettings(newSettings);
     }
   };
 
   const handleSubmitContactMessage = async (msg: Omit<ContactMessage, 'id' | 'is_read' | 'created_at'>) => {
-    try {
-      const saved = await submitContactMessage(msg);
-      setMessages(prev => [saved, ...prev]);
-    } catch (err) {
-      const fallback: ContactMessage = {
-        ...msg,
-        id: Date.now(),
-        is_read: false,
-        created_at: new Date().toISOString()
-      };
-      setMessages(prev => [fallback, ...prev]);
-    }
+    const saved = await submitContactMessage(msg);
+    setMessages(prev => [saved, ...prev]);
   };
 
   const handleMarkMessageRead = async (id: number) => {
-    try {
-      await markMessageAsRead(id);
-    } catch {}
+    await markMessageAsRead(id);
     setMessages(prev => prev.map(m => m.id === id ? { ...m, is_read: true } : m));
   };
 
   const handleDeleteMessage = async (id: number) => {
-    try {
-      await deleteContactMessage(id);
-    } catch {}
+    await deleteContactMessage(id);
     setMessages(prev => prev.filter(m => m.id !== id));
   };
 
   const handleAddUser = async (user: AdminUser) => {
-    try {
-      const saved = await createAdminUser(user);
-      setUsers(prev => [saved, ...prev]);
-    } catch {
-      setUsers(prev => [user, ...prev]);
-    }
+    const saved = await createAdminUser(user);
+    setUsers(prev => [saved, ...prev]);
   };
 
   const handleUpdateUser = async (user: AdminUser) => {
-    try {
-      await updateAdminUser(user);
-      setUsers(prev => prev.map(u => u.id === user.id ? user : u));
-    } catch {
-      setUsers(prev => prev.map(u => u.id === user.id ? user : u));
-    }
+    await updateAdminUser(user);
+    setUsers(prev => prev.map(u => u.id === user.id ? user : u));
   };
 
   const handleDeleteUser = async (id: number) => {
-    try {
-      await deleteAdminUser(id);
-    } catch {}
+    await deleteAdminUser(id);
     setUsers(prev => prev.filter(u => u.id !== id));
   };
 
   // If in Admin Panel view
   if (currentView === 'admin') {
+    if (!currentAdminUser) {
+      return (
+        <AdminLogin
+          onLoginSuccess={handleAdminLoginSuccess}
+          onCancel={handleCloseAdmin}
+        />
+      );
+    }
+
     return (
       <ErrorBoundary title="অ্যাডমিন প্যানেল লোড হতে সমস্যা হয়েছে" onReset={handleCloseAdmin}>
         <AdminPanel
@@ -445,12 +436,15 @@ export default function App() {
           messages={messages}
           blogs={blogs}
           users={users}
+          currentUser={currentAdminUser}
+          onLogout={handleAdminLogout}
           onAddNews={handleAddNews}
           onUpdateNews={handleUpdateNews}
           onDeleteNews={handleDeleteNews}
           onAddCategory={handleAddCategory}
           onUpdateCategory={handleUpdateCategory}
           onDeleteCategory={handleDeleteCategory}
+          onReorderCategories={handleReorderCategories}
           onUpdateSettings={handleUpdateSettings}
           onCloseAdmin={handleCloseAdmin}
           onMarkMessageRead={handleMarkMessageRead}

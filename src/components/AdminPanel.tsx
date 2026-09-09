@@ -4,7 +4,8 @@ import {
   Image, Sliders, Mail, User, LogOut, ExternalLink, 
   Trash2, Edit, Check, AlertCircle, Eye, Newspaper, ArrowLeft,
   Search, X, BookOpen, PenTool, Heart, Clock, Sparkles,
-  Database, ShieldCheck, UserCheck, RefreshCw, Upload, Globe
+  Database, ShieldCheck, UserCheck, RefreshCw, Upload, Globe,
+  GripVertical, ArrowUp, ArrowDown, ListOrdered
 } from 'lucide-react';
 import { 
   NewsArticle, Category, Advertisement, Epaper, 
@@ -29,22 +30,25 @@ interface AdminPanelProps {
   messages: ContactMessage[];
   blogs?: BlogPost[];
   users?: AdminUser[];
-  onAddNews: (news: NewsArticle) => void;
-  onUpdateNews: (news: NewsArticle) => void;
-  onDeleteNews: (id: number) => void;
-  onAddCategory: (cat: Category) => void;
-  onUpdateCategory: (cat: Category) => void;
-  onDeleteCategory: (id: number) => void;
-  onUpdateSettings: (settings: SiteSettings) => void;
+  currentUser?: AdminUser | null;
+  onLogout?: () => void;
+  onAddNews: (news: NewsArticle) => Promise<void> | void;
+  onUpdateNews: (news: NewsArticle) => Promise<void> | void;
+  onDeleteNews: (id: number) => Promise<void> | void;
+  onAddCategory: (cat: Category) => Promise<void> | void;
+  onUpdateCategory: (cat: Category) => Promise<void> | void;
+  onDeleteCategory: (id: number) => Promise<void> | void;
+  onReorderCategories?: (categories: Category[]) => Promise<void> | void;
+  onUpdateSettings: (settings: SiteSettings) => Promise<void> | void;
   onCloseAdmin: () => void;
-  onMarkMessageRead: (id: number) => void;
-  onDeleteMessage: (id: number) => void;
-  onAddBlog?: (blog: BlogPost) => void;
-  onUpdateBlog?: (blog: BlogPost) => void;
-  onDeleteBlog?: (id: number) => void;
-  onAddUser?: (user: AdminUser) => void;
-  onUpdateUser?: (user: AdminUser) => void;
-  onDeleteUser?: (id: number) => void;
+  onMarkMessageRead: (id: number) => Promise<void> | void;
+  onDeleteMessage: (id: number) => Promise<void> | void;
+  onAddBlog?: (blog: BlogPost) => Promise<void> | void;
+  onUpdateBlog?: (blog: BlogPost) => Promise<void> | void;
+  onDeleteBlog?: (id: number) => Promise<void> | void;
+  onAddUser?: (user: AdminUser) => Promise<void> | void;
+  onUpdateUser?: (user: AdminUser) => Promise<void> | void;
+  onDeleteUser?: (id: number) => Promise<void> | void;
   onImportBackup?: (backup: BackupData) => void;
 }
 
@@ -57,12 +61,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   messages,
   blogs = [],
   users = [],
+  currentUser = null,
+  onLogout,
   onAddNews,
   onUpdateNews,
   onDeleteNews,
   onAddCategory,
   onUpdateCategory,
   onDeleteCategory,
+  onReorderCategories,
   onUpdateSettings,
   onCloseAdmin,
   onMarkMessageRead,
@@ -79,9 +86,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     'dashboard' | 'news' | 'add_news' | 'categories' | 'breaking' | 'blogs' | 'add_blog' | 'ads' | 'messages' | 'settings' | 'users'
   >('dashboard');
 
-  // Active Admin Profile User (Default to first or super_admin)
+  // Active Admin Profile User (Default to authenticated user or first)
   const [currentAdminUser, setCurrentAdminUser] = useState<AdminUser>(() => {
-    return users.find(u => u.role === 'super_admin') || users[0] || {
+    return currentUser || users.find(u => u.role === 'super_admin') || users[0] || {
       id: 1,
       name: 'আহমেদ রফিক চৌধুরী',
       username: 'admin',
@@ -94,6 +101,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       last_login: '২০২৬-০৯-০৬ ১২:৩০'
     };
   });
+
+  useEffect(() => {
+    if (currentUser) {
+      setCurrentAdminUser(currentUser);
+    }
+  }, [currentUser]);
 
   // Form states for Add News
   const [newsTitle, setNewsTitle] = useState('');
@@ -110,6 +123,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [newsSeoDescription, setNewsSeoDescription] = useState('');
   const [newsSeoKeywords, setNewsSeoKeywords] = useState('');
   const [feedback, setFeedback] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   // Blog Writing & Management States
   const [blogTitle, setBlogTitle] = useState('');
@@ -187,6 +201,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [editCatSlug, setEditCatSlug] = useState('');
   const [editCatOrder, setEditCatOrder] = useState<number>(1);
 
+  // Category Drag & Drop Order State
+  const [orderedCategories, setOrderedCategories] = useState<Category[]>([]);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [isSavingCategoryOrder, setIsSavingCategoryOrder] = useState<boolean>(false);
+  const [orderSavedSuccess, setOrderSavedSuccess] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (categories && categories.length > 0) {
+      const sorted = [...categories].sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
+      setOrderedCategories(sorted);
+    } else {
+      setOrderedCategories([]);
+    }
+  }, [categories]);
+
   // Settings form state
   const [localSettings, setLocalSettings] = useState<SiteSettings>(settings);
 
@@ -226,7 +256,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setEditNewsSeoKeywords(article.seo_keywords || '');
   };
 
-  const handleSaveEditNews = (e: React.FormEvent) => {
+  const handleSaveEditNews = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingNews || !editNewsTitle.trim() || !editNewsContent.trim()) return;
 
@@ -265,10 +295,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       seo_keywords: editNewsSeoKeywords.trim()
     };
 
-    onUpdateNews(updatedArticle);
-    setFeedback(`"${updatedArticle.title.slice(0, 24)}..." সংবাদটি সফলভাবে আপডেট করা হয়েছে!`);
-    setEditingNews(null);
-    setTimeout(() => setFeedback(''), 3000);
+    try {
+      await onUpdateNews(updatedArticle);
+      setFeedback(`"${updatedArticle.title.slice(0, 24)}..." সংবাদটি সফলভাবে আপডেট করা হয়েছে!`);
+      setErrorMessage('');
+      setEditingNews(null);
+      setTimeout(() => setFeedback(''), 3000);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'সংবাদটি আপডেট করতে ব্যর্থ হয়েছে।');
+    }
   };
 
   const handleCancelEditNews = () => {
@@ -283,7 +318,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setEditCatOrder(cat.display_order || 1);
   };
 
-  const handleSaveEditCategory = (e: React.FormEvent) => {
+  const handleSaveEditCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingCategory || !editCatName.trim() || !editCatSlug.trim()) return;
 
@@ -294,14 +329,156 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       display_order: Number(editCatOrder) || 1
     };
 
-    onUpdateCategory(updatedCat);
-    setFeedback(`"${updatedCat.name}" ক্যাটাগরিটি সফলভাবে হালনাগাদ করা হয়েছে!`);
-    setEditingCategory(null);
-    setTimeout(() => setFeedback(''), 3000);
+    try {
+      await onUpdateCategory(updatedCat);
+      setFeedback(`"${updatedCat.name}" ক্যাটাগরিটি সফলভাবে হালনাগাদ করা হয়েছে!`);
+      setErrorMessage('');
+      setEditingCategory(null);
+      setTimeout(() => setFeedback(''), 3000);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'ক্যাটাগরিটি হালনাগাদ করতে ব্যর্থ হয়েছে।');
+    }
   };
 
   const handleCancelEditCategory = () => {
     setEditingCategory(null);
+  };
+
+  const handleDropCategory = async (targetIndex: number) => {
+    if (draggedIndex === null || draggedIndex === targetIndex) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    const reordered = [...orderedCategories];
+    const [movedItem] = reordered.splice(draggedIndex, 1);
+    reordered.splice(targetIndex, 0, movedItem);
+
+    // Re-index sequentially 1, 2, 3...
+    const updatedWithOrder = reordered.map((cat, idx) => ({
+      ...cat,
+      display_order: idx + 1
+    }));
+
+    setOrderedCategories(updatedWithOrder);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+
+    if (onReorderCategories) {
+      setIsSavingCategoryOrder(true);
+      try {
+        await onReorderCategories(updatedWithOrder);
+        setOrderSavedSuccess(true);
+        setFeedback(`"${movedItem.name}" ক্যাটাগরি স্থানান্তরিত হয়েছে এবং নতুন ক্রম ওয়েবসাইটে সংরক্ষিত হয়েছে!`);
+        setErrorMessage('');
+        setTimeout(() => setOrderSavedSuccess(false), 3000);
+        setTimeout(() => setFeedback(''), 4000);
+      } catch (err: any) {
+        setErrorMessage(err.message || 'ক্যাটাগরি ক্রম সংরক্ষণ করতে ব্যর্থ হয়েছে।');
+      } finally {
+        setIsSavingCategoryOrder(false);
+      }
+    }
+  };
+
+  const handleMoveCategory = async (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= orderedCategories.length) return;
+
+    const reordered = [...orderedCategories];
+    const [movedItem] = reordered.splice(index, 1);
+    reordered.splice(targetIndex, 0, movedItem);
+
+    const updatedWithOrder = reordered.map((cat, idx) => ({
+      ...cat,
+      display_order: idx + 1
+    }));
+
+    setOrderedCategories(updatedWithOrder);
+
+    if (onReorderCategories) {
+      setIsSavingCategoryOrder(true);
+      try {
+        await onReorderCategories(updatedWithOrder);
+        setOrderSavedSuccess(true);
+        setFeedback(`"${movedItem.name}" ক্যাটাগরি ${direction === 'up' ? 'উপরে' : 'নিচে'} স্থানান্তরিত হয়েছে।`);
+        setErrorMessage('');
+        setTimeout(() => setOrderSavedSuccess(false), 3000);
+        setTimeout(() => setFeedback(''), 4000);
+      } catch (err: any) {
+        setErrorMessage(err.message || 'ক্যাটাগরি ক্রম সংরক্ষণ করতে সমস্যা হয়েছে।');
+      } finally {
+        setIsSavingCategoryOrder(false);
+      }
+    }
+  };
+
+  const handleSaveManualCategoryOrder = async () => {
+    if (!onReorderCategories) return;
+    setIsSavingCategoryOrder(true);
+    try {
+      const updatedWithOrder = orderedCategories.map((cat, idx) => ({
+        ...cat,
+        display_order: idx + 1
+      }));
+      await onReorderCategories(updatedWithOrder);
+      setOrderSavedSuccess(true);
+      setFeedback('সকল ক্যাটাগরির বর্তমান ক্রম সফলভাবে ডাটাবেজে ও ওয়েবসাইটে কার্যকর হয়েছে!');
+      setErrorMessage('');
+      setTimeout(() => setOrderSavedSuccess(false), 3000);
+      setTimeout(() => setFeedback(''), 4000);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'ক্যাটাগরি ক্রম সংরক্ষণ করতে সমস্যা হয়েছে।');
+    } finally {
+      setIsSavingCategoryOrder(false);
+    }
+  };
+
+  const handleToggleNewsBreaking = async (news: NewsArticle) => {
+    try {
+      await onUpdateNews({ ...news, is_breaking: !news.is_breaking });
+      setFeedback(`ব্রেকিং স্ট্যাটাস ${!news.is_breaking ? 'সক্রিয়' : 'নিষ্ক্রিয়'} করা হয়েছে`);
+      setErrorMessage('');
+      setTimeout(() => setFeedback(''), 1500);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'ব্রেকিং স্ট্যাটাস আপডেট ব্যর্থ হয়েছে।');
+    }
+  };
+
+  const handleToggleNewsFeatured = async (news: NewsArticle) => {
+    try {
+      await onUpdateNews({ ...news, is_featured: !news.is_featured });
+      setFeedback(`লিড স্টোরি স্ট্যাটাস ${!news.is_featured ? 'সক্রিয়' : 'নিষ্ক্রিয়'} করা হয়েছে`);
+      setErrorMessage('');
+      setTimeout(() => setFeedback(''), 1500);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'লিড স্টোরি স্ট্যাটাস আপডেট ব্যর্থ হয়েছে।');
+    }
+  };
+
+  const handleDeleteNewsClick = async (id: number) => {
+    if (!window.confirm('আপনি কি এই সংবাদটি স্থায়ীভাবে মুছে ফেলতে চান?')) return;
+    try {
+      await onDeleteNews(id);
+      setFeedback('সংবাদটি সফলভাবে মুছে ফেলা হয়েছে।');
+      setErrorMessage('');
+      setTimeout(() => setFeedback(''), 2500);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'সংবাদ মুছতে ব্যর্থ হয়েছে।');
+    }
+  };
+
+  const handleDeleteCategoryClick = async (id: number) => {
+    if (!window.confirm('আপনি কি এই ক্যাটাগরিটি মুছে ফেলতে চান?')) return;
+    try {
+      await onDeleteCategory(id);
+      setFeedback('ক্যাটাগরিটি মুছে ফেলা হয়েছে।');
+      setErrorMessage('');
+      setTimeout(() => setFeedback(''), 2500);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'ক্যাটাগরি মুছতে ব্যর্থ হয়েছে।');
+    }
   };
 
   // Filtered news list for the News List management table
@@ -331,7 +508,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     return matchesSearch && matchesCategory;
   });
 
-  const handleCreateNews = (e: React.FormEvent) => {
+  const handleCreateNews = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newsTitle.trim() || !newsContent.trim()) return;
 
@@ -362,47 +539,57 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       seo_keywords: newsSeoKeywords.trim()
     };
 
-    onAddNews(newArticle);
-    setFeedback('সংবাদটি সফলভাবে ডাটাবেজে সংরক্ষণ ও প্রকাশিত হয়েছে!');
-    setNewsTitle('');
-    setNewsSummary('');
-    setNewsContent('');
-    setNewsVideoUrl('');
-    setNewsSeoTitle('');
-    setNewsSeoDescription('');
-    setNewsSeoKeywords('');
-    setTimeout(() => {
-      setFeedback('');
-      setActiveTab('news');
-    }, 1500);
+    try {
+      await onAddNews(newArticle);
+      setFeedback('সংবাদটি সফলভাবে ডাটাবেজে সংরক্ষণ ও প্রকাশিত হয়েছে!');
+      setErrorMessage('');
+      setNewsTitle('');
+      setNewsSummary('');
+      setNewsContent('');
+      setNewsVideoUrl('');
+      setNewsSeoTitle('');
+      setNewsSeoDescription('');
+      setNewsSeoKeywords('');
+      setTimeout(() => {
+        setFeedback('');
+        setActiveTab('news');
+      }, 1500);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'সংবাদটি ডাটাবেজে সংরক্ষণ করতে ব্যর্থ হয়েছে।');
+    }
   };
 
-  const handleCreateCategory = (e: React.FormEvent) => {
+  const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCatName.trim() || !newCatSlug.trim()) return;
-    onAddCategory({
-      id: Date.now(),
-      name: newCatName.trim(),
-      slug: newCatSlug.trim().toLowerCase().replace(/\s+/g, '-'),
-      display_order: categories.length + 1,
-      status: 'active'
-    });
-    setNewCatName('');
-    setNewCatSlug('');
-    setFeedback('নতুন ক্যাটাগরি যুক্ত করা হয়েছে!');
-    setTimeout(() => setFeedback(''), 2000);
+    try {
+      await onAddCategory({
+        id: Date.now(),
+        name: newCatName.trim(),
+        slug: newCatSlug.trim().toLowerCase().replace(/\s+/g, '-'),
+        display_order: categories.length + 1,
+        status: 'active'
+      });
+      setNewCatName('');
+      setNewCatSlug('');
+      setFeedback('নতুন ক্যাটাগরি যুক্ত করা হয়েছে!');
+      setErrorMessage('');
+      setTimeout(() => setFeedback(''), 2000);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'ক্যাটাগরি যুক্ত করতে ব্যর্থ হয়েছে।');
+    }
   };
 
-  const handleSaveSettings = (e: React.FormEvent) => {
+  const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      onUpdateSettings(localSettings);
+      await onUpdateSettings(localSettings);
       setFeedback('সাইট সেটিংস সফলভাবে আপডেট হয়েছে!');
+      setErrorMessage('');
       setTimeout(() => setFeedback(''), 3000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Settings update error:', err);
-      setFeedback('সেটিংস সংরক্ষণে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।');
-      setTimeout(() => setFeedback(''), 3000);
+      setErrorMessage(err.message || 'সেটিংস সংরক্ষণে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।');
     }
   };
 
@@ -413,7 +600,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setBlogReadingTime(mins);
   };
 
-  const handleCreateBlog = (e: React.FormEvent) => {
+  const handleCreateBlog = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!blogTitle.trim() || !blogContent.trim()) {
       setFeedback('অনুগ্রহ করে ব্লগের শিরোনাম এবং বিস্তারিত কন্টেন্ট পূরণ করুন।');
@@ -463,22 +650,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       seo_keywords: blogSeoKeywords.trim()
     };
 
-    if (onAddBlog) {
-      onAddBlog(newBlogPost);
+    try {
+      if (onAddBlog) {
+        await onAddBlog(newBlogPost);
+      }
+      setFeedback('অভিনন্দন! আপনার ব্লগটি সফলভাবে প্রকাশিত হয়েছে।');
+      setErrorMessage('');
+      setBlogTitle('');
+      setBlogSummary('');
+      setBlogContent('');
+      setBlogVideoUrl('');
+      setCustomBlogTag('');
+      setBlogSeoTitle('');
+      setBlogSeoDescription('');
+      setBlogSeoKeywords('');
+      setTimeout(() => {
+        setFeedback('');
+        setActiveTab('blogs');
+      }, 1500);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'ব্লগ প্রকাশ করতে ব্যর্থ হয়েছে।');
     }
-    setFeedback('অভিনন্দন! আপনার ব্লগটি সফলভাবে প্রকাশিত হয়েছে।');
-    setBlogTitle('');
-    setBlogSummary('');
-    setBlogContent('');
-    setBlogVideoUrl('');
-    setCustomBlogTag('');
-    setBlogSeoTitle('');
-    setBlogSeoDescription('');
-    setBlogSeoKeywords('');
-    setTimeout(() => {
-      setFeedback('');
-      setActiveTab('blogs');
-    }, 1500);
   };
 
   const handleStartEditBlog = (blog: BlogPost) => {
@@ -503,7 +695,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setEditBlogSeoKeywords(blog.seo_keywords || '');
   };
 
-  const handleSaveEditBlog = (e: React.FormEvent) => {
+  const handleSaveEditBlog = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingBlog) return;
 
@@ -543,32 +735,48 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       seo_keywords: editBlogSeoKeywords.trim()
     };
 
-    if (onUpdateBlog) {
-      onUpdateBlog(updatedBlog);
+    try {
+      if (onUpdateBlog) {
+        await onUpdateBlog(updatedBlog);
+      }
+      setEditingBlog(null);
+      setFeedback('ব্লগ পোস্টটি সফলভাবে হালনাগাদ করা হয়েছে!');
+      setErrorMessage('');
+      setTimeout(() => setFeedback(''), 2000);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'ব্লগ হালনাগাদ করতে ব্যর্থ হয়েছে।');
     }
-    setEditingBlog(null);
-    setFeedback('ব্লগ পোস্টটি সফলভাবে হালনাগাদ করা হয়েছে!');
-    setTimeout(() => setFeedback(''), 2000);
   };
 
   const handleCancelEditBlog = () => {
     setEditingBlog(null);
   };
 
-  const handleDeleteBlogAction = (id: number) => {
-    if (onDeleteBlog) {
-      onDeleteBlog(id);
+  const handleDeleteBlogAction = async (id: number) => {
+    if (!window.confirm('আপনি কি এই ব্লগটি মুছে ফেলতে চান?')) return;
+    try {
+      if (onDeleteBlog) {
+        await onDeleteBlog(id);
+      }
+      setFeedback('ব্লগটি সফলভাবে মুছে ফেলা হয়েছে।');
+      setErrorMessage('');
+      setTimeout(() => setFeedback(''), 2000);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'ব্লগ মুছতে ব্যর্থ হয়েছে।');
     }
-    setFeedback('ব্লগটি সফলভাবে মুছে ফেলা হয়েছে।');
-    setTimeout(() => setFeedback(''), 2000);
   };
 
-  const handleToggleBlogStatus = (blog: BlogPost) => {
+  const handleToggleBlogStatus = async (blog: BlogPost) => {
     if (!onUpdateBlog) return;
     const newStatus = blog.status === 'published' ? 'draft' : 'published';
-    onUpdateBlog({ ...blog, status: newStatus });
-    setFeedback(`ব্লগ স্ট্যাটাস '${newStatus === 'published' ? 'প্রকাশিত' : 'ড্রাফট'}' করা হয়েছে`);
-    setTimeout(() => setFeedback(''), 1500);
+    try {
+      await onUpdateBlog({ ...blog, status: newStatus });
+      setFeedback(`ব্লগ স্ট্যাটাস '${newStatus === 'published' ? 'প্রকাশিত' : 'ড্রাফট'}' করা হয়েছে`);
+      setErrorMessage('');
+      setTimeout(() => setFeedback(''), 1500);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'ব্লগ স্ট্যাটাস পরিবর্তন করতে ব্যর্থ হয়েছে।');
+    }
   };
 
   return (
@@ -751,6 +959,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           >
             <ExternalLink className="w-3.5 h-3.5" /> মূল সাইট দেখুন
           </button>
+          {onLogout && (
+            <button 
+              onClick={onLogout}
+              className="w-full mt-2 bg-red-950/70 hover:bg-red-900 border border-red-800/80 text-red-200 text-xs py-2 rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer font-semibold"
+              title="অ্যাডমিন সেশন থেকে লগআউট করুন"
+            >
+              <LogOut className="w-3.5 h-3.5" /> লগআউট করুন
+            </button>
+          )}
         </div>
       </aside>
 
@@ -758,9 +975,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       <main className="flex-1 p-6 md:p-8 overflow-y-auto max-h-screen">
         {/* Feedback Alert */}
         {feedback && (
-          <div className="bg-emerald-900/80 border border-emerald-500 text-emerald-200 px-4 py-3 rounded-lg mb-6 flex items-center gap-2 text-sm shadow-md animate-in fade-in">
-            <Check className="w-5 h-5 text-emerald-400 shrink-0" />
-            <span>{feedback}</span>
+          <div className="bg-emerald-900/80 border border-emerald-500 text-emerald-200 px-4 py-3 rounded-lg mb-6 flex items-center justify-between gap-2 text-sm shadow-md animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <Check className="w-5 h-5 text-emerald-400 shrink-0" />
+              <span>{feedback}</span>
+            </div>
+            <button onClick={() => setFeedback('')} className="text-emerald-300 hover:text-white p-1 cursor-pointer">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Error Alert */}
+        {errorMessage && (
+          <div className="bg-red-950/90 border border-red-600 text-red-100 px-4 py-3 rounded-lg mb-6 flex items-center justify-between gap-2 text-sm shadow-md animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+            <button onClick={() => setErrorMessage('')} className="text-red-300 hover:text-white p-1 cursor-pointer">
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
 
@@ -941,7 +1176,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <td className="p-3 text-amber-400">{bnNum(n.views)}</td>
                           <td className="p-3">
                             <button
-                              onClick={() => onUpdateNews({ ...n, is_breaking: !n.is_breaking })}
+                              onClick={() => handleToggleNewsBreaking(n)}
                               className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-colors ${
                                 n.is_breaking ? 'bg-red-700 text-white' : 'bg-slate-700 text-slate-400'
                               }`}
@@ -951,7 +1186,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           </td>
                           <td className="p-3">
                             <button
-                              onClick={() => onUpdateNews({ ...n, is_featured: !n.is_featured })}
+                              onClick={() => handleToggleNewsFeatured(n)}
                               className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-colors ${
                                 n.is_featured ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-400'
                               }`}
@@ -970,7 +1205,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                 <span>এডিট</span>
                               </button>
                               <button
-                                onClick={() => onDeleteNews(n.id)}
+                                onClick={() => handleDeleteNewsClick(n.id)}
                                 className="text-red-400 hover:text-red-300 p-1.5 rounded hover:bg-slate-700 cursor-pointer"
                                 title="মুছে ফেলুন"
                               >
@@ -1160,86 +1395,273 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
         {/* TAB 4: CATEGORIES */}
         {activeTab === 'categories' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-5">
-              <h3 className="text-base font-bold text-white font-bengali-display mb-4">নতুন ক্যাটাগরি তৈরি</h3>
-              <form onSubmit={handleCreateCategory} className="space-y-4">
+          <div className="space-y-6">
+            {/* Header & Instructions */}
+            <div className="bg-gradient-to-r from-slate-800 via-slate-800/90 to-slate-800 border border-slate-700 rounded-xl p-5 shadow-lg">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">ক্যাটাগরির নাম (বাংলা) *</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={newCatName}
-                    onChange={(e) => setNewCatName(e.target.value)}
-                    placeholder="যেমন: বিজ্ঞান"
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
-                  />
+                  <div className="flex items-center gap-2 mb-1">
+                    <FolderTree className="w-5 h-5 text-red-500" />
+                    <h2 className="text-lg font-bold text-white font-bengali-display">ক্যাটাগরি ব্যবস্থাপনা ও ক্রম নিয়ন্ত্রণ</h2>
+                  </div>
+                  <p className="text-xs text-slate-300">
+                    ক্যাটাগরিগুলো টেনে (<span className="text-cyan-400 font-bold">Drag & Drop</span>) উপরে-নিচে নামিয়ে পছন্দমতো ক্রম নির্ধারণ করুন। এডমিন প্যানেল থেকে যেভাবে ক্রম নির্ধারণ করবেন, হুবহু সেভাবেই ওয়েবসাইটের মেনু ও হোমপেজে প্রদর্শিত হবে।
+                  </p>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">স্লাগ (Slug / English) *</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={newCatSlug}
-                    onChange={(e) => setNewCatSlug(e.target.value)}
-                    placeholder="যেমন: science"
-                    className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600"
-                  />
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {isSavingCategoryOrder && (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-cyan-400 bg-cyan-950/60 border border-cyan-800/80 px-3 py-1.5 rounded-lg shadow animate-pulse">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>ক্রম সংরক্ষণ হচ্ছে...</span>
+                    </span>
+                  )}
+                  {orderSavedSuccess && !isSavingCategoryOrder && (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-emerald-300 bg-emerald-950/60 border border-emerald-800/80 px-3 py-1.5 rounded-lg shadow">
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>ক্রম ওয়েবসাইটে কার্যকর হয়েছে!</span>
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleSaveManualCategoryOrder}
+                    disabled={isSavingCategoryOrder}
+                    className="bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white font-bold px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-600"
+                    title="বর্তমান ক্রম ডাটাবেজে স্থায়ীভাবে নিশ্চিত করুন"
+                  >
+                    <ListOrdered className="w-4 h-4 text-cyan-400" />
+                    <span>ক্রম নিশ্চিত ও সংরক্ষণ করুন</span>
+                  </button>
                 </div>
-                <button 
-                  type="submit"
-                  className="w-full bg-red-700 hover:bg-red-600 text-white font-bold py-2 rounded text-xs transition-colors cursor-pointer"
-                >
-                  ক্যাটাগরি যুক্ত করুন
-                </button>
-              </form>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-slate-700/80 flex flex-wrap items-center gap-y-2 gap-x-4 text-[11px] text-slate-400">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+                  <span><strong className="text-slate-200">⠿ আইকন ধরে টানুন:</strong> যেকোনো ক্যাটাগরি উপরে বা নিচে নিয়ে যেতে বামের গ্রিপ ধরে টানুন</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                  <span><strong className="text-slate-200">তীর বোতাম:</strong> এক ধাপ উপরে বা নিচে সরাতে তীর চিহ্নে ক্লিক করুন</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <span><strong className="text-slate-200">শীর্ষ ৮টি:</strong> হেডারের মূল মেনুতে সরাসরি প্রদর্শিত হয়, বাকিগুলো 'আরও বিভাগ' মেনুতে</span>
+                </span>
+              </div>
             </div>
 
-            <div className="lg:col-span-2 bg-slate-800/80 border border-slate-700 rounded-xl overflow-hidden">
-              <div className="p-4 border-b border-slate-700 font-bold text-sm">
-                বিদ্যমান ক্যাটাগরিসমূহ ({bnNum(categories.length)})
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Add / Edit Category Card */}
+              <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-5 h-fit shadow">
+                <h3 className="text-base font-bold text-white font-bengali-display mb-3 flex items-center gap-2">
+                  <PlusCircle className="w-4 h-4 text-red-500" />
+                  <span>নতুন ক্যাটাগরি তৈরি</span>
+                </h3>
+                <form onSubmit={handleCreateCategory} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">ক্যাটাগরির নাম (বাংলা) *</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={newCatName}
+                      onChange={(e) => setNewCatName(e.target.value)}
+                      placeholder="যেমন: বিজ্ঞান ও তথ্যপ্রযুক্তি"
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600 placeholder-slate-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">স্লাগ (Slug / English URL) *</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={newCatSlug}
+                      onChange={(e) => setNewCatSlug(e.target.value)}
+                      placeholder="যেমন: tech-science"
+                      className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-red-600 placeholder-slate-500 font-mono"
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    💡 নতুন যুক্ত করা ক্যাটাগরি স্বয়ংক্রিয়ভাবে তালিকার শেষে অবস্থান করবে এবং পরবর্তীতে ইচ্ছামতো টেনে উপরে স্থানান্তর করা যাবে।
+                  </p>
+                  <button 
+                    type="submit"
+                    className="w-full bg-red-700 hover:bg-red-600 text-white font-bold py-2 rounded text-xs transition-colors cursor-pointer flex items-center justify-center gap-2 shadow"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    <span>ক্যাটাগরি যুক্ত করুন</span>
+                  </button>
+                </form>
               </div>
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-900/60 text-slate-400 uppercase tracking-wider text-[10px]">
-                  <tr>
-                    <th className="p-3">নাম</th>
-                    <th className="p-3">স্লাগ</th>
-                    <th className="p-3">সংবাদ সংখ্যা</th>
-                    <th className="p-3">অ্যাকশন</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-700 text-slate-200">
-                  {categories.map((c) => {
-                    const count = newsList.filter(n => n.category_id === c.id).length;
-                    return (
-                      <tr key={c.id}>
-                        <td className="p-3 font-bold text-white">{c.name}</td>
-                        <td className="p-3 text-slate-400"><code>{c.slug}</code></td>
-                        <td className="p-3 text-amber-400 font-bold">{bnNum(count)}টি</td>
-                        <td className="p-3">
-                          <div className="flex items-center gap-1.5">
-                            <button 
-                              onClick={() => handleStartEditCategory(c)}
-                              className="bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 px-2 py-1 rounded text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1"
-                              title="ক্যাটাগরি সম্পাদনা করুন"
-                            >
-                              <Edit className="w-3 h-3" />
-                              <span>এডিট</span>
-                            </button>
-                            <button 
-                              onClick={() => onDeleteCategory(c.id)}
-                              className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-slate-700 cursor-pointer"
-                              title="মুছে ফেলুন"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
+
+              {/* Category Order Table */}
+              <div className="lg:col-span-2 bg-slate-800/80 border border-slate-700 rounded-xl overflow-hidden shadow">
+                <div className="p-4 border-b border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-900/40">
+                  <div className="font-bold text-sm text-white flex items-center gap-2">
+                    <span>বিদ্যমান ক্যাটাগরিসমূহ ({bnNum(orderedCategories.length)})</span>
+                    <span className="text-xs text-slate-400 font-normal">| টেনে উপরে-নিচে নিয়ে সাজান</span>
+                  </div>
+                  <span className="text-[11px] text-slate-400">
+                    টেনে নামালে সাথে সাথে ওয়েবসাইটের মেনু ও হোমপেজে পরিবর্তন প্রযোজ্য হবে
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-900/80 text-slate-400 uppercase tracking-wider text-[10px]">
+                      <tr>
+                        <th className="p-3 w-14 text-center">ক্রম</th>
+                        <th className="p-3 w-28 text-center">স্থানান্তর</th>
+                        <th className="p-3">ক্যাটাগরির নাম ও স্লাগ</th>
+                        <th className="p-3 w-24">সংবাদ</th>
+                        <th className="p-3 w-28 text-right">অ্যাকশন</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-700 text-slate-200">
+                      {orderedCategories.map((c, idx) => {
+                        const count = newsList.filter(n => n.category_id === c.id).length;
+                        const isDragging = draggedIndex === idx;
+                        const isOver = dragOverIndex === idx;
+                        const isTopMenu = idx < 8;
+
+                        return (
+                          <tr 
+                            key={c.id}
+                            draggable={true}
+                            onDragStart={(e) => {
+                              setDraggedIndex(idx);
+                              e.dataTransfer.effectAllowed = 'move';
+                              e.dataTransfer.setData('text/plain', String(idx));
+                            }}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              e.dataTransfer.dropEffect = 'move';
+                              if (dragOverIndex !== idx) {
+                                setDragOverIndex(idx);
+                              }
+                            }}
+                            onDragLeave={() => {
+                              if (dragOverIndex === idx) {
+                                setDragOverIndex(null);
+                              }
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              handleDropCategory(idx);
+                            }}
+                            onDragEnd={() => {
+                              setDraggedIndex(null);
+                              setDragOverIndex(null);
+                            }}
+                            className={`transition-all duration-150 select-none ${
+                              isDragging 
+                                ? 'opacity-40 bg-slate-900 border-2 border-dashed border-cyan-500 scale-[0.99]' 
+                                : isOver 
+                                  ? 'bg-cyan-950/40 border-t-2 border-cyan-400' 
+                                  : 'hover:bg-slate-750'
+                            }`}
+                          >
+                            {/* 1. Order Position Badge */}
+                            <td className="p-3 text-center">
+                              <div className="flex flex-col items-center">
+                                <span className={`inline-block font-mono text-[11px] font-black px-2 py-0.5 rounded border ${
+                                  isTopMenu 
+                                    ? 'bg-cyan-950/80 text-cyan-300 border-cyan-700/60' 
+                                    : 'bg-slate-900 text-slate-400 border-slate-700'
+                                }`}>
+                                  #{idx + 1}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* 2. Drag handle & Up/Down Arrows */}
+                            <td className="p-3 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <span 
+                                  className="cursor-grab active:cursor-grabbing text-slate-400 hover:text-cyan-400 p-1.5 rounded hover:bg-slate-700/80 transition-colors"
+                                  title="মাউস দিয়ে চেপে ধরে উপরে বা নিচে টানুন"
+                                >
+                                  <GripVertical className="w-4 h-4" />
+                                </span>
+
+                                <div className="flex flex-col gap-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveCategory(idx, 'up')}
+                                    disabled={idx === 0 || isSavingCategoryOrder}
+                                    className="p-1 text-slate-400 hover:text-white disabled:opacity-20 disabled:hover:text-slate-400 rounded hover:bg-slate-700 transition-colors cursor-pointer"
+                                    title="এক ধাপ উপরে তুলুন"
+                                  >
+                                    <ArrowUp className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveCategory(idx, 'down')}
+                                    disabled={idx === orderedCategories.length - 1 || isSavingCategoryOrder}
+                                    className="p-1 text-slate-400 hover:text-white disabled:opacity-20 disabled:hover:text-slate-400 rounded hover:bg-slate-700 transition-colors cursor-pointer"
+                                    title="এক ধাপ নিচে নামান"
+                                  >
+                                    <ArrowDown className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* 3. Name & Slug */}
+                            <td className="p-3">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-white text-sm font-bengali-display">{c.name}</span>
+                                {isTopMenu ? (
+                                  <span className="text-[9px] bg-emerald-950/80 text-emerald-300 border border-emerald-800/80 px-1.5 py-0.5 rounded font-semibold">
+                                    মেনু বার
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] bg-slate-900 text-slate-400 border border-slate-800 px-1.5 py-0.5 rounded">
+                                    আরও বিভাগ
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                                slug: <span className="text-slate-300">{c.slug}</span>
+                              </div>
+                            </td>
+
+                            {/* 4. News count */}
+                            <td className="p-3">
+                              <span className="text-amber-400 font-bold font-mono text-xs">
+                                {bnNum(count)}টি
+                              </span>
+                            </td>
+
+                            {/* 5. Actions */}
+                            <td className="p-3 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button 
+                                  type="button"
+                                  onClick={() => handleStartEditCategory(c)}
+                                  className="bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 px-2 py-1 rounded text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1"
+                                  title="ক্যাটাগরি সম্পাদনা করুন"
+                                >
+                                  <Edit className="w-3 h-3" />
+                                  <span>এডিট</span>
+                                </button>
+                                <button 
+                                  type="button"
+                                  onClick={() => handleDeleteCategoryClick(c.id)}
+                                  className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-slate-700 cursor-pointer"
+                                  title="মুছে ফেলুন"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -1268,7 +1690,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       <td className="p-3 text-red-400 font-bold">{n.category_name}</td>
                       <td className="p-3">
                         <button
-                          onClick={() => onUpdateNews({ ...n, is_breaking: !n.is_breaking })}
+                          onClick={() => handleToggleNewsBreaking(n)}
                           className={`px-3 py-1 rounded text-xs font-bold transition-colors cursor-pointer ${
                             n.is_breaking ? 'bg-red-700 text-white' : 'bg-slate-700 text-slate-400'
                           }`}
@@ -1940,7 +2362,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         <div className="flex gap-2">
                           {!m.is_read && (
                             <button
-                              onClick={() => onMarkMessageRead(m.id)}
+                              onClick={async () => {
+                                try {
+                                  await onMarkMessageRead(m.id);
+                                  setFeedback('মেসেজটি পঠিত হিসেবে চিহ্নিত করা হয়েছে।');
+                                  setErrorMessage('');
+                                  setTimeout(() => setFeedback(''), 2000);
+                                } catch (err: any) {
+                                  setErrorMessage(err.message || 'মেসেজ আপডেট করতে ব্যর্থ হয়েছে।');
+                                }
+                              }}
                               className="text-emerald-400 hover:text-emerald-300 p-1 rounded hover:bg-slate-700 cursor-pointer"
                               title="পঠিত হিসেবে মার্ক করুন"
                             >
@@ -1948,7 +2379,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             </button>
                           )}
                           <button
-                            onClick={() => onDeleteMessage(m.id)}
+                            onClick={async () => {
+                              if (!window.confirm('আপনি কি এই বার্তাটি মুছে ফেলতে চান?')) return;
+                              try {
+                                await onDeleteMessage(m.id);
+                                setFeedback('বার্তাটি মুছে ফেলা হয়েছে।');
+                                setErrorMessage('');
+                                setTimeout(() => setFeedback(''), 2000);
+                              } catch (err: any) {
+                                setErrorMessage(err.message || 'বার্তা মুছতে ব্যর্থ হয়েছে।');
+                              }
+                            }}
                             className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-slate-700 cursor-pointer"
                             title="মুছে ফেলুন"
                           >

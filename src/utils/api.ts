@@ -17,20 +17,36 @@ import {
 const API_BASE = '/api';
 
 /**
- * Retrieve or initialize active admin authorization token
+ * Retrieve active admin authorization token (from real authenticated PHP session)
  */
 export function getAdminAuthToken(): string {
-  let token = '';
   try {
-    token = localStorage.getItem('bartachitro_token') || '';
-  } catch {}
-  if (!token) {
-    token = 'admin_token_active';
-    try {
-      localStorage.setItem('bartachitro_token', token);
-    } catch {}
+    return localStorage.getItem('bartachitro_token') || '';
+  } catch {
+    return '';
   }
-  return token;
+}
+
+/**
+ * Set active authenticated admin session token
+ */
+export function setAdminAuthToken(token: string): void {
+  try {
+    if (token) {
+      localStorage.setItem('bartachitro_token', token);
+    } else {
+      localStorage.removeItem('bartachitro_token');
+    }
+  } catch {}
+}
+
+/**
+ * Clear admin authentication token
+ */
+export function clearAdminAuthToken(): void {
+  try {
+    localStorage.removeItem('bartachitro_token');
+  } catch {}
 }
 
 /**
@@ -52,7 +68,7 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
   }
 
   const response = await fetch(url, {
-    credentials: 'same-origin',
+    credentials: 'include',
     ...options,
     headers: {
       ...defaultHeaders,
@@ -342,6 +358,9 @@ export async function loginAdmin(username: string, password: string): Promise<{ 
     method: 'POST',
     body: JSON.stringify({ username, password }),
   });
+  if (res.token) {
+    setAdminAuthToken(res.token);
+  }
   return { user: res.user, token: res.token };
 }
 
@@ -358,7 +377,9 @@ export async function checkAdminAuth(): Promise<AdminUser | null> {
 export async function logoutAdmin(): Promise<void> {
   try {
     await apiRequest('auth.php?action=logout', { method: 'POST' });
-  } catch {}
+  } finally {
+    clearAdminAuthToken();
+  }
 }
 
 // ==========================================
@@ -391,11 +412,8 @@ export async function uploadMediaFile(fileOrBase64: File | string): Promise<stri
   try {
     const formData = new FormData();
     formData.append('file', fileOrBase64);
-    const token = getAdminAuthToken();
-    if (token) {
-      formData.append('auth_token', token);
-    }
 
+    const token = getAdminAuthToken();
     const uploadHeaders: Record<string, string> = {};
     if (token) {
       uploadHeaders['Authorization'] = `Bearer ${token}`;
@@ -404,7 +422,7 @@ export async function uploadMediaFile(fileOrBase64: File | string): Promise<stri
     const res = await fetch(`${API_BASE}/upload.php`, {
       method: 'POST',
       body: formData,
-      credentials: 'same-origin',
+      credentials: 'include',
       headers: uploadHeaders,
     });
 
@@ -416,8 +434,18 @@ export async function uploadMediaFile(fileOrBase64: File | string): Promise<stri
       if (json && json.error) {
         throw new Error(json.error);
       }
+    } else {
+      let errText = `Upload error (${res.status})`;
+      try {
+        const errJson = await res.json();
+        if (errJson && errJson.error) errText = errJson.error;
+      } catch {}
+      throw new Error(errText);
     }
-  } catch (err) {
+  } catch (err: any) {
+    if (err.message && (err.message.includes('অননুমোদিত') || err.message.includes('HTTP Error 401') || err.message.includes('401'))) {
+      throw err;
+    }
     console.warn('Multipart upload failed, trying base64 fallback...', err);
   }
 
@@ -433,7 +461,6 @@ export async function uploadMediaFile(fileOrBase64: File | string): Promise<stri
             file: base64Data,
             image: base64Data,
             filename: fileOrBase64.name,
-            auth_token: getAdminAuthToken()
           }),
         });
         if (res && res.url) {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Calendar, CloudSun, Newspaper, Search, Menu, X, 
-  Download, ShieldCheck, Home, ArrowRight, ChevronRight,
+  Download, ShieldCheck, Home, ArrowRight, ChevronRight, ChevronDown,
   BookOpen
 } from 'lucide-react';
 import { Category, NewsArticle, SiteSettings } from '../types';
@@ -153,6 +153,34 @@ export const Header: React.FC<HeaderProps> = ({
                 {cat.name}
               </button>
             ))}
+            {categories.length > 8 && (
+              <div className="relative group">
+                <button 
+                  type="button"
+                  className={`transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1 ${
+                    categories.slice(8).some(c => c.slug === activeCategory)
+                      ? 'text-red-700 font-bold'
+                      : 'text-gray-800 hover:text-red-700'
+                  }`}
+                >
+                  <span>আরও বিভাগ</span>
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+                <div className="absolute left-0 top-full mt-1.5 w-44 bg-white rounded-lg shadow-xl border border-gray-100 py-1.5 hidden group-hover:block z-50">
+                  {categories.slice(8).map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => onSelectCategory(cat.slug)}
+                      className={`w-full text-left px-3.5 py-2 text-xs font-semibold transition-colors block cursor-pointer ${
+                        activeCategory === cat.slug ? 'bg-red-50 text-red-700 font-bold' : 'text-gray-700 hover:bg-gray-50 hover:text-red-700'
+                      }`}
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <button 
               onClick={onNavigateBlog} 
               className={`transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
