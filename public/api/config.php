@@ -22,13 +22,11 @@ if (session_status() === PHP_SESSION_NONE) {
     ]);
 }
 
-// Dynamic CORS handling - supports credentials and production domains
+// Same-origin & credentials-safe CORS handling
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 if (!empty($origin)) {
     header("Access-Control-Allow-Origin: {$origin}");
     header('Access-Control-Allow-Credentials: true');
-} else {
-    header('Access-Control-Allow-Origin: *');
 }
 
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');

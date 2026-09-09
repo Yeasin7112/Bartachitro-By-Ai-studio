@@ -52,6 +52,7 @@ export function devApiPlugin(): Plugin {
   let messages = loadOrCreate('messages.json', INITIAL_MESSAGES);
   let blogs = loadOrCreate('blogs.json', INITIAL_BLOGS);
   let users = loadOrCreate('users.json', INITIAL_USERS);
+  const activeSessions = new Map<string, any>();
 
   return {
     name: 'dev-api-middleware',
