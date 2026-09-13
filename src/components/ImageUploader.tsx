@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  UploadCloud, Image, Link, Check, X, 
-  RefreshCw, AlertCircle, Loader2 
+  UploadCloud, Image as ImageIcon, Link, Check, X, 
+  RefreshCw, AlertCircle, Loader2, Search 
 } from 'lucide-react';
 import { uploadImageFile } from '../utils/api';
+import { getStoredMedia, formatBytes } from '../utils/mediaStore';
+import { MediaItem } from '../types';
 
 interface ImageUploaderProps {
   currentImage: string;
@@ -47,8 +49,9 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   label = 'ফিচার্ড ছবি (Featured Image)',
   helperText = 'কম্পিউটার বা মোবাইল থেকে ছবি আপলোড করুন অথবা সরাসরি ইমেজ ইউআরএল প্রদান করুন'
 }) => {
-  const [activeMode, setActiveMode] = useState<'upload' | 'url' | 'presets'>('upload');
+  const [activeMode, setActiveMode] = useState<'upload' | 'library' | 'url' | 'presets'>('upload');
   const [urlInput, setUrlInput] = useState(currentImage || '');
+  const [librarySearch, setLibrarySearch] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [fileName, setFileName] = useState<string>('');
@@ -144,7 +147,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           <button
             type="button"
             onClick={() => setActiveMode('upload')}
-            className={`px-2.5 py-1 rounded transition-colors cursor-pointer font-medium ${
+            className={`px-2 py-1 rounded transition-colors cursor-pointer font-medium ${
               activeMode === 'upload' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -152,8 +155,18 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           </button>
           <button
             type="button"
+            onClick={() => setActiveMode('library')}
+            className={`px-2 py-1 rounded transition-colors cursor-pointer font-medium flex items-center gap-1 ${
+              activeMode === 'library' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <ImageIcon className="w-3 h-3" />
+            <span>মিডিয়া লাইব্রেরি</span>
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveMode('url')}
-            className={`px-2.5 py-1 rounded transition-colors cursor-pointer font-medium ${
+            className={`px-2 py-1 rounded transition-colors cursor-pointer font-medium ${
               activeMode === 'url' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -162,7 +175,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           <button
             type="button"
             onClick={() => setActiveMode('presets')}
-            className={`px-2.5 py-1 rounded transition-colors cursor-pointer font-medium ${
+            className={`px-2 py-1 rounded transition-colors cursor-pointer font-medium ${
               activeMode === 'presets' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -231,6 +244,82 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
               {isUploading ? 'অপেক্ষা করুন...' : 'ডিভাইস থেকে ব্রাউজ করুন'}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* MODE 2: MEDIA LIBRARY (REUSE STORED IMAGES) */}
+      {activeMode === 'library' && (
+        <div className="bg-slate-900 border border-slate-700 rounded-xl p-3 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="relative flex-1">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={librarySearch}
+                onChange={(e) => setLibrarySearch(e.target.value)}
+                placeholder="মিডিয়া লাইব্রেরির ছবি খুঁজুন..."
+                className="w-full bg-slate-950 border border-slate-750 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-red-500"
+              />
+            </div>
+            <span className="text-[10px] text-slate-400 shrink-0">
+              ক্লিক করলেই ছবি সিলেক্ট হবে
+            </span>
+          </div>
+
+          {(() => {
+            const allItems = getStoredMedia();
+            const q = librarySearch.trim().toLowerCase();
+            const filtered = q
+              ? allItems.filter(m => (m.title?.toLowerCase().includes(q) || m.filename?.toLowerCase().includes(q) || m.alt_text?.toLowerCase().includes(q)))
+              : allItems;
+
+            if (filtered.length === 0) {
+              return (
+                <div className="p-6 text-center text-slate-400 text-xs bg-slate-950/60 rounded-lg border border-slate-800">
+                  <ImageIcon className="w-6 h-6 text-slate-500 mx-auto mb-1.5" />
+                  <p>মিডিয়া লাইব্রেরিতে কোনো ছবি পাওয়া যায়নি</p>
+                  <button
+                    type="button"
+                    onClick={() => setActiveMode('upload')}
+                    className="mt-2 text-red-400 hover:text-red-300 font-semibold cursor-pointer"
+                  >
+                    নতুন ছবি আপলোড করুন →
+                  </button>
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-48 overflow-y-auto pr-1">
+                {filtered.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      triggerChange(item.url);
+                      setUrlInput(item.url);
+                      setFileName(item.title || item.filename);
+                      setFileSize(formatBytes(item.file_size));
+                    }}
+                    className={`group relative rounded-lg overflow-hidden border transition-all text-left cursor-pointer aspect-square bg-slate-950 ${
+                      currentImage === item.url ? 'border-red-500 ring-2 ring-red-500/50' : 'border-slate-700 hover:border-red-400'
+                    }`}
+                    title={`${item.title || item.filename} (${item.width || 1200}×${item.height || 800})`}
+                  >
+                    <img src={item.url} alt={item.alt_text || item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-1">
+                      <span className="text-[9px] text-white font-bold truncate">
+                        {item.title || item.filename}
+                      </span>
+                      <span className="text-[8px] text-slate-300">
+                        {item.width && item.height ? `${item.width}×${item.height}` : '1200×800'}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       )}
 

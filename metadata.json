@@ -1,6 +1,6 @@
 {
   "name": "বার্তাচিত্র - BartaChitro",
-  "description": "বাংলাদেশের শীর্ষস্থানীয় অনলাইন সংবাদপত্র ও ই-পত্রিকা পোর্টাল - সত্যের সংবাদ, সবার ভাষায়",
+  "description": "বার্তাচিত্র-সংবাদ ও ছবি। Bartachitra - বাংলাদেশের শীর্ষস্থানীয় অনলাইন সংবাদপত্র ও ই-পত্রিকা পোর্টাল",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

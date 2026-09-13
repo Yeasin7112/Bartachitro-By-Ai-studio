@@ -216,7 +216,8 @@ ON DUPLICATE KEY UPDATE `id`=`id`;
 INSERT INTO `settings` (`key_name`, `key_value`) VALUES
 ('site_name', 'বার্তাচিত্র'),
 ('site_name_en', 'BartaChitro'),
-('tagline', 'সত্যের সংবাদ, সবার ভাষায়'),
+('tagline', 'সংবাদ ও ছবি। Bartachitra'),
+('site_tagline', 'সংবাদ ও ছবি। Bartachitra'),
 ('email', 'editor@bartachitro.com'),
 ('phone', '+৮৮০ ২ ৯৮৭৬৫৪৩, ০১৭১১-০০০০০০'),
 ('address', 'বার্তাচিত্র ভবন, ৪৪ কারওয়ান বাজার, ঢাকা-১২১৫, বাংলাদেশ'),
@@ -226,10 +227,10 @@ INSERT INTO `settings` (`key_name`, `key_value`) VALUES
 ('twitter_url', 'https://x.com/bartachitro'),
 ('youtube_url', 'https://youtube.com/bartachitro'),
 ('instagram_url', 'https://instagram.com/bartachitro'),
-('meta_title', 'বার্তাচিত্র | সত্যের সংবাদ, সবার ভাষায়'),
-('meta_description', 'বাংলাদেশের শীর্ষ অনলাইন সংবাদ মাধ্যম ও ই-পত্রিকা। রাজনীতি, জাতীয়, খেলাধুলা ও আন্তর্জাতিক সংবাদের নির্ভরযোগ্য উৎস।'),
+('meta_title', 'বার্তাচিত্র - সংবাদ ও ছবি। Bartachitra'),
+('meta_description', 'বার্তাচিত্র-সংবাদ ও ছবি। Bartachitra - বাংলাদেশের শীর্ষস্থানীয় অনলাইন সংবাদপত্র ও ই-পত্রিকা পোর্টাল।'),
 ('copyright_text', '© ২০২৬ বার্তাচিত্র মিডিয়া লিমিটেড। সর্বস্বত্ব সংরক্ষিত।')
-ON DUPLICATE KEY UPDATE `key_name`=`key_name`;
+ON DUPLICATE KEY UPDATE `key_value`=VALUES(`key_value`);
 
 -- 4. Initial Sample News
 INSERT INTO `news` (`id`, `category_id`, `author_id`, `author_name`, `title`, `slug`, `summary`, `content`, `featured_image`, `image_caption`, `status`, `is_featured`, `is_breaking`, `views`, `published_at`, `seo_title`, `seo_description`) VALUES

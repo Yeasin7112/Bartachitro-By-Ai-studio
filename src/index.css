@@ -9,12 +9,12 @@ html {
     font-family: 'Hind Siliguri', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
   h1, h2, h3, .font-display {
-    font-family: 'Noto Serif Bengali', serif;
+    font-family: 'Noto Serif Bengali', 'Hind Siliguri', serif;
   }
 }
 
 .font-bengali-display {
-  font-family: 'Noto Serif Bengali', serif;
+  font-family: 'Noto Serif Bengali', 'Hind Siliguri', serif;
 }
 
 .font-bengali-body {

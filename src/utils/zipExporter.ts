@@ -158,7 +158,7 @@ export async function downloadPhpProjectZip(
   categories: Category[] = [],
   settings: SiteSettings = {
     site_name: 'বার্তাচিত্র',
-    site_tagline: 'সত্যের সংবাদ, সবার ভাষায়',
+    site_tagline: 'সংবাদ ও ছবি। Bartachitra',
     editor_name: 'আহমেদ রফিক চৌধুরী',
     executive_editor: 'শাহনেওয়াজ করিম',
     email: 'editor@bartachitro.com',

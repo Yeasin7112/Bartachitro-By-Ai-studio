@@ -37,8 +37,8 @@ export interface NewsArticle {
 }
 
 export interface EpaperPage {
-  id: number;
-  epaper_id: number;
+  id?: number;
+  epaper_id?: number;
   page_number: number;
   page_title: string;
   image_url: string;
@@ -50,6 +50,7 @@ export interface Epaper {
   edition_date: string;
   total_pages: number;
   status: 'published' | 'draft';
+  cover_image?: string;
   pages?: EpaperPage[];
 }
 
@@ -124,6 +125,7 @@ export interface AdminUser {
   name: string;
   username: string;
   email: string;
+  password?: string;
   role: AdminRole;
   role_title?: string;
   avatar?: string;
@@ -131,4 +133,20 @@ export interface AdminUser {
   created_at: string;
   last_login?: string;
   phone?: string;
+}
+
+export interface MediaItem {
+  id: string | number;
+  url: string;
+  title: string;
+  filename: string;
+  file_size?: number | string;
+  width?: number;
+  height?: number;
+  format?: string;
+  alt_text?: string;
+  caption?: string;
+  uploaded_at?: string;
+  source?: 'upload' | 'news' | 'blog' | 'ad' | 'user' | 'system';
+  used_in_count?: number;
 }

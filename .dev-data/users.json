@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "name": "আহমেদ রফিক চৌধুরী",
+    "username": "admin",
+    "email": "admin@bartachitro.com",
+    "role": "super_admin",
+    "role_title": "প্রধান সম্পাদক ও প্রকাশক",
+    "avatar": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
+    "status": "active",
+    "created_at": "2026-01-01 10:00:00",
+    "last_login": "২০২৬-০৯-০৬ ১২:৩০",
+    "phone": "০১৭১১০০০০০০",
+    "password": "admin123"
+  },
+  {
+    "id": 2,
+    "name": "নাসরিন আক্তার",
+    "username": "editor_nasrin",
+    "email": "nasrin@bartachitro.com",
+    "role": "editor",
+    "role_title": "বার্তা সম্পাদক (News Editor)",
+    "avatar": "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face",
+    "status": "active",
+    "created_at": "2026-02-15 14:20:00",
+    "last_login": "২০২৬-০৯-০৫ ১৮:৪৫",
+    "phone": "০১৭২২১১১২২২"
+  },
+  {
+    "id": 3,
+    "name": "তানভীর হাসান",
+    "username": "mod_tanveer",
+    "email": "tanveer@bartachitro.com",
+    "role": "moderator",
+    "role_title": "কমিউনিটি ও বার্তা মডারেটর",
+    "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
+    "status": "active",
+    "created_at": "2026-03-10 11:30:00",
+    "last_login": "২০২৬-০৯-০৪ ০৯:১৫",
+    "phone": "০১৭৩৩৩৩৪৪৫৫"
+  }
+]

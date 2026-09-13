@@ -93,26 +93,26 @@ export default function App() {
     // Load News
     fetchNewsList()
       .then(dbNews => {
-        if (isMounted && Array.isArray(dbNews) && dbNews.length > 0) {
+        if (isMounted && Array.isArray(dbNews)) {
           setNewsList(dbNews);
         }
       })
-      .catch(err => console.warn('News API fetch fallback to defaults:', err));
+      .catch(err => console.warn('News API fetch error:', err));
 
     // Load Categories
     fetchCategoriesList()
       .then(dbCats => {
-        if (isMounted && Array.isArray(dbCats) && dbCats.length > 0) {
+        if (isMounted && Array.isArray(dbCats)) {
           const sorted = [...dbCats].sort((a, b) => (Number(a.display_order) || 0) - (Number(b.display_order) || 0));
           setCategories(sorted);
         }
       })
-      .catch(err => console.warn('Categories API fetch fallback to defaults:', err));
+      .catch(err => console.warn('Categories API fetch error:', err));
 
     // Load Ads
     fetchAdvertisements()
       .then(dbAds => {
-        if (isMounted && Array.isArray(dbAds) && dbAds.length > 0) {
+        if (isMounted && Array.isArray(dbAds)) {
           setAds(dbAds);
         }
       })
@@ -121,7 +121,7 @@ export default function App() {
     // Load Epaper
     fetchEpaperData()
       .then(dbEpaper => {
-        if (isMounted && dbEpaper && dbEpaper.pages) {
+        if (isMounted && dbEpaper) {
           setEpaper(dbEpaper);
         }
       })
@@ -139,7 +139,7 @@ export default function App() {
     // Load Blogs
     fetchBlogPosts()
       .then(dbBlogs => {
-        if (isMounted && Array.isArray(dbBlogs) && dbBlogs.length > 0) {
+        if (isMounted && Array.isArray(dbBlogs)) {
           setBlogs(dbBlogs);
         }
       })
@@ -148,7 +148,7 @@ export default function App() {
     // Load Users
     fetchAdminUsers()
       .then(dbUsers => {
-        if (isMounted && Array.isArray(dbUsers) && dbUsers.length > 0) {
+        if (isMounted && Array.isArray(dbUsers)) {
           setUsers(dbUsers);
         }
       })
@@ -162,7 +162,7 @@ export default function App() {
   // 2. Sync Document Title and Favicon with Settings
   useEffect(() => {
     const siteName = settings.site_name || 'বার্তাচিত্র';
-    const tagline = settings.site_tagline || 'সত্যের সংবাদ, সবার ভাষায়';
+    const tagline = settings.site_tagline || 'সংবাদ ও ছবি। Bartachitra';
     document.title = `${siteName} - ${tagline}`;
 
     if (settings.favicon_url) {
@@ -399,13 +399,13 @@ export default function App() {
     setMessages(prev => prev.filter(m => m.id !== id));
   };
 
-  const handleAddUser = async (user: AdminUser) => {
-    const saved = await createAdminUser(user);
+  const handleAddUser = async (user: AdminUser, password?: string) => {
+    const saved = await createAdminUser(user, password || user.password);
     setUsers(prev => [saved, ...prev]);
   };
 
-  const handleUpdateUser = async (user: AdminUser) => {
-    await updateAdminUser(user);
+  const handleUpdateUser = async (user: AdminUser, password?: string) => {
+    await updateAdminUser(user, password || user.password);
     setUsers(prev => prev.map(u => u.id === user.id ? user : u));
   };
 
@@ -460,8 +460,30 @@ export default function App() {
     );
   }
 
-  // Filter for Homepage
+  // Filter for Published News
   const publishedNews = newsList.filter(n => n.status === 'published');
+
+  // If in E-Paper full dedicated reader view
+  if (currentView === 'epaper') {
+    return (
+      <ErrorBoundary title="ই-পেপার লোড হতে সমস্যা হয়েছে" onReset={handleNavigateHome}>
+        <EpaperView
+          epaper={epaper}
+          allNews={publishedNews}
+          onNavigateHome={handleNavigateHome}
+          settings={settings}
+          onOpenArticle={handleOpenArticle}
+          onSelectDate={(date) => {
+            fetchEpaperData(date).then(e => {
+              if (e) setEpaper(e);
+            }).catch(() => {});
+          }}
+        />
+      </ErrorBoundary>
+    );
+  }
+
+  // Filter for Homepage
   const breakingNews = publishedNews.filter(n => n.is_breaking);
   const leadStory = publishedNews.find(n => n.is_featured) || publishedNews[0];
   const subStories = publishedNews.filter(n => n.id !== leadStory?.id).slice(0, 3);
@@ -638,16 +660,6 @@ export default function App() {
             categories={categories}
             allNews={publishedNews}
             onOpenArticle={handleOpenArticle}
-          />
-        )}
-
-        {/* EPAPER VIEWER */}
-        {currentView === 'epaper' && (
-          <EpaperView
-            epaper={epaper}
-            allNews={publishedNews}
-            onNavigateHome={handleNavigateHome}
-            settings={settings}
           />
         )}
 

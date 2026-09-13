@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Calendar, CloudSun, Newspaper, Search, Menu, X, 
   Download, ShieldCheck, Home, ArrowRight, ChevronRight, ChevronDown,
-  BookOpen
+  BookOpen, Clock
 } from 'lucide-react';
 import { Category, NewsArticle, SiteSettings } from '../types';
-import { bnDate } from '../utils/bengaliHelpers';
+import { bnNum } from '../utils/bengaliHelpers';
 import { SiteLogo } from './SiteLogo';
 
 interface HeaderProps {
@@ -47,6 +47,36 @@ export const Header: React.FC<HeaderProps> = ({
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<NewsArticle[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentDate(new Date()), 10000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Format compact date and 12-hour time (e.g., 12:00 PM)
+  const formatTime12 = (d: Date) => {
+    let hours = d.getHours();
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    if (hours === 0) hours = 12;
+    return `${hours}:${minutes} ${ampm}`;
+  };
+
+  const bnMonths = [
+    'জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
+    'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'
+  ];
+  const bnDays = [
+    'রবিবার', 'সোমবার', 'মঙ্গলবার', 'বুধবার', 'বৃহস্পতিবার', 'শুক্রবার', 'শনিবার'
+  ];
+  const dayName = bnDays[currentDate.getDay()];
+  const day = bnNum(currentDate.getDate());
+  const month = bnMonths[currentDate.getMonth()];
+  const year = bnNum(currentDate.getFullYear());
+  const formattedDate = `${dayName}, ${day} ${month} ${year}`;
+  const formattedTime = formatTime12(currentDate);
 
   const handleSearchInput = (val: string) => {
     setSearchQuery(val);
@@ -76,45 +106,39 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-xs">
-      {/* 1. Top Utility Bar - Clean, Compact, Fully Responsive */}
-      <div className="bg-gray-50 border-b border-gray-200 text-xs text-gray-600 px-3 sm:px-6 py-1.5">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
-          {/* Left: Date and Weather */}
-          <div className="flex items-center gap-2 sm:gap-3 text-[11px] sm:text-xs">
-            <div className="flex items-center gap-1 font-medium text-gray-700 whitespace-nowrap">
-              <Calendar className="w-3 h-3 text-red-700 shrink-0" />
-              <span>{bnDate(new Date().toISOString(), true)}</span>
-            </div>
-            <div className="hidden md:flex items-center gap-1 text-gray-500 text-[11px]">
-              <CloudSun className="w-3 h-3 text-amber-600 shrink-0" />
-              <span>ঢাকা ২৯° সে.</span>
-            </div>
+      {/* 1. Top Utility Bar - Clean, Compact, Highly Visible */}
+      <div className="bg-gray-100 border-b border-gray-200 text-[11px] sm:text-xs text-gray-800 px-3 sm:px-6 py-1">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 overflow-hidden whitespace-nowrap">
+          {/* Left: Date & Time */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 font-medium text-gray-900">
+            <span className="flex items-center gap-1">
+              <Calendar className="w-3 h-3 text-red-600 shrink-0" />
+              <span>{formattedDate}</span>
+            </span>
+            <span className="text-gray-300">|</span>
+            <span className="flex items-center gap-1 text-gray-700">
+              <Clock className="w-3 h-3 text-gray-500 shrink-0" />
+              <span>সময়: {formattedTime}</span>
+            </span>
           </div>
 
-          {/* Right: Quick Portals & Tools */}
-          <div className="flex items-center gap-2 sm:gap-3 text-[11px] sm:text-xs font-semibold shrink-0">
-            <button 
-              onClick={onNavigateArchive}
-              className="text-gray-600 hover:text-red-700 transition-colors cursor-pointer"
-            >
-              আর্কাইভ
-            </button>
-            <span className="text-gray-300">|</span>
+          {/* Right: E-paper link & discreet Admin access */}
+          <div className="flex items-center gap-2 shrink-0">
             <button 
               onClick={onNavigateEpaper}
-              className="text-gray-700 hover:text-red-700 transition-colors flex items-center gap-1 cursor-pointer"
+              className="text-red-700 hover:text-red-800 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+              title="ই-পেপার সংস্করণ"
             >
-              <Newspaper className="w-3 h-3 text-red-700" />
-              <span className="hidden xs:inline">ই-পত্রিকা</span>
+              <Newspaper className="w-3 h-3 text-red-700 shrink-0" />
+              <span>ই-পেপার</span>
             </button>
             <span className="text-gray-300">|</span>
             <button 
               onClick={onOpenAdmin}
-              className="text-gray-700 hover:text-red-700 transition-colors flex items-center gap-1 cursor-pointer"
-              title="অ্যাডমিন সিএমএস ড্যাশবোর্ড"
+              className="text-gray-400 hover:text-gray-700 transition-colors cursor-pointer flex items-center"
+              title="অ্যাডমিন প্যানেল"
             >
-              <ShieldCheck className="w-3 h-3 text-gray-600" />
-              <span>অ্যাডমিন</span>
+              <ShieldCheck className="w-3 h-3" />
             </button>
           </div>
         </div>

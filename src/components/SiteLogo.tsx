@@ -72,7 +72,7 @@ export const SiteLogo: React.FC<SiteLogoProps> = ({
 
       {showSubtitle && (
         <span className="text-[10px] text-gray-500 font-semibold tracking-wider font-bengali-body pl-1 mt-0.5">
-          সত্যের সংবাদ, সবার ভাষায়
+          সংবাদ ও ছবি। Bartachitra
         </span>
       )}
     </div>

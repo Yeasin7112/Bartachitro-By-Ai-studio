@@ -10,6 +10,13 @@ if (!$db) {
 
 try {
     if ($method === 'GET') {
+        $list = isset($_GET['list']) && $_GET['list'] == '1';
+        if ($list) {
+            $stmt = $db->query("SELECT id, title, edition_date, total_pages, cover_image, status, created_at FROM epapers ORDER BY edition_date DESC");
+            $editions = $stmt->fetchAll();
+            sendResponse(['status' => 'ok', 'data' => $editions]);
+        }
+
         $date = isset($_GET['date']) ? trim($_GET['date']) : null;
         
         $sql = "SELECT * FROM epapers WHERE status = 'published'";
@@ -52,6 +59,22 @@ try {
         } else {
             sendResponse(['status' => 'ok', 'data' => null]);
         }
+    }
+    elseif ($method === 'DELETE') {
+        if (!checkAdminAuth()) {
+            sendResponse(['error' => 'অননুমোদিত অ্যাক্সেস। অনুগ্রহ করে অ্যাডমিন হিসেবে লগইন করুন।'], 401);
+        }
+        $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+        if (!$id) {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $id = isset($input['id']) ? (int)$input['id'] : 0;
+        }
+        if (!$id) {
+            sendResponse(['error' => 'Invalid ID'], 400);
+        }
+        $del = $db->prepare("DELETE FROM epapers WHERE id = :id");
+        $del->execute([':id' => $id]);
+        sendResponse(['status' => 'ok', 'message' => 'Edition deleted successfully']);
     }
     elseif ($method === 'POST') {
         if (!checkAdminAuth()) {

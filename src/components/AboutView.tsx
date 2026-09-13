@@ -24,7 +24,7 @@ export const AboutView: React.FC<AboutViewProps> = ({
         <h1 className="text-2xl sm:text-3xl font-black text-gray-950 font-bengali-display">
           আমাদের সম্পর্কে (About BartaChitro)
         </h1>
-        <p className="text-xs text-gray-600 mt-1">সত্যের সংবাদ, সবার ভাষায় - নিরপেক্ষ ও নির্ভীক সাংবাদিকতার অঙ্গীকার।</p>
+        <p className="text-xs text-gray-600 mt-1">বার্তাচিত্র-সংবাদ ও ছবি। Bartachitra - নিরপেক্ষ ও নির্ভীক সাংবাদিকতার অঙ্গীকার।</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start mb-12">

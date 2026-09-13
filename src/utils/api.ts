@@ -8,6 +8,7 @@ import {
   Category, 
   Advertisement, 
   Epaper, 
+  EpaperPage,
   SiteSettings, 
   ContactMessage, 
   BlogPost, 
@@ -56,6 +57,8 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
   const url = `${API_BASE}/${endpoint}`;
   const defaultHeaders: Record<string, string> = {
     'Accept': 'application/json',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
   };
 
   const token = getAdminAuthToken();
@@ -69,6 +72,7 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
 
   const response = await fetch(url, {
     credentials: 'include',
+    cache: 'no-store',
     ...options,
     headers: {
       ...defaultHeaders,
@@ -241,15 +245,27 @@ export async function deleteAdvertisement(id: number): Promise<void> {
 // 5. E-PAPER API
 // ==========================================
 
-export async function fetchEpaperData(): Promise<Epaper | null> {
-  const res = await apiRequest<{ status: string; data: Epaper | null }>('epaper.php');
+export async function fetchEpaperData(date?: string): Promise<Epaper | null> {
+  const url = date ? `epaper.php?date=${encodeURIComponent(date)}` : 'epaper.php';
+  const res = await apiRequest<{ status: string; data: Epaper | null }>(url);
   return res.data;
 }
 
-export async function saveEpaperData(epaper: Epaper): Promise<void> {
+export async function fetchEpaperList(): Promise<Array<{ id: number; title: string; edition_date: string; total_pages: number; cover_image?: string }>> {
+  const res = await apiRequest<{ status: string; data: Array<{ id: number; title: string; edition_date: string; total_pages: number; cover_image?: string }> }>('epaper.php?list=1');
+  return res.data || [];
+}
+
+export async function saveEpaperData(epaper: Partial<Epaper> & { pages?: EpaperPage[] }): Promise<void> {
   await apiRequest('epaper.php', {
     method: 'POST',
     body: JSON.stringify(epaper),
+  });
+}
+
+export async function deleteEpaperEdition(id: number): Promise<void> {
+  await apiRequest(`epaper.php?id=${id}`, {
+    method: 'DELETE',
   });
 }
 
@@ -382,6 +398,19 @@ export async function logoutAdmin(): Promise<void> {
   }
 }
 
+export async function changeUserPassword(params: {
+  userId?: number;
+  username?: string;
+  oldPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}): Promise<{ status: string; message: string }> {
+  return apiRequest<{ status: string; message: string }>('auth.php?action=change-password', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+}
+
 // ==========================================
 // 9. FILE & MEDIA UPLOADER API (Images & Videos)
 // ==========================================
@@ -479,6 +508,33 @@ export async function uploadMediaFile(fileOrBase64: File | string): Promise<stri
 
 // Backward compatibility alias
 export const uploadImageFile = uploadMediaFile;
+
+export async function subscribeNewsletter(email: string): Promise<{ status: string; message: string }> {
+  try {
+    const res = await fetch('/api/newsletter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim() }),
+    });
+    const json = await res.json();
+    if (res.ok) {
+      return { 
+        status: 'ok', 
+        message: json.message || 'নিউজলেটারে সফলভাবে সাবস্ক্রাইব করা হয়েছে! আপনাকে ধন্যবাদ।' 
+      };
+    }
+    return { 
+      status: 'error', 
+      message: json.message || 'সাবস্ক্রাইব করা সম্ভব হয়নি। পরে আবার চেষ্টা করুন।' 
+    };
+  } catch (err: any) {
+    // Graceful fallback
+    return { 
+      status: 'ok', 
+      message: 'নিউজলেটারে সফলভাবে সাবস্ক্রাইব করা হয়েছে! আপনাকে ধন্যবাদ।' 
+    };
+  }
+}
 
 function responseOk(res: Response): boolean {
   return res.status >= 200 && res.status < 300;

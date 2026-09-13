@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import { 
   Users, UserPlus, Shield, ShieldCheck, UserCheck, 
-  Trash2, Edit3, Key, Check, AlertCircle, Phone, Mail, 
-  Clock, ShieldAlert, Sparkles, X
+  Trash2, Edit3, Key, KeyRound, Check, AlertCircle, Phone, Mail, 
+  Clock, ShieldAlert, Sparkles, X, Eye, EyeOff, RefreshCw, Lock
 } from 'lucide-react';
 import { AdminUser, AdminRole } from '../../types';
 import { bnNum } from '../../utils/bengaliHelpers';
+import { UpdatePasswordModal } from './UpdatePasswordModal';
 
 interface AdminUserManagementProps {
   users: AdminUser[];
   currentUser: AdminUser;
-  onAddUser: (user: AdminUser) => Promise<void> | void;
-  onUpdateUser: (user: AdminUser) => Promise<void> | void;
+  onAddUser: (user: AdminUser, password?: string) => Promise<void> | void;
+  onUpdateUser: (user: AdminUser, password?: string) => Promise<void> | void;
   onDeleteUser: (id: number) => Promise<void> | void;
   onChangeActiveUser: (user: AdminUser) => void;
 }
@@ -26,17 +27,24 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
 }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
+  const [resetModalUser, setResetModalUser] = useState<AdminUser | null>(null);
   const [feedback, setFeedback] = useState('');
 
   // Add User Form State
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<AdminRole>('editor');
   const [roleTitle, setRoleTitle] = useState('বার্তা সম্পাদক');
   const [avatar, setAvatar] = useState('https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop&crop=face');
   const [formError, setFormError] = useState('');
+
+  // Edit User Password State
+  const [editPassword, setEditPassword] = useState('');
+  const [showEditPassword, setShowEditPassword] = useState(false);
 
   const isSuperAdmin = currentUser.role === 'super_admin';
 
@@ -77,11 +85,19 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
       return;
     }
 
+    if (password.trim() && password.trim().length < 4) {
+      setFormError('পাসওয়ার্ড কমপক্ষে ৪ অক্ষরের হতে হবে।');
+      return;
+    }
+
+    const finalPassword = password.trim() || 'Admin@' + Math.floor(1000 + Math.random() * 9000);
+
     const newUser: AdminUser = {
       id: Date.now(),
       name: name.trim(),
       username: username.trim().toLowerCase(),
       email: email.trim(),
+      password: finalPassword,
       phone: phone.trim() || '০১৭১১০০০০০০',
       role,
       role_title: roleTitle.trim() || roleMeta[role].label,
@@ -92,15 +108,16 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
     };
 
     try {
-      await onAddUser(newUser);
-      setFeedback(`"${newUser.name}" কে সফলভাবে ${roleMeta[newUser.role].label} হিসেবে যুক্ত করা হয়েছে!`);
+      await onAddUser(newUser, finalPassword);
+      setFeedback(`"${newUser.name}" কে সফলভাবে ${roleMeta[newUser.role].label} হিসেবে যুক্ত করা হয়েছে! পাসওয়ার্ড সেট সম্পন্ন।`);
       setShowAddModal(false);
       setName('');
       setUsername('');
       setEmail('');
+      setPassword('');
       setPhone('');
       setFormError('');
-      setTimeout(() => setFeedback(''), 3000);
+      setTimeout(() => setFeedback(''), 4000);
     } catch (err: any) {
       setFormError(err.message || 'অ্যাডমিন ইউজার যুক্ত করতে ব্যর্থ হয়েছে।');
     }
@@ -110,10 +127,17 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
     e.preventDefault();
     if (!editingUser) return;
 
+    if (editPassword.trim() && editPassword.trim().length < 4) {
+      setFeedback('নতুন পাসওয়ার্ড কমপক্ষে ৪ অক্ষরের হতে হবে।');
+      setTimeout(() => setFeedback(''), 4000);
+      return;
+    }
+
     try {
-      await onUpdateUser(editingUser);
-      setFeedback(`"${editingUser.name}" এর তথ্য ও রোল সফলভাবে আপডেট করা হয়েছে!`);
+      await onUpdateUser(editingUser, editPassword.trim() || undefined);
+      setFeedback(`"${editingUser.name}" এর তথ্য${editPassword.trim() ? ' ও নতুন পাসওয়ার্ড' : ''} সফলভাবে আপডেট করা হয়েছে!`);
       setEditingUser(null);
+      setEditPassword('');
       setTimeout(() => setFeedback(''), 3000);
     } catch (err: any) {
       setFeedback(err.message || 'ইউজার আপডেট করতে ব্যর্থ হয়েছে।');
@@ -137,19 +161,30 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
           </p>
         </div>
 
-        {isSuperAdmin ? (
+        <div className="flex items-center gap-2.5 flex-wrap">
           <button
-            onClick={() => setShowAddModal(true)}
-            className="bg-red-700 hover:bg-red-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-2 cursor-pointer shadow transition-all shrink-0 self-start sm:self-auto"
+            type="button"
+            onClick={() => setResetModalUser(currentUser)}
+            className="bg-slate-700 hover:bg-slate-600 text-amber-300 text-xs font-bold px-3.5 py-2.5 rounded-xl flex items-center gap-2 cursor-pointer shadow transition-all"
+            title="আমার অ্যাকাউন্টের পাসওয়ার্ড আপডেট করুন"
           >
-            <UserPlus className="w-4 h-4" /> নতুন অ্যাডমিন যুক্ত করুন
+            <KeyRound className="w-4 h-4 text-amber-400" /> আমার পাসওয়ার্ড পরিবর্তন
           </button>
-        ) : (
-          <div className="bg-amber-950/40 border border-amber-800/60 text-amber-300 text-xs px-3.5 py-2 rounded-xl flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400" />
-            <span>নতুন অ্যাডমিন যোগ বা ডিলিট করার ক্ষমতা শুধুমাত্র সুপার অ্যাডমিনের রয়েছে।</span>
-          </div>
-        )}
+
+          {isSuperAdmin ? (
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="bg-red-700 hover:bg-red-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-2 cursor-pointer shadow transition-all shrink-0 self-start sm:self-auto"
+            >
+              <UserPlus className="w-4 h-4" /> নতুন অ্যাডমিন যুক্ত করুন
+            </button>
+          ) : (
+            <div className="bg-amber-950/40 border border-amber-800/60 text-amber-300 text-xs px-3.5 py-2 rounded-xl flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400" />
+              <span>নতুন অ্যাডমিন যোগ করার ক্ষমতা সুপার অ্যাডমিনের।</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Role Switcher Test Box */}
@@ -235,7 +270,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                 <th className="p-3.5">যোগাযোগ</th>
                 <th className="p-3.5">স্ট্যাটাস</th>
                 <th className="p-3.5">সর্বশেষ লগইন</th>
-                {isSuperAdmin && <th className="p-3.5 text-right">অ্যাকশন</th>}
+                <th className="p-3.5 text-right">অ্যাকশন</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700/60 text-slate-200">
@@ -295,38 +330,54 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                     <td className="p-3.5 text-slate-400 text-[11px]">
                       {u.last_login}
                     </td>
-                    {isSuperAdmin && (
-                      <td className="p-3.5 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                    <td className="p-3.5 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {/* Password update button for Admin and Moderator accounts */}
+                        {(isSuperAdmin || isCurrent) && (
                           <button
-                            onClick={() => setEditingUser({ ...u })}
-                            className="bg-slate-700 hover:bg-slate-600 text-white p-1.5 rounded-lg text-xs transition-colors cursor-pointer"
-                            title="রোল ও তথ্য সম্পাদনা করুন"
+                            onClick={() => setResetModalUser(u)}
+                            className="bg-amber-900/50 hover:bg-amber-800 text-amber-300 border border-amber-700/60 p-1.5 rounded-lg text-xs transition-colors cursor-pointer flex items-center gap-1"
+                            title={isCurrent ? "আমার পাসওয়ার্ড আপডেট করুন" : `"${u.name}" এর পাসওয়ার্ড আপডেট করুন`}
                           >
-                            <Edit3 className="w-3.5 h-3.5" />
+                            <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                            <span className="text-[10px] font-semibold hidden sm:inline">পাসওয়ার্ড</span>
                           </button>
-                          {u.role !== 'super_admin' && (
+                        )}
+                        {isSuperAdmin && (
+                          <>
                             <button
-                              onClick={async () => {
-                                if (!window.confirm(`আপনি কি "${u.name}" কে অ্যাডমিন তালিকা থেকে মুছে ফেলতে চান?`)) return;
-                                try {
-                                  await onDeleteUser(u.id);
-                                  setFeedback(`"${u.name}" কে অ্যাডমিন তালিকা থেকে সফলভাবে সরানো হয়েছে।`);
-                                  setTimeout(() => setFeedback(''), 3000);
-                                } catch (err: any) {
-                                  setFeedback(err.message || 'ইউজার মুছতে ব্যর্থ হয়েছে।');
-                                  setTimeout(() => setFeedback(''), 4000);
-                                }
+                              onClick={() => {
+                                setEditingUser({ ...u });
+                                setEditPassword('');
                               }}
-                              className="bg-red-900/60 hover:bg-red-800 text-red-200 p-1.5 rounded-lg text-xs transition-colors cursor-pointer"
-                              title="ব্যবহারকারী মুছে ফেলুন"
+                              className="bg-slate-700 hover:bg-slate-600 text-white p-1.5 rounded-lg text-xs transition-colors cursor-pointer"
+                              title="রোল ও তথ্য সম্পাদনা করুন"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Edit3 className="w-3.5 h-3.5" />
                             </button>
-                          )}
-                        </div>
-                      </td>
-                    )}
+                            {u.role !== 'super_admin' && (
+                              <button
+                                onClick={async () => {
+                                  if (!window.confirm(`আপনি কি "${u.name}" কে অ্যাডমিন তালিকা থেকে মুছে ফেলতে চান?`)) return;
+                                  try {
+                                    await onDeleteUser(u.id);
+                                    setFeedback(`"${u.name}" কে অ্যাডমিন তালিকা থেকে সফলভাবে সরানো হয়েছে।`);
+                                    setTimeout(() => setFeedback(''), 3000);
+                                  } catch (err: any) {
+                                    setFeedback(err.message || 'ইউজার মুছতে ব্যর্থ হয়েছে।');
+                                    setTimeout(() => setFeedback(''), 4000);
+                                  }
+                                }}
+                                className="bg-red-900/60 hover:bg-red-800 text-red-200 p-1.5 rounded-lg text-xs transition-colors cursor-pointer"
+                                title="ব্যবহারকারী মুছে ফেলুন"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
@@ -425,6 +476,41 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-red-500"
                   />
                 </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-bold text-slate-300">লগইন পাসওয়ার্ড *</label>
+                  <button
+                    type="button"
+                    onClick={() => setPassword('Admin@' + Math.floor(1000 + Math.random() * 9000))}
+                    className="text-[11px] text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <RefreshCw className="w-3 h-3" /> র‍্যান্ডম পাসওয়ার্ড তৈরি
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    minLength={4}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="যেমন: Admin@1234 (কমপক্ষে ৪ অক্ষর)"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 pr-10 text-white font-mono focus:outline-none focus:border-red-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white cursor-pointer"
+                    title={showPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  এই পাসওয়ার্ড দিয়ে নতুন অ্যাডমিন/সম্পাদক অ্যাডমিন প্যানেলে সরাসরি লগইন করতে পারবেন।
+                </p>
               </div>
 
               <div>
@@ -535,10 +621,52 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                 </select>
               </div>
 
+              {isSuperAdmin && (
+                <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-3.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block font-bold text-slate-300 flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-amber-400" />
+                      নতুন পাসওয়ার্ড সেট করুন
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setEditPassword('Admin@' + Math.floor(1000 + Math.random() * 9000))}
+                      className="text-[11px] text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <RefreshCw className="w-3 h-3" /> র‍্যান্ডম পাসওয়ার্ড
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showEditPassword ? 'text' : 'password'}
+                      minLength={4}
+                      value={editPassword}
+                      onChange={(e) => setEditPassword(e.target.value)}
+                      placeholder="অপরিবর্তিত রাখতে খালি রাখুন (নতুবা নতুন পাসওয়ার্ড লিখুন)"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 pr-10 text-white font-mono text-xs focus:outline-none focus:border-red-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowEditPassword(!showEditPassword)}
+                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white cursor-pointer"
+                      title={showEditPassword ? 'লুকান' : 'দেখুন'}
+                    >
+                      {showEditPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    সুপার অ্যাডমিন হিসেবে আপনি যে-কোনো অ্যাডমিন বা সম্পাদকের পাসওয়ার্ড পরিবর্তন করতে পারেন।
+                  </p>
+                </div>
+              )}
+
               <div className="pt-3 border-t border-slate-800 flex items-center justify-end gap-2.5">
                 <button
                   type="button"
-                  onClick={() => setEditingUser(null)}
+                  onClick={() => {
+                    setEditingUser(null);
+                    setEditPassword('');
+                  }}
                   className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg font-bold cursor-pointer"
                 >
                   বাতিল
@@ -553,6 +681,19 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Password Update Modal for Admin and Moderator Accounts */}
+      {resetModalUser && (
+        <UpdatePasswordModal
+          user={resetModalUser}
+          isOpen={true}
+          onClose={() => setResetModalUser(null)}
+          onSuccess={(msg) => {
+            setFeedback(msg);
+            setTimeout(() => setFeedback(''), 4000);
+          }}
+        />
       )}
     </div>
   );

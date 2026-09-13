@@ -309,7 +309,7 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
               <div className="aspect-square bg-white border border-dashed border-gray-300 rounded flex flex-col items-center justify-center p-4 text-center">
                 <Newspaper className="w-10 h-10 mb-2 text-red-700" />
                 <h4 className="text-sm font-bold text-gray-900 font-bengali-display">বার্তাচিত্র ডিজিটাল</h4>
-                <p className="text-[11px] text-gray-500 mt-1">সত্যের সংবাদ, সবার ভাষায় • প্রতিদিন আপনার সাথে</p>
+                <p className="text-[11px] text-gray-500 mt-1">সংবাদ ও ছবি। Bartachitra • প্রতিদিন আপনার সাথে</p>
               </div>
             </div>
           )}

@@ -233,7 +233,7 @@ export const INITIAL_ADS: Advertisement[] = [
 
 export const INITIAL_SETTINGS: SiteSettings = {
   site_name: 'বার্তাচিত্র',
-  site_tagline: 'সত্যের সংবাদ, সবার ভাষায়',
+  site_tagline: 'সংবাদ ও ছবি। Bartachitra',
   editor_name: 'আহমেদ রফিক চৌধুরী',
   executive_editor: 'শাহনেওয়াজ করিম',
   email: 'editor@bartachitro.com',
@@ -242,7 +242,7 @@ export const INITIAL_SETTINGS: SiteSettings = {
   facebook_url: 'https://facebook.com',
   twitter_url: 'https://twitter.com',
   youtube_url: 'https://youtube.com',
-  meta_description: 'বার্তাচিত্র - বাংলাদেশের অন্যতম জনপ্রিয় বাংলা অনলাইন সংবাদপত্র ও ডিজিটাল ই-পত্রিকা।',
+  meta_description: 'বার্তাচিত্র-সংবাদ ও ছবি। Bartachitra - বাংলাদেশের শীর্ষস্থানীয় অনলাইন সংবাদপত্র ও ই-পত্রিকা পোর্টাল',
   meta_keywords: 'বার্তাচিত্র, বাংলা সংবাদ, বাংলাদেশ, ই-পত্রিকা, ব্রেকিং নিউজ',
   disable_ads: false
 };
@@ -384,6 +384,7 @@ export const INITIAL_USERS: AdminUser[] = [
     name: 'আহমেদ রফিক চৌধুরী',
     username: 'admin',
     email: 'admin@bartachitro.com',
+    password: 'admin123',
     role: 'super_admin',
     role_title: 'প্রধান সম্পাদক ও প্রকাশক',
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
@@ -397,6 +398,7 @@ export const INITIAL_USERS: AdminUser[] = [
     name: 'নাসরিন আক্তার',
     username: 'editor_nasrin',
     email: 'nasrin@bartachitro.com',
+    password: 'admin123',
     role: 'editor',
     role_title: 'বার্তা সম্পাদক (News Editor)',
     avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face',
@@ -410,6 +412,7 @@ export const INITIAL_USERS: AdminUser[] = [
     name: 'তানভীর হাসান',
     username: 'mod_tanveer',
     email: 'tanveer@bartachitro.com',
+    password: 'admin123',
     role: 'moderator',
     role_title: 'কমিউনিটি ও বার্তা মডারেটর',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',

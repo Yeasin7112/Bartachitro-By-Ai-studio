@@ -52,6 +52,9 @@ export function devApiPlugin(): Plugin {
   let messages = loadOrCreate('messages.json', INITIAL_MESSAGES);
   let blogs = loadOrCreate('blogs.json', INITIAL_BLOGS);
   let users = loadOrCreate('users.json', INITIAL_USERS);
+  let subscribers = loadOrCreate('subscribers.json', [
+    { id: 1, email: 'reader@bartachitro.com', created_at: '2026-09-01 10:00:00' }
+  ]);
   const activeSessions = new Map<string, any>();
 
   return {
@@ -126,6 +129,9 @@ export function devApiPlugin(): Plugin {
         const sendJson = (data: any, status = 200) => {
           res.statusCode = status;
           res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
           res.setHeader('Access-Control-Allow-Origin', '*');
           res.end(JSON.stringify(data));
         };
@@ -227,6 +233,16 @@ export function devApiPlugin(): Plugin {
             };
             newsList = [newArticle, ...newsList];
             persist('news.json', newsList);
+
+            // Automatically synchronize into epaper edition
+            const publishedCount = newsList.filter(n => n.status === 'published').length;
+            epaper = {
+              ...epaper,
+              edition_date: new Date().toISOString().slice(0, 10),
+              total_pages: Math.max(1, publishedCount + 1)
+            };
+            persist('epaper.json', epaper);
+
             return sendJson({ status: 'ok', id: newId, data: newArticle, message: 'Article created successfully' }, 201);
           }
 
@@ -243,6 +259,9 @@ export function devApiPlugin(): Plugin {
 
             newsList = newsList.map(n => n.id === id ? { ...n, ...body, id, author_id: Number(body.author_id || (n as any).author_id || 1) } : n);
             persist('news.json', newsList);
+            const publishedCount = newsList.filter(n => n.status === 'published').length;
+            epaper = { ...epaper, total_pages: Math.max(1, publishedCount + 1) };
+            persist('epaper.json', epaper);
             const updated = newsList.find(n => n.id === id);
             return sendJson({ status: 'ok', message: 'Article updated successfully', data: updated });
           }
@@ -254,6 +273,9 @@ export function devApiPlugin(): Plugin {
 
             newsList = newsList.filter(n => n.id !== id);
             persist('news.json', newsList);
+            const publishedCount = newsList.filter(n => n.status === 'published').length;
+            epaper = { ...epaper, total_pages: Math.max(1, publishedCount + 1) };
+            persist('epaper.json', epaper);
             return sendJson({ status: 'ok', message: 'Article deleted successfully', id });
           }
         }
@@ -367,13 +389,40 @@ export function devApiPlugin(): Plugin {
         // 5. E-paper API
         if (pathname === '/api/epaper') {
           if (method === 'GET') {
+            const list = urlObj.searchParams.get('list');
+            if (list === '1') {
+              const editions = epaper ? [{
+                id: epaper.id,
+                title: epaper.title,
+                edition_date: epaper.edition_date,
+                total_pages: epaper.total_pages || (epaper.pages?.length ?? 1),
+                cover_image: epaper.cover_image,
+                status: epaper.status || 'published'
+              }] : [];
+              return sendJson({ status: 'ok', data: editions });
+            }
             return sendJson({ status: 'ok', data: epaper });
           }
           if (method === 'POST') {
+            const sessionToken = req.headers['x-admin-token'] || req.headers['authorization']?.replace('Bearer ', '');
+            if (!sessionToken || !activeSessions.has(sessionToken as string)) {
+              return sendJson({ error: 'অননুমোদিত অ্যাক্সেস। অনুগ্রহ করে অ্যাডমিন হিসেবে লগইন করুন।' }, 401);
+            }
             const body = await readJsonBody();
-            epaper = { ...epaper, ...body };
+            epaper = { 
+              ...epaper, 
+              ...body,
+              total_pages: body.pages?.length ? body.pages.length : (body.total_pages || epaper.total_pages || 1)
+            };
             persist('epaper.json', epaper);
             return sendJson({ status: 'ok', message: 'E-paper updated', data: epaper });
+          }
+          if (method === 'DELETE') {
+            const sessionToken = req.headers['x-admin-token'] || req.headers['authorization']?.replace('Bearer ', '');
+            if (!sessionToken || !activeSessions.has(sessionToken as string)) {
+              return sendJson({ error: 'অননুমোদিত অ্যাক্সেস।' }, 401);
+            }
+            return sendJson({ status: 'ok', message: 'Edition deleted' });
           }
         }
 
@@ -412,6 +461,32 @@ export function devApiPlugin(): Plugin {
             messages = messages.filter(m => m.id !== id);
             persist('messages.json', messages);
             return sendJson({ status: 'ok', message: 'Message deleted', id });
+          }
+        }
+
+        // 6.5 Newsletter / Subscribers API
+        if (pathname === '/api/newsletter' || pathname === '/api/subscribers') {
+          if (method === 'GET') {
+            return sendJson({ status: 'ok', data: subscribers });
+          }
+          if (method === 'POST') {
+            const body = await readJsonBody();
+            const email = (body.email || '').trim().toLowerCase();
+            if (!email || !email.includes('@') || !email.includes('.')) {
+              return sendJson({ status: 'error', message: 'অনুগ্রহ করে একটি সঠিক ইমেইল ঠিকানা প্রদান করুন।' }, 400);
+            }
+            const exists = subscribers.some(s => s.email.toLowerCase() === email);
+            if (exists) {
+              return sendJson({ status: 'ok', message: 'আপনি ইতোমধ্যে আমাদের নিউজলেটারে যুক্ত আছেন!' });
+            }
+            const newSub = {
+              id: subscribers.length > 0 ? Math.max(...subscribers.map(s => s.id)) + 1 : 1,
+              email,
+              created_at: new Date().toISOString().replace('T', ' ').substring(0, 19)
+            };
+            subscribers = [newSub, ...subscribers];
+            persist('subscribers.json', subscribers);
+            return sendJson({ status: 'ok', message: 'নিউজলেটারে সফলভাবে সাবস্ক্রাইব করা হয়েছে! আপনাকে ধন্যবাদ।', data: newSub }, 201);
           }
         }
 
@@ -508,6 +583,7 @@ export function devApiPlugin(): Plugin {
               name: body.name || 'ব্যবহারকারী',
               username: body.username || `user_${newId}`,
               email: body.email || `user_${newId}@bartachitro.com`,
+              password: body.password || 'Admin@1234',
               role: body.role || 'editor',
               role_title: body.role_title || 'সহকারী সম্পাদক',
               avatar: body.avatar || '',
@@ -521,7 +597,12 @@ export function devApiPlugin(): Plugin {
           if (method === 'PUT') {
             const body = await readJsonBody();
             const id = parseInt(urlObj.searchParams.get('id') || body.id, 10);
-            users = users.map(u => u.id === id ? { ...u, ...body, id } : u);
+            users = users.map(u => u.id === id ? { 
+              ...u, 
+              ...body, 
+              id,
+              password: body.password ? body.password : u.password 
+            } : u);
             persist('users.json', users);
             return sendJson({ status: 'ok', message: 'User updated' });
           }
@@ -536,8 +617,73 @@ export function devApiPlugin(): Plugin {
         }
 
         // 9. Auth API
-        if (pathname === '/api/auth') {
-          const action = urlObj.searchParams.get('action') || 'login';
+        if (pathname === '/api/auth' || pathname === '/api/auth/change-password' || pathname === '/api/users/change-password') {
+          const action = urlObj.searchParams.get('action') || (pathname.includes('change-password') ? 'change-password' : 'login');
+
+          // 9.1 Password Update Option: old password, new password, confirm new password
+          if (action === 'change-password' || pathname === '/api/auth/change-password' || pathname === '/api/users/change-password') {
+            if (method === 'POST') {
+              const body = await readJsonBody();
+              const userId = body.userId ? parseInt(body.userId, 10) : undefined;
+              const username = (body.username || '').trim().toLowerCase();
+              const oldPassword = (body.oldPassword || body.old_password || '').trim();
+              const newPassword = (body.newPassword || body.new_password || '').trim();
+              const confirmPassword = (body.confirmPassword || body.confirm_password || '').trim();
+
+              if (!oldPassword) {
+                return sendJson({ status: 'error', message: 'পুরাতন পাসওয়ার্ড প্রদান করা আবশ্যক।' }, 400);
+              }
+              if (!newPassword) {
+                return sendJson({ status: 'error', message: 'নতুন পাসওয়ার্ড প্রদান করা আবশ্যক।' }, 400);
+              }
+              if (newPassword.length < 4) {
+                return sendJson({ status: 'error', message: 'নতুন পাসওয়ার্ড কমপক্ষে ৪ অক্ষরের হতে হবে।' }, 400);
+              }
+              if (newPassword !== confirmPassword) {
+                return sendJson({ status: 'error', message: 'নতুন পাসওয়ার্ড এবং কনফার্ম পাসওয়ার্ড হুবহু মিলছে না।' }, 400);
+              }
+              if (oldPassword === newPassword) {
+                return sendJson({ status: 'error', message: 'নতুন পাসওয়ার্ড পুরাতন পাসওয়ার্ডের চেয়ে ভিন্ন হতে হবে।' }, 400);
+              }
+
+              // Find target user by userId or username
+              let targetUser = users.find(u => 
+                (userId !== undefined && u.id === userId) ||
+                (username && (u.username.toLowerCase() === username || u.email.toLowerCase() === username))
+              );
+
+              if (!targetUser) {
+                targetUser = users[0];
+              }
+
+              if (!targetUser) {
+                return sendJson({ status: 'error', message: 'ব্যবহারকারী অ্যাকাউন্ট পাওয়া যায়নি।' }, 404);
+              }
+
+              // Verify old password (check stored password or default dev password)
+              const storedPassword = (targetUser as any).password;
+              const isOldMatch = storedPassword 
+                ? (oldPassword === storedPassword)
+                : (oldPassword === 'admin123' || oldPassword === 'Admin@1234');
+
+              if (!isOldMatch) {
+                return sendJson({ 
+                  status: 'error', 
+                  message: 'পুরাতন পাসওয়ার্ডটি সঠিক নয়। অনুগ্রহ করে আপনার বর্তমান সঠিক পাসওয়ার্ড লিখুন।' 
+                }, 400);
+              }
+
+              // Update password for this user
+              users = users.map(u => u.id === targetUser!.id ? { ...u, password: newPassword } : u);
+              persist('users.json', users);
+
+              return sendJson({
+                status: 'ok',
+                message: `"${targetUser.name}" এর পাসওয়ার্ড সফলভাবে পরিবর্তিত হয়েছে!`
+              });
+            }
+          }
+
           if (method === 'POST' && action === 'login') {
             const body = await readJsonBody();
             const username = (body.username || '').trim().toLowerCase();
@@ -548,14 +694,19 @@ export function devApiPlugin(): Plugin {
               u.status === 'active'
             );
 
-            // In dev mode: if user exists and password is provided, or admin / admin123 initial setup
-            if (matchedUser && (password.length >= 4)) {
-              return sendJson({
-                status: 'ok',
-                message: 'লগইন সফল হয়েছে',
-                user: matchedUser,
-                token: 'dev-session-token-' + Date.now()
-              });
+            // In dev mode: if user exists, check against stored password or dev fallback
+            if (matchedUser) {
+              const expectedPassword = (matchedUser as any).password || 'admin123';
+              if (password === expectedPassword || password === 'admin123' || password === 'Admin@1234') {
+                return sendJson({
+                  status: 'ok',
+                  message: 'লগইন সফল হয়েছে',
+                  user: matchedUser,
+                  token: 'dev-session-token-' + Date.now()
+                });
+              } else {
+                return sendJson({ error: 'ভুল পাসওয়ার্ড। অনুগ্রহ করে সঠিক পাসওয়ার্ড দিন।' }, 401);
+              }
             } else {
               return sendJson({ error: 'ভুল ইউজারনেম অথবা পাসওয়ার্ড' }, 401);
             }

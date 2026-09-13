@@ -184,7 +184,7 @@ CREATE TABLE \`settings\` (
 
   const settingsEntries = [
     ['site_name', settings.site_name || 'বার্তাচিত্র'],
-    ['site_tagline', settings.site_tagline || 'সত্যের সংবাদ, সবার ভাষায়'],
+    ['site_tagline', settings.site_tagline || 'সংবাদ ও ছবি। Bartachitra'],
     ['logo_url', settings.logo_url || ''],
     ['favicon_url', settings.favicon_url || ''],
     ['editor_name', settings.editor_name || 'আহমেদ রফিক চৌধুরী'],
@@ -292,7 +292,7 @@ COMMIT;
  */
 export function getCpanelPhpTemplates(settings: SiteSettings) {
   const siteName = settings.site_name || 'বার্তাচিত্র';
-  const siteTagline = settings.site_tagline || 'সত্যের সংবাদ, সবার ভাষায়';
+  const siteTagline = settings.site_tagline || 'সংবাদ ও ছবি। Bartachitra';
 
   return {
     'config/database.php': `<?php

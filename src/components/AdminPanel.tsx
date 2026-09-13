@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, FileText, PlusCircle, FolderTree, Zap, 
   Image, Sliders, Mail, User, LogOut, ExternalLink, 
   Trash2, Edit, Check, AlertCircle, Eye, Newspaper, ArrowLeft,
   Search, X, BookOpen, PenTool, Heart, Clock, Sparkles,
   Database, ShieldCheck, UserCheck, RefreshCw, Upload, Globe,
-  GripVertical, ArrowUp, ArrowDown, ListOrdered
+  GripVertical, ArrowUp, ArrowDown, ListOrdered, KeyRound,
+  BarChart3, Calendar, ChevronLeft, ChevronRight, SlidersHorizontal, Download
 } from 'lucide-react';
 import { 
   NewsArticle, Category, Advertisement, Epaper, 
@@ -18,6 +19,10 @@ import { RichTextEditor } from './RichTextEditor';
 import { SeoMetaHelper } from './SeoMetaHelper';
 import { AdminUserManagement } from './admin/AdminUserManagement';
 import { AdminBackupRestore } from './admin/AdminBackupRestore';
+import { UpdatePasswordModal } from './admin/UpdatePasswordModal';
+import { AdminMediaLibrary } from './admin/AdminMediaLibrary';
+import { AdminAnalyticsDashboard } from './admin/AdminAnalyticsDashboard';
+import { AdminExportImport } from './admin/AdminExportImport';
 import { BackupData } from '../utils/zipExporter';
 import { SiteLogo } from './SiteLogo';
 
@@ -46,8 +51,8 @@ interface AdminPanelProps {
   onAddBlog?: (blog: BlogPost) => Promise<void> | void;
   onUpdateBlog?: (blog: BlogPost) => Promise<void> | void;
   onDeleteBlog?: (id: number) => Promise<void> | void;
-  onAddUser?: (user: AdminUser) => Promise<void> | void;
-  onUpdateUser?: (user: AdminUser) => Promise<void> | void;
+  onAddUser?: (user: AdminUser, password?: string) => Promise<void> | void;
+  onUpdateUser?: (user: AdminUser, password?: string) => Promise<void> | void;
   onDeleteUser?: (id: number) => Promise<void> | void;
   onImportBackup?: (backup: BackupData) => void;
 }
@@ -83,7 +88,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onImportBackup
 }) => {
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'news' | 'add_news' | 'categories' | 'breaking' | 'blogs' | 'add_blog' | 'ads' | 'messages' | 'settings' | 'users'
+    'dashboard' | 'analytics' | 'news' | 'add_news' | 'media' | 'categories' | 'breaking' | 'blogs' | 'add_blog' | 'export_import' | 'ads' | 'messages' | 'settings' | 'users'
   >('dashboard');
 
   // Active Admin Profile User (Default to authenticated user or first)
@@ -101,6 +106,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       last_login: '২০২৬-০৯-০৬ ১২:৩০'
     };
   });
+
+  // Password update modal state
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
@@ -169,9 +177,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [editBlogSeoDescription, setEditBlogSeoDescription] = useState('');
   const [editBlogSeoKeywords, setEditBlogSeoKeywords] = useState('');
 
-  // News list search & filtering
+  // News list advanced search, filters & pagination
   const [newsSearchQuery, setNewsSearchQuery] = useState('');
   const [newsCategoryFilter, setNewsCategoryFilter] = useState<string>('all');
+  const [newsAuthorFilter, setNewsAuthorFilter] = useState<string>('all');
+  const [newsDatePreset, setNewsDatePreset] = useState<'all' | 'today' | '7days' | '30days' | 'custom'>('all');
+  const [newsCustomStartDate, setNewsCustomStartDate] = useState<string>('');
+  const [newsCustomEndDate, setNewsCustomEndDate] = useState<string>('');
+  const [newsPage, setNewsPage] = useState<number>(1);
+  const [newsPerPage, setNewsPerPage] = useState<number>(15);
+  const [newsSortBy, setNewsSortBy] = useState<'newest' | 'oldest' | 'views'>('newest');
 
   // Old News Editing Form States
   const [editingNews, setEditingNews] = useState<NewsArticle | null>(null);
@@ -481,19 +496,81 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
-  // Filtered news list for the News List management table
-  const filteredNewsList = newsList.filter((n) => {
-    const query = newsSearchQuery.toLowerCase().trim();
-    const matchesSearch = !query || 
-      n.title.toLowerCase().includes(query) ||
-      n.author_name.toLowerCase().includes(query) ||
-      n.category_name.toLowerCase().includes(query) ||
-      n.summary.toLowerCase().includes(query);
+  // Distinct authors list for filter dropdown
+  const newsAuthors = useMemo(() => {
+    const list = Array.from(new Set(newsList.map(n => n.author_name?.trim()).filter(Boolean) as string[]));
+    return list.sort();
+  }, [newsList]);
 
-    const matchesCategory = newsCategoryFilter === 'all' || n.category_id === Number(newsCategoryFilter);
+  // Advanced Filtered news list for the News List management table
+  const filteredNewsList = useMemo(() => {
+    let result = newsList.filter((n) => {
+      const query = newsSearchQuery.toLowerCase().trim();
+      const matchesSearch = !query || 
+        n.title.toLowerCase().includes(query) ||
+        (n.author_name && n.author_name.toLowerCase().includes(query)) ||
+        (n.category_name && n.category_name.toLowerCase().includes(query)) ||
+        (n.summary && n.summary.toLowerCase().includes(query)) ||
+        (n.content && n.content.toLowerCase().includes(query));
 
-    return matchesSearch && matchesCategory;
-  });
+      if (!matchesSearch) return false;
+
+      // Category filter
+      if (newsCategoryFilter !== 'all' && n.category_id !== Number(newsCategoryFilter)) {
+        return false;
+      }
+
+      // Author filter
+      if (newsAuthorFilter !== 'all' && n.author_name?.trim() !== newsAuthorFilter) {
+        return false;
+      }
+
+      // Date range filter
+      if (newsDatePreset !== 'all' && n.published_at) {
+        const articleTime = new Date(n.published_at).getTime();
+        const now = Date.now();
+        if (newsDatePreset === 'today') {
+          const oneDayAgo = now - 24 * 60 * 60 * 1000;
+          if (articleTime < oneDayAgo) return false;
+        } else if (newsDatePreset === '7days') {
+          const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+          if (articleTime < sevenDaysAgo) return false;
+        } else if (newsDatePreset === '30days') {
+          const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+          if (articleTime < thirtyDaysAgo) return false;
+        } else if (newsDatePreset === 'custom') {
+          if (newsCustomStartDate) {
+            const start = new Date(newsCustomStartDate).getTime();
+            if (articleTime < start) return false;
+          }
+          if (newsCustomEndDate) {
+            const end = new Date(newsCustomEndDate + 'T23:59:59').getTime();
+            if (articleTime > end) return false;
+          }
+        }
+      }
+
+      return true;
+    });
+
+    if (newsSortBy === 'views') {
+      result = [...result].sort((a, b) => b.views - a.views);
+    } else if (newsSortBy === 'oldest') {
+      result = [...result].sort((a, b) => new Date(a.published_at).getTime() - new Date(b.published_at).getTime());
+    } else {
+      result = [...result].sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
+    }
+
+    return result;
+  }, [newsList, newsSearchQuery, newsCategoryFilter, newsAuthorFilter, newsDatePreset, newsCustomStartDate, newsCustomEndDate, newsSortBy]);
+
+  // News Pagination calculation
+  const totalNewsPages = Math.max(1, Math.ceil(filteredNewsList.length / newsPerPage));
+  const currentNewsPage = Math.min(newsPage, totalNewsPages);
+  const paginatedNewsList = useMemo(() => {
+    const startIdx = (currentNewsPage - 1) * newsPerPage;
+    return filteredNewsList.slice(startIdx, startIdx + newsPerPage);
+  }, [filteredNewsList, currentNewsPage, newsPerPage]);
 
   // Filtered blog list for the Blog management table
   const filteredBlogs = blogs.filter((b) => {
@@ -811,6 +888,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </button>
 
             <button
+              onClick={() => setActiveTab('analytics')}
+              className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
+                activeTab === 'analytics' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4 text-emerald-400" /> অ্যানালিটিক্স
+            </button>
+
+            <button
               onClick={() => setActiveTab('news')}
               className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
                 activeTab === 'news' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
@@ -829,6 +915,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               }`}
             >
               <PlusCircle className="w-4 h-4" /> নতুন সংবাদ প্রকাশ
+            </button>
+
+            <button
+              onClick={() => setActiveTab('media')}
+              className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
+                activeTab === 'media' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <Image className="w-4 h-4 text-indigo-400" /> মিডিয়া লাইব্রেরি
             </button>
 
             <button
@@ -879,6 +974,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               }`}
             >
               <PenTool className="w-4 h-4 text-amber-400" /> নতুন ব্লগ লিখুন
+            </button>
+
+            {/* Export / Import Data */}
+            <button
+              onClick={() => setActiveTab('export_import')}
+              className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
+                activeTab === 'export_import' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <Database className="w-4 h-4 text-amber-400" /> এক্সপোর্ট ও ইমপোর্ট
             </button>
 
             <button
@@ -954,6 +1059,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           </div>
           <button 
+            type="button"
+            onClick={() => setShowPasswordModal(true)}
+            className="w-full mb-2 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700/80 text-xs py-2 rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer font-semibold shadow-xs"
+            title="আপনার অ্যাকাউন্টের পাসওয়ার্ড পরিবর্তন করুন"
+          >
+            <KeyRound className="w-3.5 h-3.5 text-amber-400" /> 
+            <span>পাসওয়ার্ড পরিবর্তন করুন</span>
+          </button>
+          <button 
             onClick={onCloseAdmin}
             className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs py-2 rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer font-semibold"
           >
@@ -973,6 +1087,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {/* Main Admin Content Area */}
       <main className="flex-1 p-6 md:p-8 overflow-y-auto max-h-screen">
+        {/* Top Quick Status & Actions Bar */}
+        <div className="flex items-center justify-between gap-3 bg-slate-950/60 border border-slate-800/80 px-4 py-2.5 rounded-xl mb-6 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="text-xs text-slate-300 font-medium">
+              লগইন আছেন: <strong className="text-white">{currentAdminUser.name}</strong> 
+              <span className="text-slate-400 text-[11px] ml-1.5 font-mono">
+                ({currentAdminUser.role === 'super_admin' ? 'সুপার অ্যাডমিন' : currentAdminUser.role === 'editor' ? 'সম্পাদক' : 'মডারেটর'})
+              </span>
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowPasswordModal(true)}
+              className="bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700/80 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer font-semibold shadow-xs"
+              title="পাসওয়ার্ড পরিবর্তন করুন (পুরাতন, নতুন ও নিশ্চিতকরণ পাসওয়ার্ড)"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-amber-400" /> 
+              <span>পাসওয়ার্ড পরিবর্তন</span>
+            </button>
+            <button 
+              onClick={onCloseAdmin}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <ExternalLink className="w-3.5 h-3.5" /> 
+              <span className="hidden sm:inline">মূল সাইট</span>
+            </button>
+          </div>
+        </div>
+
         {/* Feedback Alert */}
         {feedback && (
           <div className="bg-emerald-900/80 border border-emerald-500 text-emerald-200 px-4 py-3 rounded-lg mb-6 flex items-center justify-between gap-2 text-sm shadow-md animate-in fade-in">
@@ -1039,6 +1184,60 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
             </div>
 
+            {/* Quick Access Feature Banners */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <button
+                type="button"
+                onClick={() => setActiveTab('analytics')}
+                className="bg-gradient-to-br from-slate-850 to-slate-900 border border-emerald-500/40 hover:border-emerald-500 p-4 rounded-xl text-left transition-all hover:-translate-y-0.5 shadow-lg group cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-3 group-hover:scale-110 transition-transform">
+                  <BarChart3 className="w-5 h-5" />
+                </div>
+                <h4 className="text-sm font-bold text-white font-bengali-display flex items-center justify-between">
+                  <span>অ্যানালিটিক্স ড্যাশবোর্ড</span>
+                  <span className="text-xs text-emerald-400">→</span>
+                </h4>
+                <p className="text-xs text-slate-400 mt-1">
+                  আজকের/সাপ্তাহিক ভিউ, সেরা পঠিত সংবাদ ও ক্যাটাগরি বিশ্লেষণ
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('media')}
+                className="bg-gradient-to-br from-slate-850 to-slate-900 border border-indigo-500/40 hover:border-indigo-500 p-4 rounded-xl text-left transition-all hover:-translate-y-0.5 shadow-lg group cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 mb-3 group-hover:scale-110 transition-transform">
+                  <Image className="w-5 h-5" />
+                </div>
+                <h4 className="text-sm font-bold text-white font-bengali-display flex items-center justify-between">
+                  <span>প্রফেশনাল মিডিয়া লাইব্রেরি</span>
+                  <span className="text-xs text-indigo-400">→</span>
+                </h4>
+                <p className="text-xs text-slate-400 mt-1">
+                  সব আপলোড করা ছবি, সার্চ, রিইউজ, সাইজ ও অল্ট টেক্সট ব্যবস্থাপনা
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('export_import')}
+                className="bg-gradient-to-br from-slate-850 to-slate-900 border border-amber-500/40 hover:border-amber-500 p-4 rounded-xl text-left transition-all hover:-translate-y-0.5 shadow-lg group cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-3 group-hover:scale-110 transition-transform">
+                  <Database className="w-5 h-5" />
+                </div>
+                <h4 className="text-sm font-bold text-white font-bengali-display flex items-center justify-between">
+                  <span>ডাটা এক্সপোর্ট ও ইমপোর্ট</span>
+                  <span className="text-xs text-amber-400">→</span>
+                </h4>
+                <p className="text-xs text-slate-400 mt-1">
+                  ১-ক্লিকে সকল সংবাদ ও ব্লগের ব্যাকআপ ডাউনলোড ও ডাটাবেজ রিস্টোর
+                </p>
+              </button>
+            </div>
+
             {/* Recent News Table */}
             <div className="bg-slate-800/80 border border-slate-700 rounded-xl overflow-hidden shadow">
               <div className="p-4 border-b border-slate-700 flex justify-between items-center">
@@ -1102,42 +1301,194 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </button>
             </div>
 
-            {/* Search and Category Filter Controls for Old News */}
-            <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-3.5 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow">
-              <div className="relative flex-1">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={newsSearchQuery}
-                  onChange={(e) => setNewsSearchQuery(e.target.value)}
-                  placeholder="পুরনো সংবাদ খুঁজুন (শিরোনাম, প্রতিবেদক, বিবরণ)..."
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-red-500"
-                />
-                {newsSearchQuery && (
-                  <button 
-                    onClick={() => setNewsSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs cursor-pointer"
-                    title="মুছুন"
+            {/* Advanced Search & Filtering Controls */}
+            <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-4 shadow space-y-3.5">
+              <div className="flex items-center justify-between gap-2 border-b border-slate-700/60 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <SlidersHorizontal className="w-4 h-4 text-red-400" />
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">উন্নত অনুসন্ধান ও ফিল্টার (Advanced Search)</span>
+                </div>
+                {(newsSearchQuery || newsCategoryFilter !== 'all' || newsAuthorFilter !== 'all' || newsDatePreset !== 'all' || newsSortBy !== 'newest') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewsSearchQuery('');
+                      setNewsCategoryFilter('all');
+                      setNewsAuthorFilter('all');
+                      setNewsDatePreset('all');
+                      setNewsCustomStartDate('');
+                      setNewsCustomEndDate('');
+                      setNewsSortBy('newest');
+                      setNewsPage(1);
+                    }}
+                    className="text-[11px] text-red-400 hover:text-red-300 font-semibold cursor-pointer flex items-center gap-1"
                   >
                     <X className="w-3.5 h-3.5" />
+                    <span>সব ফিল্টার মুছুন</span>
                   </button>
                 )}
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-slate-400 whitespace-nowrap">বিভাগ:</span>
-                <select
-                  value={newsCategoryFilter}
-                  onChange={(e) => setNewsCategoryFilter(e.target.value)}
-                  className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500 cursor-pointer"
-                >
-                  <option value="all">সকল বিভাগ ({bnNum(totalNews)})</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({bnNum(newsList.filter(n => n.category_id === c.id).length)})
-                    </option>
-                  ))}
-                </select>
+              {/* Filter inputs row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* 1. Keyword search */}
+                <div className="relative">
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1">কীওয়ার্ড / শিরোনাম / বিবরণ</label>
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={newsSearchQuery}
+                      onChange={(e) => {
+                        setNewsSearchQuery(e.target.value);
+                        setNewsPage(1);
+                      }}
+                      placeholder="অনুসন্ধান করুন..."
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-8.5 pr-8 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-red-500"
+                    />
+                    {newsSearchQuery && (
+                      <button 
+                        onClick={() => {
+                          setNewsSearchQuery('');
+                          setNewsPage(1);
+                        }}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs cursor-pointer"
+                        title="মুছুন"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Category */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1">ক্যাটাগরি</label>
+                  <select
+                    value={newsCategoryFilter}
+                    onChange={(e) => {
+                      setNewsCategoryFilter(e.target.value);
+                      setNewsPage(1);
+                    }}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-red-500 cursor-pointer"
+                  >
+                    <option value="all">সকল ক্যাটাগরি ({bnNum(totalNews)})</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({bnNum(newsList.filter(n => n.category_id === c.id).length)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 3. Author */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1">প্রতিবেদক / লেখক</label>
+                  <select
+                    value={newsAuthorFilter}
+                    onChange={(e) => {
+                      setNewsAuthorFilter(e.target.value);
+                      setNewsPage(1);
+                    }}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-red-500 cursor-pointer"
+                  >
+                    <option value="all">সকল লেখক / প্রতিবেদক</option>
+                    {newsAuthors.map((author, idx) => (
+                      <option key={idx} value={author}>
+                        {author} ({bnNum(newsList.filter(n => n.author_name?.trim() === author).length)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 4. Date range presets */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1">তারিখ পরিসীমা (Date Range)</label>
+                  <select
+                    value={newsDatePreset}
+                    onChange={(e) => {
+                      setNewsDatePreset(e.target.value as any);
+                      setNewsPage(1);
+                    }}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-red-500 cursor-pointer"
+                  >
+                    <option value="all">সব সময়</option>
+                    <option value="today">আজকের প্রকাশিত (২৪ ঘণ্টা)</option>
+                    <option value="7days">গত ৭ দিন</option>
+                    <option value="30days">গত ৩০ দিন</option>
+                    <option value="custom">নির্দিষ্ট তারিখ নির্বাচন...</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Custom Date Range Row (If selected) */}
+              {newsDatePreset === 'custom' && (
+                <div className="pt-2 border-t border-slate-700/50 flex flex-wrap items-center gap-3">
+                  <span className="text-xs text-slate-400 font-medium">কাস্টম রেঞ্জ:</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-slate-400">শুরু:</span>
+                    <input
+                      type="date"
+                      value={newsCustomStartDate}
+                      onChange={(e) => {
+                        setNewsCustomStartDate(e.target.value);
+                        setNewsPage(1);
+                      }}
+                      className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-slate-400">শেষ:</span>
+                    <input
+                      type="date"
+                      value={newsCustomEndDate}
+                      onChange={(e) => {
+                        setNewsCustomEndDate(e.target.value);
+                        setNewsPage(1);
+                      }}
+                      className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-red-500"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Sorting and result count */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-700/40 text-xs">
+                <span className="text-slate-400 text-[11px]">
+                  ফিল্টারে মোট <strong className="text-emerald-400">{bnNum(filteredNewsList.length)}</strong> টি ফলাফল পাওয়া গেছে
+                </span>
+
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-slate-400">সাজান:</span>
+                    <select
+                      value={newsSortBy}
+                      onChange={(e) => setNewsSortBy(e.target.value as any)}
+                      className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-red-500"
+                    >
+                      <option value="newest">সর্বশেষ প্রকাশিত</option>
+                      <option value="oldest">সবচেয়ে পুরাতন</option>
+                      <option value="views">সর্বাধিক পঠিত (Most Read)</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-slate-400">প্রতি পৃষ্ঠায়:</span>
+                    <select
+                      value={newsPerPage}
+                      onChange={(e) => {
+                        setNewsPerPage(Number(e.target.value));
+                        setNewsPage(1);
+                      }}
+                      className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-red-500"
+                    >
+                      <option value={10}>১০টি</option>
+                      <option value={15}>১৫টি</option>
+                      <option value={25}>২৫টি</option>
+                      <option value={50}>৫০টি</option>
+                    </select>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1156,14 +1507,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-700 text-slate-200">
-                    {filteredNewsList.length === 0 ? (
+                    {paginatedNewsList.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="p-8 text-center text-slate-400">
-                          কোনো সংবাদ খুঁজে পাওয়া যায়নি।
+                          কোনো সংবাদ খুঁজে পাওয়া যায়নি। ফিল্টার পরিবর্তন করে পুনরায় চেষ্টা করুন।
                         </td>
                       </tr>
                     ) : (
-                      filteredNewsList.map((n) => (
+                      paginatedNewsList.map((n) => (
                         <tr key={n.id} className="hover:bg-slate-700/50">
                           <td className="p-3">
                             <img src={n.featured_image} alt="" className="w-12 h-9 object-cover rounded" />
@@ -1219,6 +1570,60 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </tbody>
                 </table>
               </div>
+
+              {/* Search Result Pagination Bar */}
+              {totalNewsPages > 1 && (
+                <div className="p-4 border-t border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900/50 text-xs">
+                  <span className="text-slate-400">
+                    পৃষ্ঠা <strong className="text-white">{bnNum(currentNewsPage)}</strong> এর <strong className="text-white">{bnNum(totalNewsPages)}</strong> (মোট {bnNum(filteredNewsList.length)}টি সংবাদ)
+                  </span>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setNewsPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentNewsPage === 1}
+                      className="px-2.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs flex items-center gap-1 border border-slate-700"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                      <span>পূর্ববর্তী</span>
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalNewsPages }, (_, i) => i + 1)
+                        .filter(p => p === 1 || p === totalNewsPages || Math.abs(p - currentNewsPage) <= 1)
+                        .map((page, idx, arr) => {
+                          const prev = arr[idx - 1];
+                          return (
+                            <React.Fragment key={page}>
+                              {prev && page - prev > 1 && (
+                                <span className="px-1 text-slate-500">...</span>
+                              )}
+                              <button
+                                onClick={() => setNewsPage(page)}
+                                className={`w-7 h-7 rounded text-xs font-bold transition-colors ${
+                                  page === currentNewsPage
+                                    ? 'bg-red-700 text-white shadow'
+                                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
+                                }`}
+                              >
+                                {bnNum(page)}
+                              </button>
+                            </React.Fragment>
+                          );
+                        })}
+                    </div>
+
+                    <button
+                      onClick={() => setNewsPage(prev => Math.min(totalNewsPages, prev + 1))}
+                      disabled={currentNewsPage === totalNewsPages}
+                      className="px-2.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs flex items-center gap-1 border border-slate-700"
+                    >
+                      <span>পরবর্তী</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -2668,6 +3073,44 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             onChangeActiveUser={setCurrentAdminUser}
           />
         )}
+
+        {/* TAB 10: ANALYTICS DASHBOARD */}
+        {activeTab === 'analytics' && (
+          <AdminAnalyticsDashboard
+            newsList={newsList}
+            blogs={blogs}
+            categories={categories}
+            users={users}
+            onSelectArticle={(article) => {
+              handleStartEditNews(article);
+              setActiveTab('news');
+            }}
+          />
+        )}
+
+        {/* TAB 11: PROFESSIONAL MEDIA LIBRARY */}
+        {activeTab === 'media' && (
+          <AdminMediaLibrary
+            newsList={newsList}
+            blogs={blogs}
+            ads={ads}
+            users={users}
+            settings={settings}
+          />
+        )}
+
+        {/* TAB 12: EXPORT & IMPORT / DATABASE RECOVERY */}
+        {activeTab === 'export_import' && (
+          <AdminExportImport
+            newsList={newsList}
+            blogs={blogs}
+            categories={categories}
+            settings={settings}
+            users={users}
+            ads={ads}
+            onImportBackup={onImportBackup || (() => {})}
+          />
+        )}
       </main>
 
       {/* CATEGORY EDIT MODAL */}
@@ -3273,6 +3716,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </form>
           </div>
         </div>
+      )}
+      {/* Password Update Modal for Current Admin / Moderator */}
+      {showPasswordModal && (
+        <UpdatePasswordModal
+          user={currentAdminUser}
+          isOpen={true}
+          onClose={() => setShowPasswordModal(false)}
+          onSuccess={(msg) => {
+            setFeedback(msg);
+            setTimeout(() => setFeedback(''), 4000);
+          }}
+        />
       )}
     </div>
   );

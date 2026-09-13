@@ -13,9 +13,77 @@ export function bnNum(num: number | string): string {
   return str;
 }
 
-export function bnDate(dateStr: string, includeTime = true): string {
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return dateStr;
+/**
+ * Convert any Date or string to Bangladesh Standard Time (BST, UTC+6)
+ */
+export function toBangladeshDate(dateInput: string | Date = new Date()): Date {
+  const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  if (isNaN(d.getTime())) return new Date();
+  try {
+    const dhakaStr = d.toLocaleString('en-US', { timeZone: 'Asia/Dhaka' });
+    return new Date(dhakaStr);
+  } catch {
+    const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+    return new Date(utc + (3600000 * 6));
+  }
+}
+
+/**
+ * Get Bangladeshi time-of-day period in Bengali: ভোর, সকাল, দুপুর, বিকাল, সন্ধ্যা, রাত
+ */
+export function getBangladeshiPeriod(hours24: number): string {
+  if (hours24 >= 4 && hours24 < 6) return 'ভোর';
+  if (hours24 >= 6 && hours24 < 12) return 'দিন (সকাল)';
+  if (hours24 >= 12 && hours24 < 15) return 'দিন (দুপুর)';
+  if (hours24 >= 15 && hours24 < 18) return 'দিন (বিকাল)';
+  if (hours24 >= 18 && hours24 < 20) return 'সন্ধ্যা';
+  return 'রাত';
+}
+
+/**
+ * Upper header date & time representation matching user instruction:
+ * "তারিখঃ সময়। সন্ধ্যা/দিন"
+ */
+export function getBangladeshiHeaderDate(dateInput: string | Date = new Date()): {
+  dateLabel: string;
+  timeLabel: string;
+  period: string;
+  fullDisplay: string;
+} {
+  const date = toBangladeshDate(dateInput);
+
+  const bnMonths = [
+    'জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
+    'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'
+  ];
+
+  const bnDays = [
+    'রবিবার', 'সোমবার', 'মঙ্গলবার', 'বুধবার', 'বৃহস্পতিবার', 'শুক্রবার', 'শনিবার'
+  ];
+
+  const day = bnNum(date.getDate());
+  const month = bnMonths[date.getMonth()];
+  const year = bnNum(date.getFullYear());
+  const dayName = bnDays[date.getDay()];
+
+  const dateLabel = `তারিখঃ ${day} ${month} ${year}, ${dayName}`;
+
+  const hours24 = date.getHours();
+  const minutes = bnNum(String(date.getMinutes()).padStart(2, '0'));
+  const period = getBangladeshiPeriod(hours24);
+
+  let hours12 = hours24 % 12;
+  if (hours12 === 0) hours12 = 12;
+
+  const timeLabel = `সময়ঃ ${period} ${bnNum(hours12)}:${minutes}`;
+  const fullDisplay = `${dateLabel} | ${timeLabel}`;
+
+  return { dateLabel, timeLabel, period, fullDisplay };
+}
+
+export function bnDate(dateStr: string | Date = new Date(), includeTime = true): string {
+  const date = toBangladeshDate(dateStr);
+  if (isNaN(date.getTime())) return typeof dateStr === 'string' ? dateStr : '';
 
   const bnMonths = [
     'জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
@@ -34,12 +102,12 @@ export function bnDate(dateStr: string, includeTime = true): string {
   let formatted = `${day} ${month} ${year}, ${dayName}`;
 
   if (includeTime) {
-    let hours = date.getHours();
+    const hours24 = date.getHours();
     const minutes = bnNum(String(date.getMinutes()).padStart(2, '0'));
-    const ampm = hours >= 12 ? 'সন্ধ্যা/রাত' : 'সকাল';
-    if (hours > 12) hours -= 12;
-    if (hours === 0) hours = 12;
-    formatted += ` | ${ampm} ${bnNum(hours)}:${minutes}`;
+    const period = getBangladeshiPeriod(hours24);
+    let hours12 = hours24 % 12;
+    if (hours12 === 0) hours12 = 12;
+    formatted += ` | ${period} ${bnNum(hours12)}:${minutes}`;
   }
 
   return formatted;
