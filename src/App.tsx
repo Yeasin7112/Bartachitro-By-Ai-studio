@@ -28,7 +28,7 @@ import {
   fetchSiteSettings, saveSiteSettings,
   fetchNewsList, createNewsArticle, updateNewsArticle, deleteNewsArticle, recordNewsView,
   fetchCategoriesList, createCategoryItem, updateCategoryItem, deleteCategoryItem, reorderCategories,
-  fetchAdvertisements,
+  fetchAdvertisements, createAdvertisement, updateAdvertisement, deleteAdvertisement, trackAdClick,
   fetchEpaperData,
   fetchContactMessages, submitContactMessage, markMessageAsRead, deleteContactMessage,
   fetchBlogPosts, createBlogPost, updateBlogPost, deleteBlogPost, likeBlogPost,
@@ -414,6 +414,55 @@ export default function App() {
     setUsers(prev => prev.filter(u => u.id !== id));
   };
 
+  const handleAddAd = async (newAdData: Partial<Advertisement>) => {
+    try {
+      const saved = await createAdvertisement(newAdData);
+      setAds(prev => [saved, ...prev]);
+      return saved;
+    } catch (err) {
+      console.error('Failed to create ad:', err);
+      const localId = ads.length > 0 ? Math.max(...ads.map(a => a.id)) + 1 : 1;
+      const fallbackAd: Advertisement = {
+        id: localId,
+        title: newAdData.title || 'নতুন বিজ্ঞাপন',
+        position: newAdData.position || 'sidebar',
+        image_url: newAdData.image_url || '',
+        target_url: newAdData.target_url || '#',
+        status: newAdData.status || 'active',
+        views: 0,
+        clicks: 0
+      };
+      setAds(prev => [fallbackAd, ...prev]);
+      return fallbackAd;
+    }
+  };
+
+  const handleUpdateAd = async (updatedAd: Advertisement) => {
+    try {
+      setAds(prev => prev.map(a => a.id === updatedAd.id ? updatedAd : a));
+      await updateAdvertisement(updatedAd);
+    } catch (err) {
+      console.error('Failed to update ad:', err);
+    }
+  };
+
+  const handleDeleteAd = async (id: number) => {
+    try {
+      setAds(prev => prev.filter(a => a.id !== id));
+      await deleteAdvertisement(id);
+    } catch (err) {
+      console.error('Failed to delete ad:', err);
+    }
+  };
+
+  const handleToggleAdStatus = async (id: number) => {
+    const target = ads.find(a => a.id === id);
+    if (!target) return;
+    const newStatus: 'active' | 'inactive' = target.status === 'active' ? 'inactive' : 'active';
+    const updated = { ...target, status: newStatus };
+    await handleUpdateAd(updated);
+  };
+
   // If in Admin Panel view
   if (currentView === 'admin') {
     if (!currentAdminUser) {
@@ -455,6 +504,10 @@ export default function App() {
           onAddUser={handleAddUser}
           onUpdateUser={handleUpdateUser}
           onDeleteUser={handleDeleteUser}
+          onAddAd={handleAddAd}
+          onUpdateAd={handleUpdateAd}
+          onDeleteAd={handleDeleteAd}
+          onToggleAdStatus={handleToggleAdStatus}
         />
       </ErrorBoundary>
     );
@@ -525,6 +578,34 @@ export default function App() {
         {/* HOMEPAGE VIEW */}
         {currentView === 'home' && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5">
+            {/* Header Top Banner Ad (If active and not disabled) */}
+            {!settings.disable_ads && (() => {
+              const headerAd = ads.find(a => a.position === 'header_top' && a.status === 'active');
+              if (!headerAd) return null;
+              return (
+                <div className="mb-4 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xs">
+                  <div className="bg-gray-50 px-3 py-1 border-b border-gray-200 flex justify-between items-center text-[10px] text-gray-500 font-bold uppercase tracking-wider">
+                    <span>বিজ্ঞাপন (টপ ব্যানার)</span>
+                    <span>স্পন্সরড</span>
+                  </div>
+                  <a
+                    href={headerAd.target_url || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => trackAdClick(headerAd.id)}
+                    className="block relative group overflow-hidden bg-slate-900"
+                    title={headerAd.title}
+                  >
+                    <img
+                      src={headerAd.image_url}
+                      alt={headerAd.title}
+                      className="w-full h-auto max-h-24 sm:max-h-28 object-cover object-center group-hover:opacity-95 transition-opacity"
+                    />
+                  </a>
+                </div>
+              );
+            })()}
+
             {/* Lead Hero + Sub-lead stories */}
             {leadStory && (
               <LeadHero
@@ -534,28 +615,56 @@ export default function App() {
                 onOpenArticle={handleOpenArticle}
                 onNavigateEpaper={handleNavigateEpaper}
                 disableAds={settings.disable_ads}
+                ads={ads}
               />
             )}
 
             {/* Middle Ad Banner - Completely hidden if disable_ads is true */}
-            {!settings.disable_ads && (
-              <div className="my-6 p-3.5 bg-gray-50 border border-gray-200 rounded text-center flex flex-col sm:flex-row items-center justify-between gap-3 px-6">
-                <div className="text-left">
-                  <span className="text-[10px] uppercase font-bold text-gray-400 block tracking-wider">
-                    স্পন্সরড বিজ্ঞাপন (Home Middle - ৭২৮x৯০)
-                  </span>
-                  <p className="text-xs sm:text-sm font-bold text-gray-900">
-                    বাংলাদেশ প্রিমিয়ার লিগ ও আন্তর্জাতিক ক্রীড়া লাইভ কভারেজ
-                  </p>
+            {!settings.disable_ads && (() => {
+              const homeMiddleAd = ads.find(a => a.position === 'home_middle' && a.status === 'active');
+              if (homeMiddleAd) {
+                return (
+                  <div className="my-6 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xs">
+                    <div className="bg-gray-50 px-3 py-1 border-b border-gray-200 flex justify-between items-center text-[10px] text-gray-500 font-bold uppercase tracking-wider">
+                      <span>বিজ্ঞাপন (হোমপেজ মিডল)</span>
+                      <span>স্পন্সরড ব্যানার</span>
+                    </div>
+                    <a
+                      href={homeMiddleAd.target_url || '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => trackAdClick(homeMiddleAd.id)}
+                      className="block relative group overflow-hidden bg-slate-900"
+                      title={homeMiddleAd.title}
+                    >
+                      <img
+                        src={homeMiddleAd.image_url}
+                        alt={homeMiddleAd.title}
+                        className="w-full h-auto max-h-32 sm:max-h-40 object-cover object-center group-hover:opacity-95 transition-opacity"
+                      />
+                    </a>
+                  </div>
+                );
+              }
+              return (
+                <div className="my-6 p-3.5 bg-gray-50 border border-gray-200 rounded text-center flex flex-col sm:flex-row items-center justify-between gap-3 px-6">
+                  <div className="text-left">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block tracking-wider">
+                      স্পন্সরড বিজ্ঞাপন (Home Middle - ৭২৮x৯০)
+                    </span>
+                    <p className="text-xs sm:text-sm font-bold text-gray-900">
+                      বাংলাদেশ প্রিমিয়ার লিগ ও আন্তর্জাতিক ক্রীড়া লাইভ কভারেজ
+                    </p>
+                  </div>
+                  <button 
+                    onClick={handleNavigateEpaper}
+                    className="bg-red-700 hover:bg-red-800 text-white font-bold text-xs px-4 py-2 rounded transition-colors cursor-pointer shrink-0 shadow-xs"
+                  >
+                    বিস্তারিত দেখুন
+                  </button>
                 </div>
-                <button 
-                  onClick={handleNavigateEpaper}
-                  className="bg-red-700 hover:bg-red-800 text-white font-bold text-xs px-4 py-2 rounded transition-colors cursor-pointer shrink-0 shadow-xs"
-                >
-                  বিস্তারিত দেখুন
-                </button>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Latest News Grid */}
             <LatestGrid
@@ -650,6 +759,7 @@ export default function App() {
             onNavigateHome={handleNavigateHome}
             onNavigateEpaper={handleNavigateEpaper}
             disableAds={settings.disable_ads}
+            ads={ads}
           />
         )}
 

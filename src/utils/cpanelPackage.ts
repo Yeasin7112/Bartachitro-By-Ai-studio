@@ -211,12 +211,13 @@ DROP TABLE IF EXISTS \`advertisements\`;
 CREATE TABLE \`advertisements\` (
   \`id\` int(11) NOT NULL AUTO_INCREMENT,
   \`title\` varchar(255) NOT NULL,
-  \`position\` enum('header_top','home_middle','sidebar','article_inline') NOT NULL,
-  \`image_url\` varchar(500) NOT NULL,
-  \`target_url\` varchar(500) NOT NULL,
+  \`position\` varchar(100) NOT NULL DEFAULT 'sidebar',
+  \`image_url\` longtext NOT NULL,
+  \`target_url\` text NOT NULL,
   \`status\` enum('active','inactive') NOT NULL DEFAULT 'active',
   \`views\` int(11) NOT NULL DEFAULT 0,
   \`clicks\` int(11) NOT NULL DEFAULT 0,
+  \`created_at\` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (\`id\`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

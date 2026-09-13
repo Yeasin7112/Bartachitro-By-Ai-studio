@@ -483,7 +483,7 @@ export const AdminMediaLibrary: React.FC<AdminMediaLibraryProps> = ({
         /* LIST / TABLE VIEW */
         <div className="bg-slate-800/80 border border-slate-700 rounded-xl overflow-hidden shadow">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full min-w-[650px] text-left text-xs">
               <thead className="bg-slate-900/80 text-slate-400 uppercase tracking-wider text-[10px]">
                 <tr>
                   <th className="p-3 w-16">ছবি</th>

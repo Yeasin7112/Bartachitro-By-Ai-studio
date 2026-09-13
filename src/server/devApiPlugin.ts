@@ -114,11 +114,14 @@ export function devApiPlugin(): Plugin {
         // Helper to read JSON request body
         const readJsonBody = async (): Promise<any> => {
           return new Promise((resolve) => {
-            let body = '';
-            req.on('data', (chunk) => { body += chunk; });
+            const chunks: Buffer[] = [];
+            req.on('data', (chunk) => {
+              chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+            });
             req.on('end', () => {
               try {
-                resolve(JSON.parse(body));
+                const str = Buffer.concat(chunks).toString('utf-8');
+                resolve(str ? JSON.parse(str) : {});
               } catch {
                 resolve({});
               }
@@ -353,15 +356,16 @@ export function devApiPlugin(): Plugin {
             const newId = ads.length > 0 ? Math.max(...ads.map(a => a.id)) + 1 : 1;
             const newAd: Advertisement = {
               id: newId,
-              title: body.title || 'বিজ্ঞাপন',
+              title: (body.title || 'নতুন বিজ্ঞাপন').trim(),
               position: body.position || 'sidebar',
-              image_url: body.image_url || '',
-              target_url: body.target_url || '#',
-              status: 'active' as const,
-              clicks: 0,
-              views: 0
+              image_url: (body.image_url || '').trim(),
+              target_url: (body.target_url || '#').trim(),
+              status: body.status === 'inactive' ? 'inactive' : 'active',
+              clicks: typeof body.clicks === 'number' ? body.clicks : 0,
+              views: typeof body.views === 'number' ? body.views : 0,
+              created_at: body.created_at || new Date().toISOString()
             };
-            ads = [...ads, newAd];
+            ads = [newAd, ...ads];
             persist('ads.json', ads);
             return sendJson({ status: 'ok', id: newId, data: newAd }, 201);
           }
@@ -373,9 +377,24 @@ export function devApiPlugin(): Plugin {
               persist('ads.json', ads);
               return sendJson({ status: 'ok', message: 'Click tracked' });
             }
-            ads = ads.map(a => a.id === id ? { ...a, ...body, id } : a);
+            ads = ads.map(a => {
+              if (a.id === id) {
+                return {
+                  ...a,
+                  ...body,
+                  id, // prevent id overwrite
+                  title: body.title !== undefined ? String(body.title).trim() : a.title,
+                  image_url: body.image_url !== undefined ? String(body.image_url).trim() : a.image_url,
+                  target_url: body.target_url !== undefined ? String(body.target_url).trim() : a.target_url,
+                  position: body.position || a.position,
+                  status: body.status || a.status
+                };
+              }
+              return a;
+            });
             persist('ads.json', ads);
-            return sendJson({ status: 'ok', message: 'Ad updated', data: body });
+            const updatedAd = ads.find(a => a.id === id);
+            return sendJson({ status: 'ok', message: 'Ad updated', data: updatedAd || body });
           }
           if (method === 'DELETE') {
             const body = await readJsonBody();

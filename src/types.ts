@@ -57,12 +57,13 @@ export interface Epaper {
 export interface Advertisement {
   id: number;
   title: string;
-  position: 'header_top' | 'home_middle' | 'sidebar' | 'article_inline';
+  position: 'header_top' | 'home_middle' | 'sidebar' | 'article_inline' | 'lead_bottom' | 'footer_top' | 'popup' | string;
   image_url: string;
   target_url: string;
   status: 'active' | 'inactive';
   views: number;
   clicks: number;
+  created_at?: string;
 }
 
 export interface ContactMessage {

@@ -1,7 +1,8 @@
 import React from 'react';
 import { Newspaper, ChevronRight, Radio } from 'lucide-react';
-import { NewsArticle } from '../types';
+import { NewsArticle, Advertisement } from '../types';
 import { timeAgoBn } from '../utils/bengaliHelpers';
+import { trackAdClick } from '../utils/api';
 
 interface LeadHeroProps {
   leadStory: NewsArticle;
@@ -10,6 +11,7 @@ interface LeadHeroProps {
   onOpenArticle: (article: NewsArticle) => void;
   onNavigateEpaper?: () => void;
   disableAds?: boolean;
+  ads?: Advertisement[];
 }
 
 export const LeadHero: React.FC<LeadHeroProps> = ({
@@ -18,9 +20,12 @@ export const LeadHero: React.FC<LeadHeroProps> = ({
   latestArticles = [],
   onOpenArticle,
   onNavigateEpaper,
-  disableAds = false
+  disableAds = false,
+  ads = []
 }) => {
   if (!leadStory) return null;
+
+  const activeSidebarAd = ads.find(a => (a.position === 'sidebar' || a.position === 'lead_bottom') && a.status === 'active');
 
   const sideLatest = latestArticles.length > 0 ? latestArticles.slice(0, 4) : subStories.slice(0, 4);
   const bottomSubStories = subStories.slice(0, 2);
@@ -230,14 +235,34 @@ export const LeadHero: React.FC<LeadHeroProps> = ({
         <div className="md:col-span-6 lg:col-span-3 flex flex-col gap-4">
           {/* Ad Placement Space - completely hidden when disableAds is enabled */}
           {!disableAds && (
-            <div className="bg-gray-100 p-4 rounded flex flex-col items-center justify-center border border-gray-200 min-h-[160px]">
-              <span className="text-[10px] text-gray-400 uppercase tracking-widest mb-2 font-bold">
-                বিজ্ঞাপন
-              </span>
-              <div className="w-full h-24 bg-white border border-dashed border-gray-300 rounded flex flex-col items-center justify-center text-gray-400 italic text-xs p-2 text-center">
-                <span className="font-semibold text-gray-600 not-italic text-[11px] mb-0.5">স্পন্সরড ব্যানার</span>
-                <span className="text-[10px]">Ad Placement Space (৩০০x২৫০)</span>
+            <div className="bg-gray-50 border border-gray-200 rounded-xl overflow-hidden shadow-xs">
+              <div className="bg-gray-100/80 px-3 py-1 border-b border-gray-200 flex justify-between items-center text-[10px] text-gray-500 font-bold uppercase tracking-wider">
+                <span>বিজ্ঞাপন</span>
+                <span>{activeSidebarAd ? 'স্পন্সর' : 'স্লট: ৩০০x২৫০'}</span>
               </div>
+              {activeSidebarAd ? (
+                <a
+                  href={activeSidebarAd.target_url || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => trackAdClick(activeSidebarAd.id)}
+                  className="block relative group overflow-hidden bg-slate-900"
+                  title={activeSidebarAd.title}
+                >
+                  <img
+                    src={activeSidebarAd.image_url}
+                    alt={activeSidebarAd.title}
+                    className="w-full h-auto max-h-48 object-cover group-hover:scale-102 transition-transform duration-300"
+                  />
+                </a>
+              ) : (
+                <div className="p-4 flex flex-col items-center justify-center text-center min-h-[120px]">
+                  <div className="w-full py-5 bg-white border border-dashed border-gray-300 rounded flex flex-col items-center justify-center text-gray-400 italic text-xs px-2">
+                    <span className="font-semibold text-gray-600 not-italic text-[11px] mb-0.5">স্পন্সরড বিজ্ঞাপন ব্যানার</span>
+                    <span className="text-[10px]">বিজ্ঞাপনের জন্য যোগাযোগ করুন: ads@bartachitro.com</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

@@ -6,7 +6,8 @@ import {
   Search, X, BookOpen, PenTool, Heart, Clock, Sparkles,
   Database, ShieldCheck, UserCheck, RefreshCw, Upload, Globe,
   GripVertical, ArrowUp, ArrowDown, ListOrdered, KeyRound,
-  BarChart3, Calendar, ChevronLeft, ChevronRight, SlidersHorizontal, Download
+  BarChart3, Calendar, ChevronLeft, ChevronRight, SlidersHorizontal, Download,
+  Menu
 } from 'lucide-react';
 import { 
   NewsArticle, Category, Advertisement, Epaper, 
@@ -23,6 +24,9 @@ import { UpdatePasswordModal } from './admin/UpdatePasswordModal';
 import { AdminMediaLibrary } from './admin/AdminMediaLibrary';
 import { AdminAnalyticsDashboard } from './admin/AdminAnalyticsDashboard';
 import { AdminExportImport } from './admin/AdminExportImport';
+import { AdminAdsManagement } from './admin/AdminAdsManagement';
+import { AdminMessagesInbox } from './admin/AdminMessagesInbox';
+import { DeleteConfirmModal } from './common/DeleteConfirmModal';
 import { BackupData } from '../utils/zipExporter';
 import { SiteLogo } from './SiteLogo';
 
@@ -55,6 +59,10 @@ interface AdminPanelProps {
   onUpdateUser?: (user: AdminUser, password?: string) => Promise<void> | void;
   onDeleteUser?: (id: number) => Promise<void> | void;
   onImportBackup?: (backup: BackupData) => void;
+  onAddAd?: (ad: Partial<Advertisement>) => Promise<Advertisement | void> | void;
+  onUpdateAd?: (ad: Advertisement) => Promise<void> | void;
+  onDeleteAd?: (id: number) => Promise<void> | void;
+  onToggleAdStatus?: (id: number) => Promise<void> | void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -85,7 +93,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onAddUser,
   onUpdateUser,
   onDeleteUser,
-  onImportBackup
+  onImportBackup,
+  onAddAd,
+  onUpdateAd,
+  onDeleteAd,
+  onToggleAdStatus
 }) => {
   const [activeTab, setActiveTab] = useState<
     'dashboard' | 'analytics' | 'news' | 'add_news' | 'media' | 'categories' | 'breaking' | 'blogs' | 'add_blog' | 'export_import' | 'ads' | 'messages' | 'settings' | 'users'
@@ -109,6 +121,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   // Password update modal state
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  // Mobile navigation drawer toggle
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
+  // Tab Bengali display titles for mobile header
+  const tabTitles: Record<string, string> = {
+    dashboard: 'ড্যাশবোর্ড',
+    analytics: 'অ্যানালিটিক্স',
+    news: 'সংবাদ তালিকা',
+    add_news: 'নতুন সংবাদ প্রকাশ',
+    media: 'মিডিয়া লাইব্রেরি',
+    categories: 'ক্যাটাগরি ব্যবস্থাপনা',
+    breaking: 'ব্রেকিং নিউজ',
+    blogs: 'ব্লগ ও চিন্তাধারা',
+    add_blog: 'নতুন ব্লগ লিখুন',
+    export_import: 'এক্সপোর্ট ও ইমপোর্ট',
+    ads: 'বিজ্ঞাপন ব্যবস্থাপনা',
+    messages: 'বার্তা ইনবক্স',
+    users: 'অ্যাডমিন রোল',
+    settings: 'সাইট সেটিংস'
+  };
 
   useEffect(() => {
     if (currentUser) {
@@ -858,8 +890,274 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col md:flex-row font-bengali-body">
-      {/* Admin Sidebar */}
-      <aside className="w-full md:w-64 bg-slate-950 border-r border-slate-800 p-4 shrink-0 flex flex-col justify-between">
+      {/* Mobile Sticky Top Header (< md screens) */}
+      <header className="md:hidden sticky top-0 z-40 bg-slate-950/95 backdrop-blur-md border-b border-slate-800 px-3.5 py-2.5 flex items-center justify-between shadow-lg shrink-0">
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
+            className="p-2 rounded-lg bg-slate-800 text-slate-200 hover:text-white hover:bg-slate-700 transition-colors cursor-pointer"
+            aria-label="অ্যাডমিন মেনু খুলুন বা বন্ধ করুন"
+          >
+            {isMobileNavOpen ? <X className="w-5 h-5 text-red-400" /> : <Menu className="w-5 h-5" />}
+          </button>
+          <div>
+            <span className="text-[10px] font-bold text-red-500 uppercase tracking-wider block leading-none">
+              বার্তাচিত্র সিএমএস
+            </span>
+            <h2 className="text-sm font-bold text-white font-bengali-display flex items-center gap-1.5 mt-0.5">
+              <span>{tabTitles[activeTab] || 'অ্যাডমিন প্যানেল'}</span>
+            </h2>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {unreadMessages > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('messages');
+                setIsMobileNavOpen(false);
+              }}
+              className="relative p-1.5 rounded-lg bg-amber-950/60 border border-amber-600/50 text-amber-300 transition-transform active:scale-95"
+              title="অপঠিত বার্তা দেখুন"
+            >
+              <Mail className="w-4 h-4" />
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-slate-950 font-black text-[9px] flex items-center justify-center font-mono">
+                {bnNum(unreadMessages)}
+              </span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={onCloseAdmin}
+            className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs flex items-center gap-1 cursor-pointer transition-colors"
+            title="মূল সাইটে ফিরুন"
+          >
+            <ArrowLeft className="w-4 h-4 text-slate-400" />
+            <span className="text-[11px] font-semibold hidden xs:inline">সাইট</span>
+          </button>
+        </div>
+      </header>
+
+      {/* Mobile Drawer (Slide-out navigation menu for mobile screens) */}
+      {isMobileNavOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          <div 
+            className="fixed inset-0 bg-black/80 backdrop-blur-xs transition-opacity"
+            onClick={() => setIsMobileNavOpen(false)}
+          />
+          <div className="relative w-4/5 max-w-xs bg-slate-950 border-r border-slate-800 h-full flex flex-col justify-between p-4 z-10 overflow-y-auto shadow-2xl">
+            <div>
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3.5 mb-4">
+                <div>
+                  <span className="text-[10px] font-bold text-red-500 uppercase tracking-wider block">বার্তাচিত্র সিএমএস</span>
+                  <h2 className="text-lg font-bold text-white font-bengali-display">অ্যাডমিন মেনু</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsMobileNavOpen(false)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Navigation links for mobile drawer */}
+              <nav className="space-y-1 text-xs font-semibold">
+                <button
+                  onClick={() => { setActiveTab('dashboard'); setIsMobileNavOpen(false); }}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
+                    activeTab === 'dashboard' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <LayoutDashboard className="w-4 h-4" /> ড্যাশবোর্ড
+                </button>
+                <button
+                  onClick={() => { setActiveTab('analytics'); setIsMobileNavOpen(false); }}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
+                    activeTab === 'analytics' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <BarChart3 className="w-4 h-4 text-emerald-400" /> অ্যানালিটিক্স
+                </button>
+                <button
+                  onClick={() => { setActiveTab('news'); setIsMobileNavOpen(false); }}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
+                    activeTab === 'news' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <FileText className="w-4 h-4" /> সংবাদ তালিকা
+                  </span>
+                  <span className="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px]">{bnNum(totalNews)}</span>
+                </button>
+                <button
+                  onClick={() => { setActiveTab('add_news'); setIsMobileNavOpen(false); }}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
+                    activeTab === 'add_news' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <PlusCircle className="w-4 h-4" /> নতুন সংবাদ প্রকাশ
+                </button>
+                <button
+                  onClick={() => { setActiveTab('media'); setIsMobileNavOpen(false); }}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
+                    activeTab === 'media' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <Image className="w-4 h-4 text-indigo-400" /> মিডিয়া লাইব্রেরি
+                </button>
+                <button
+                  onClick={() => { setActiveTab('categories'); setIsMobileNavOpen(false); }}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
+                    activeTab === 'categories' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <FolderTree className="w-4 h-4" /> ক্যাটাগরি ব্যবস্থাপনা
+                </button>
+                <button
+                  onClick={() => { setActiveTab('breaking'); setIsMobileNavOpen(false); }}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
+                    activeTab === 'breaking' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Zap className="w-4 h-4" /> ব্রেকিং নিউজ
+                  </span>
+                  {breakingNewsCount > 0 && (
+                    <span className="bg-red-900 text-red-200 px-1.5 py-0.5 rounded text-[10px] animate-pulse">
+                      {bnNum(breakingNewsCount)}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => { setActiveTab('blogs'); setIsMobileNavOpen(false); }}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
+                    activeTab === 'blogs' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <BookOpen className="w-4 h-4" /> ব্লগ ও চিন্তাধারা
+                  </span>
+                  <span className="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px]">
+                    {bnNum(totalBlogs)}
+                  </span>
+                </button>
+                <button
+                  onClick={() => { setActiveTab('add_blog'); setIsMobileNavOpen(false); }}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
+                    activeTab === 'add_blog' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <PenTool className="w-4 h-4 text-amber-400" /> নতুন ব্লগ লিখুন
+                </button>
+                <button
+                  onClick={() => { setActiveTab('export_import'); setIsMobileNavOpen(false); }}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
+                    activeTab === 'export_import' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <Database className="w-4 h-4 text-amber-400" /> এক্সপোর্ট ও ইমপোর্ট
+                </button>
+                <button
+                  onClick={() => { setActiveTab('ads'); setIsMobileNavOpen(false); }}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
+                    activeTab === 'ads' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <Image className="w-4 h-4" /> বিজ্ঞাপন ব্যবস্থাপনা
+                </button>
+                <button
+                  onClick={() => { setActiveTab('messages'); setIsMobileNavOpen(false); }}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
+                    activeTab === 'messages' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Mail className="w-4 h-4" /> বার্তা ইনবক্স
+                  </span>
+                  {unreadMessages > 0 && (
+                    <span className="bg-amber-600 text-white px-1.5 py-0.5 rounded text-[10px] font-bold">
+                      {bnNum(unreadMessages)}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => { setActiveTab('users'); setIsMobileNavOpen(false); }}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
+                    activeTab === 'users' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <ShieldCheck className="w-4 h-4 text-cyan-400" /> অ্যাডমিন রোল
+                  </span>
+                  <span className="bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded text-[10px]">
+                    {bnNum(users.length)} জন
+                  </span>
+                </button>
+                <button
+                  onClick={() => { setActiveTab('settings'); setIsMobileNavOpen(false); }}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
+                    activeTab === 'settings' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <Sliders className="w-4 h-4" /> সাইট সেটিংস
+                </button>
+              </nav>
+            </div>
+
+            {/* Mobile Drawer Footer User Profile */}
+            <div className="border-t border-slate-800 pt-4 mt-6">
+              <div className="flex items-center gap-2.5 mb-3">
+                {currentAdminUser.avatar ? (
+                  <img 
+                    src={currentAdminUser.avatar} 
+                    alt={currentAdminUser.name}
+                    className="w-8 h-8 rounded-full object-cover border border-red-700" 
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-red-800 text-white flex items-center justify-center font-bold text-xs">
+                    {currentAdminUser.name.charAt(0)}
+                  </div>
+                )}
+                <div className="overflow-hidden">
+                  <p className="text-xs font-bold text-white truncate">{currentAdminUser.name}</p>
+                  <p className="text-[10px] text-slate-400 truncate">
+                    {currentAdminUser.role === 'super_admin' ? 'সুপার অ্যাডমিন' : currentAdminUser.role === 'editor' ? 'সম্পাদক' : 'মডারেটর'}
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => { setShowPasswordModal(true); setIsMobileNavOpen(false); }}
+                className="w-full mb-2 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700/80 text-xs py-2 rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer font-semibold shadow-xs"
+              >
+                <KeyRound className="w-3.5 h-3.5 text-amber-400" /> 
+                <span>পাসওয়ার্ড পরিবর্তন করুন</span>
+              </button>
+              <button 
+                onClick={onCloseAdmin}
+                className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs py-2 rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer font-semibold"
+              >
+                <ExternalLink className="w-3.5 h-3.5" /> মূল সাইট দেখুন
+              </button>
+              {onLogout && (
+                <button 
+                  onClick={onLogout}
+                  className="w-full mt-2 bg-red-950/70 hover:bg-red-900 border border-red-800/80 text-red-200 text-xs py-2 rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer font-semibold"
+                >
+                  <LogOut className="w-3.5 h-3.5" /> লগআউট করুন
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Desktop Sidebar (visible on md screens and up) */}
+      <aside className="hidden md:flex md:w-64 bg-slate-950 border-r border-slate-800 p-4 shrink-0 flex-col justify-between min-h-screen sticky top-0 h-screen overflow-y-auto">
         <div>
           {/* Admin Header Branding */}
           <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-5">
@@ -1086,7 +1384,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       </aside>
 
       {/* Main Admin Content Area */}
-      <main className="flex-1 p-6 md:p-8 overflow-y-auto max-h-screen">
+      <main className="flex-1 p-3.5 sm:p-5 md:p-8 overflow-y-auto min-h-screen md:max-h-screen w-full min-w-0">
         {/* Top Quick Status & Actions Bar */}
         <div className="flex items-center justify-between gap-3 bg-slate-950/60 border border-slate-800/80 px-4 py-2.5 rounded-xl mb-6 flex-wrap">
           <div className="flex items-center gap-2">
@@ -1250,7 +1548,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </button>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+                <table className="w-full min-w-[550px] text-left text-xs">
                   <thead className="bg-slate-900/60 text-slate-400 uppercase tracking-wider text-[10px]">
                     <tr>
                       <th className="p-3">শিরোনাম</th>
@@ -1493,8 +1791,85 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
 
             <div className="bg-slate-800/80 border border-slate-700 rounded-xl overflow-hidden shadow">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+              {/* Mobile View: Cards Feed (< sm) */}
+              <div className="block sm:hidden divide-y divide-slate-700">
+                {paginatedNewsList.length === 0 ? (
+                  <div className="p-6 text-center text-slate-400 text-xs">
+                    কোনো সংবাদ খুঁজে পাওয়া যায়নি। ফিল্টার পরিবর্তন করে পুনরায় চেষ্টা করুন।
+                  </div>
+                ) : (
+                  paginatedNewsList.map((n) => (
+                    <div key={n.id} className="p-3.5 space-y-2.5">
+                      <div className="flex gap-3">
+                        <img 
+                          src={n.featured_image} 
+                          alt="" 
+                          className="w-20 h-16 object-cover rounded-lg shrink-0 border border-slate-700" 
+                        />
+                        <div className="min-w-0 flex-1">
+                          <span className="text-[10px] font-bold text-red-400 block mb-0.5">
+                            {n.category_name}
+                          </span>
+                          <h3 className="font-bold text-white text-xs line-clamp-2 leading-snug">
+                            {n.title}
+                          </h3>
+                          <p className="text-[10px] text-slate-400 mt-1">
+                            {n.author_name} • {bnDate(n.published_at, false)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Meta badges and Quick toggles */}
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-750 text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="text-amber-400 font-mono text-[11px]">
+                            {bnNum(n.views)} ভিউ
+                          </span>
+                          <button
+                            onClick={() => handleToggleNewsBreaking(n)}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-colors ${
+                              n.is_breaking ? 'bg-red-700 text-white' : 'bg-slate-700 text-slate-400'
+                            }`}
+                          >
+                            ব্রেকিং: {n.is_breaking ? 'হ্যাঁ' : 'না'}
+                          </button>
+                          <button
+                            onClick={() => handleToggleNewsFeatured(n)}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-colors ${
+                              n.is_featured ? 'bg-amber-600 text-white' : 'bg-slate-700 text-slate-400'
+                            }`}
+                          >
+                            {n.is_featured ? '★ লিড' : 'সাধারণ'}
+                          </button>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => handleStartEditNews(n)}
+                            className="bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 px-2 py-1 rounded text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1"
+                            title="সংবাদ সম্পাদনা করুন"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                            <span>এডিট</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteNewsClick(n.id)}
+                            className="text-red-400 hover:text-red-300 p-1.5 rounded hover:bg-slate-700 cursor-pointer"
+                            title="মুছে ফেলুন"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Desktop View: Table (>= sm) */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full min-w-[720px] text-left text-xs">
                   <thead className="bg-slate-900/60 text-slate-400 uppercase tracking-wider text-[10px]">
                     <tr>
                       <th className="p-3">ছবি</th>
@@ -1912,7 +2287,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full min-w-[560px] text-left text-xs">
                     <thead className="bg-slate-900/80 text-slate-400 uppercase tracking-wider text-[10px]">
                       <tr>
                         <th className="p-3 w-14 text-center">ক্রম</th>
@@ -2080,33 +2455,56 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
 
             <div className="bg-slate-800/80 border border-slate-700 rounded-xl overflow-hidden shadow">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-900/60 text-slate-400 uppercase tracking-wider text-[10px]">
-                  <tr>
-                    <th className="p-3">সংবাদ শিরোনাম</th>
-                    <th className="p-3">ক্যাটাগরি</th>
-                    <th className="p-3">ব্রেকিং স্ট্যাটাস</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-700 text-slate-200">
-                  {newsList.map((n) => (
-                    <tr key={n.id}>
-                      <td className="p-3 font-semibold">{n.title}</td>
-                      <td className="p-3 text-red-400 font-bold">{n.category_name}</td>
-                      <td className="p-3">
-                        <button
-                          onClick={() => handleToggleNewsBreaking(n)}
-                          className={`px-3 py-1 rounded text-xs font-bold transition-colors cursor-pointer ${
-                            n.is_breaking ? 'bg-red-700 text-white' : 'bg-slate-700 text-slate-400'
-                          }`}
-                        >
-                          {n.is_breaking ? 'টিকারে চলছে' : 'বন্ধ'}
-                        </button>
-                      </td>
+              {/* Mobile View: Cards (< sm) */}
+              <div className="block sm:hidden divide-y divide-slate-700">
+                {newsList.map((n) => (
+                  <div key={n.id} className="p-3.5 flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] font-bold text-red-400 block mb-0.5">{n.category_name}</span>
+                      <p className="font-semibold text-white text-xs line-clamp-2">{n.title}</p>
+                    </div>
+                    <button
+                      onClick={() => handleToggleNewsBreaking(n)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-colors cursor-pointer ${
+                        n.is_breaking ? 'bg-red-700 text-white shadow-sm' : 'bg-slate-700 text-slate-300'
+                      }`}
+                    >
+                      {n.is_breaking ? 'টিকারে চলছে' : 'বন্ধ'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop View: Table (>= sm) */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full min-w-[500px] text-left text-xs">
+                  <thead className="bg-slate-900/60 text-slate-400 uppercase tracking-wider text-[10px]">
+                    <tr>
+                      <th className="p-3">সংবাদ শিরোনাম</th>
+                      <th className="p-3">ক্যাটাগরি</th>
+                      <th className="p-3">ব্রেকিং স্ট্যাটাস</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-700 text-slate-200">
+                    {newsList.map((n) => (
+                      <tr key={n.id}>
+                        <td className="p-3 font-semibold">{n.title}</td>
+                        <td className="p-3 text-red-400 font-bold">{n.category_name}</td>
+                        <td className="p-3">
+                          <button
+                            onClick={() => handleToggleNewsBreaking(n)}
+                            className={`px-3 py-1 rounded text-xs font-bold transition-colors cursor-pointer ${
+                              n.is_breaking ? 'bg-red-700 text-white' : 'bg-slate-700 text-slate-400'
+                            }`}
+                          >
+                            {n.is_breaking ? 'টিকারে চলছে' : 'বন্ধ'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -2183,10 +2581,94 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
             </div>
 
-            {/* Blogs Table */}
+            {/* Blogs Table / Card Feed */}
             <div className="bg-slate-800/80 border border-slate-700 rounded-xl overflow-hidden shadow">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+              {/* Mobile View: Cards Feed (< sm) */}
+              <div className="block sm:hidden divide-y divide-slate-700">
+                {filteredBlogs.length === 0 ? (
+                  <div className="p-6 text-center text-slate-400">
+                    <p className="font-bold text-sm text-slate-300 mb-1">কোনো ব্লগ পাওয়া যায়নি</p>
+                    <p className="text-xs text-slate-500 mb-3">আপনার সার্চ বা ফিল্টারের সাথে কোনো ব্লগের মিল নেই।</p>
+                    <button
+                      onClick={() => setActiveTab('add_blog')}
+                      className="inline-flex items-center gap-1.5 bg-red-700 hover:bg-red-600 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold"
+                    >
+                      <PlusCircle className="w-4 h-4" /> প্রথম ব্লগ লিখুন
+                    </button>
+                  </div>
+                ) : (
+                  filteredBlogs.map((b) => (
+                    <div key={b.id} className="p-3.5 space-y-2.5">
+                      <div className="flex gap-3">
+                        <img
+                          src={b.cover_image}
+                          alt={b.title}
+                          className="w-20 h-16 object-cover rounded-lg shrink-0 border border-slate-700"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                            <span className="bg-red-950 text-red-300 border border-red-800/80 px-1.5 py-0.2 rounded text-[10px] font-bold">
+                              {b.category_tag}
+                            </span>
+                            {b.is_featured && (
+                              <span className="text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.2 rounded">
+                                ★ ফিচার্ড
+                              </span>
+                            )}
+                          </div>
+                          <h3 className="font-bold text-white text-xs line-clamp-2 leading-snug" title={b.title}>
+                            {b.title}
+                          </h3>
+                          <p className="text-[10px] text-slate-400 mt-1">
+                            {b.author_name} ({b.author_role})
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Meta stats and action buttons */}
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-750 text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="text-amber-400 font-mono text-[11px]">
+                            {bnNum(b.views)} ভিউ
+                          </span>
+                          <button
+                            onClick={() => handleToggleBlogStatus(b)}
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold border cursor-pointer transition-all ${
+                              b.status === 'published'
+                                ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/80'
+                                : 'bg-slate-800 text-slate-400 border-slate-600'
+                            }`}
+                          >
+                            {b.status === 'published' ? '● প্রকাশিত' : '○ ড্রাফট'}
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => handleStartEditBlog(b)}
+                            className="bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 px-2 py-1 rounded text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1"
+                            title="সম্পাদনা করুন"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                            <span>এডিট</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteBlogAction(b.id)}
+                            className="text-red-400 hover:text-red-300 p-1.5 rounded hover:bg-slate-700 cursor-pointer transition-colors"
+                            title="ব্লগ মুছে ফেলুন"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Desktop View: Table (>= sm) */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full min-w-[760px] text-left text-xs">
                   <thead className="bg-slate-900/60 text-slate-400 uppercase tracking-wider text-[10px]">
                     <tr>
                       <th className="p-3.5">কাভার ও শিরোনাম</th>
@@ -2649,165 +3131,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
         {/* TAB 6: ADS */}
         {activeTab === 'ads' && (
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-2xl font-black text-white font-bengali-display">বিজ্ঞাপন ব্যানার ব্যবস্থাপনা</h1>
-              <p className="text-xs text-slate-400">ওয়েবসাইটের বিভিন্ন স্লটের বিজ্ঞাপন ও ব্যানার প্রদর্শন নিয়ন্ত্রণ।</p>
-            </div>
-
-            {/* Global Ads Disable / Enable Master Toggle */}
-            <div className={`p-5 rounded-xl border transition-all ${
-              localSettings.disable_ads
-                ? 'bg-amber-950/40 border-amber-500/50'
-                : 'bg-emerald-950/30 border-emerald-500/40'
-            }`}>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className={`w-3 h-3 rounded-full ${localSettings.disable_ads ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'}`} />
-                    <h3 className="text-base font-bold text-white">
-                      পুরো ওয়েবসাইটে বিজ্ঞাপন নিয়ন্ত্রণ (Global Ads Master Toggle)
-                    </h3>
-                  </div>
-                  <p className="text-xs text-slate-300 mt-1">
-                    {localSettings.disable_ads
-                      ? 'বর্তমান অবস্থা: পুরো ওয়েবসাইটে বিজ্ঞাপন, ব্যানার এবং সংশ্লিষ্ট কোনো টেক্সট প্রদর্শিত হচ্ছে না (Disabled)।'
-                      : 'বর্তমান অবস্থা: পুরো ওয়েবসাইটে বিজ্ঞাপন ও ব্যানার স্বাভাবিকভাবে প্রদর্শিত হচ্ছে (Active)।'}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    const updated = { ...localSettings, disable_ads: !localSettings.disable_ads };
-                    setLocalSettings(updated);
-                    onUpdateSettings(updated);
-                    setFeedback(updated.disable_ads ? 'পুরো ওয়েবসাইটে বিজ্ঞাপন সফলভাবে বন্ধ করা হয়েছে!' : 'পুরো ওয়েবসাইটে বিজ্ঞাপন চালু করা হয়েছে!');
-                    setTimeout(() => setFeedback(''), 4000);
-                  }}
-                  className={`px-5 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer shadow flex items-center justify-center gap-2 shrink-0 ${
-                    localSettings.disable_ads
-                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                      : 'bg-red-700 hover:bg-red-600 text-white'
-                  }`}
-                >
-                  {localSettings.disable_ads ? 'বিজ্ঞাপন চালু করুন (Turn ON Ads)' : 'বিজ্ঞাপন বন্ধ করুন (Turn OFF All Ads)'}
-                </button>
-              </div>
-            </div>
-
-            {localSettings.disable_ads && (
-              <div className="bg-amber-500/10 border border-amber-500/30 text-amber-300 p-3 rounded-lg text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
-                <span>বিজ্ঞাপন বন্ধ অপশন সক্রিয় থাকায় ওয়েবসাইটের কোনো পেজে (হোমপেজ, আর্টিকেল, সাইডবার ইত্যাদি) কোনো বিজ্ঞাপন ও বিজ্ঞাপন টেক্সট প্রদর্শিত হবে না।</span>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {ads.map((ad) => (
-                <div key={ad.id} className="bg-slate-800/80 border border-slate-700 rounded-xl p-4 flex flex-col justify-between">
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-red-400 block mb-1">
-                      স্লট: {ad.position}
-                    </span>
-                    <h4 className="font-bold text-sm text-white mb-3">{ad.title}</h4>
-                    <img src={ad.image_url} alt="" className="w-full h-24 object-cover rounded mb-3" />
-                  </div>
-                  <div className="flex justify-between items-center text-xs text-slate-400 pt-2 border-t border-slate-700">
-                    <span>ভিউ: {bnNum(ad.views)}</span>
-                    <span className={localSettings.disable_ads ? 'text-amber-400 font-bold' : 'text-emerald-400 font-bold'}>
-                      {localSettings.disable_ads ? 'স্থগিত (Global Off)' : 'সক্রিয়'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <AdminAdsManagement
+            ads={ads}
+            settings={localSettings}
+            onUpdateSettings={(updatedSettings) => {
+              setLocalSettings(updatedSettings);
+              onUpdateSettings(updatedSettings);
+            }}
+            onAddAd={onAddAd}
+            onUpdateAd={onUpdateAd}
+            onDeleteAd={onDeleteAd}
+            onToggleAdStatus={onToggleAdStatus}
+          />
         )}
 
         {/* TAB 7: MESSAGES */}
         {activeTab === 'messages' && (
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-2xl font-black text-white font-bengali-display">পাঠকদের বার্তা ইনবক্স</h1>
-              <p className="text-xs text-slate-400">যোগাযোগ ফরমের মাধ্যমে পাঠকদের পাঠানো সকল বার্তা।</p>
-            </div>
-
-            <div className="bg-slate-800/80 border border-slate-700 rounded-xl overflow-hidden shadow">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-900/60 text-slate-400 uppercase tracking-wider text-[10px]">
-                  <tr>
-                    <th className="p-3">প্রেরক</th>
-                    <th className="p-3">বিষয় ও বার্তা</th>
-                    <th className="p-3">তারিখ</th>
-                    <th className="p-3">স্ট্যাটাস</th>
-                    <th className="p-3">অ্যাকশন</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-700 text-slate-200">
-                  {messages.map((m) => (
-                    <tr key={m.id} className={!m.is_read ? 'bg-red-950/20' : ''}>
-                      <td className="p-3">
-                        <p className="font-bold text-white">{m.name}</p>
-                        <p className="text-[10px] text-slate-400">{m.email}</p>
-                      </td>
-                      <td className="p-3 max-w-sm">
-                        <p className="font-bold text-red-300">{m.subject}</p>
-                        <p className="text-slate-300 mt-1">{m.message}</p>
-                      </td>
-                      <td className="p-3 text-slate-400">{bnDate(m.created_at, false)}</td>
-                      <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          m.is_read ? 'bg-slate-700 text-slate-400' : 'bg-red-900 text-red-200'
-                        }`}>
-                          {m.is_read ? 'পঠিত' : 'নতুন'}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        <div className="flex gap-2">
-                          {!m.is_read && (
-                            <button
-                              onClick={async () => {
-                                try {
-                                  await onMarkMessageRead(m.id);
-                                  setFeedback('মেসেজটি পঠিত হিসেবে চিহ্নিত করা হয়েছে।');
-                                  setErrorMessage('');
-                                  setTimeout(() => setFeedback(''), 2000);
-                                } catch (err: any) {
-                                  setErrorMessage(err.message || 'মেসেজ আপডেট করতে ব্যর্থ হয়েছে।');
-                                }
-                              }}
-                              className="text-emerald-400 hover:text-emerald-300 p-1 rounded hover:bg-slate-700 cursor-pointer"
-                              title="পঠিত হিসেবে মার্ক করুন"
-                            >
-                              <Check className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          <button
-                            onClick={async () => {
-                              if (!window.confirm('আপনি কি এই বার্তাটি মুছে ফেলতে চান?')) return;
-                              try {
-                                await onDeleteMessage(m.id);
-                                setFeedback('বার্তাটি মুছে ফেলা হয়েছে।');
-                                setErrorMessage('');
-                                setTimeout(() => setFeedback(''), 2000);
-                              } catch (err: any) {
-                                setErrorMessage(err.message || 'বার্তা মুছতে ব্যর্থ হয়েছে।');
-                              }
-                            }}
-                            className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-slate-700 cursor-pointer"
-                            title="মুছে ফেলুন"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <AdminMessagesInbox
+            messages={messages}
+            onMarkMessageRead={onMarkMessageRead}
+            onDeleteMessage={onDeleteMessage}
+            setFeedback={setFeedback}
+            setErrorMessage={setErrorMessage}
+          />
         )}
 
         {/* TAB 8: SETTINGS */}

@@ -261,8 +261,117 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
           </h2>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+        {/* Mobile View: Cards Feed (< sm) */}
+        <div className="block sm:hidden divide-y divide-slate-700/60">
+          {users.map((u) => {
+            const meta = roleMeta[u.role] || roleMeta.editor;
+            const isCurrent = u.id === currentUser.id;
+            return (
+              <div key={u.id} className={`p-4 space-y-3 ${isCurrent ? 'bg-slate-700/20' : ''}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <img 
+                      src={u.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop&crop=face'} 
+                      alt={u.name}
+                      className="w-10 h-10 rounded-full object-cover border border-slate-600 shrink-0"
+                    />
+                    <div>
+                      <div className="font-bold text-white text-sm flex items-center gap-1.5">
+                        <span>{u.name}</span>
+                        {isCurrent && (
+                          <span className="bg-red-900/80 text-red-300 text-[9px] px-1.5 py-0.2 rounded font-mono">
+                            আপনি
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[11px] text-slate-400 font-mono">@{u.username}</span>
+                    </div>
+                  </div>
+
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    u.status === 'active' ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800' : 'bg-rose-950/80 text-rose-400 border border-rose-800'
+                  }`}>
+                    {u.status === 'active' ? 'সক্রিয়' : 'স্থগিত'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${meta.bg} ${meta.text}`}>
+                    {meta.icon}
+                    {u.role === 'super_admin' ? 'সুপার অ্যাডমিন' : u.role === 'editor' ? 'সম্পাদক' : 'মডারেটর'}
+                  </span>
+                  <span className="text-xs text-slate-400">{u.role_title}</span>
+                </div>
+
+                <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-750 text-xs text-slate-300 space-y-1">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span className="truncate">{u.email}</span>
+                  </div>
+                  {u.phone && (
+                    <div className="flex items-center gap-1.5 text-slate-400">
+                      <Phone className="w-3.5 h-3.5 shrink-0" />
+                      <span>{u.phone}</span>
+                    </div>
+                  )}
+                  <div className="text-[11px] text-slate-500 pt-0.5">
+                    সর্বশেষ লগইন: {u.last_login}
+                  </div>
+                </div>
+
+                {/* Mobile Actions */}
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  {(isSuperAdmin || isCurrent) && (
+                    <button
+                      onClick={() => setResetModalUser(u)}
+                      className="bg-amber-900/50 hover:bg-amber-800 text-amber-300 border border-amber-700/60 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+                      <span>পাসওয়ার্ড</span>
+                    </button>
+                  )}
+                  {isSuperAdmin && (
+                    <>
+                      <button
+                        onClick={() => {
+                          setEditingUser({ ...u });
+                          setEditPassword('');
+                        }}
+                        className="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>সম্পাদনা</span>
+                      </button>
+                      {u.role !== 'super_admin' && (
+                        <button
+                          onClick={async () => {
+                            if (!window.confirm(`আপনি কি "${u.name}" কে অ্যাডমিন তালিকা থেকে মুছে ফেলতে চান?`)) return;
+                            try {
+                              await onDeleteUser(u.id);
+                              setFeedback(`"${u.name}" কে অ্যাডমিন তালিকা থেকে সফলভাবে সরানো হয়েছে।`);
+                              setTimeout(() => setFeedback(''), 3000);
+                            } catch (err: any) {
+                              setFeedback(err.message || 'ইউজার মুছতে ব্যর্থ হয়েছে।');
+                              setTimeout(() => setFeedback(''), 4000);
+                            }
+                          }}
+                          className="bg-red-900/60 hover:bg-red-800 text-red-200 p-1.5 rounded-lg text-xs transition-colors cursor-pointer"
+                          title="ব্যবহারকারী মুছে ফেলুন"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop View: Table (>= sm) */}
+        <div className="hidden sm:block overflow-x-auto">
+          <table className="w-full min-w-[650px] text-left text-xs">
             <thead className="bg-slate-900/80 text-slate-400 uppercase tracking-wider text-[10px] border-b border-slate-700">
               <tr>
                 <th className="p-3.5">ব্যবহারকারী / অবতার</th>

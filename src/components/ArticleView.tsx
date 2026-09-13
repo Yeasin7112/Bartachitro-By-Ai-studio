@@ -3,10 +3,11 @@ import {
   Clock, Eye, UserPen, Share2, Copy, Check, Printer, 
   Home, ChevronRight, Newspaper, ArrowLeft, Play, Video 
 } from 'lucide-react';
-import { NewsArticle } from '../types';
+import { NewsArticle, Advertisement } from '../types';
 import { bnNum, bnDate, timeAgoBn } from '../utils/bengaliHelpers';
 import { ArticleComments } from './ArticleComments';
 import { getYouTubeEmbedUrl } from './VideoUploader';
+import { trackAdClick } from '../utils/api';
 
 interface ArticleViewProps {
   article: NewsArticle;
@@ -17,6 +18,7 @@ interface ArticleViewProps {
   onNavigateHome: () => void;
   onNavigateEpaper: () => void;
   disableAds?: boolean;
+  ads?: Advertisement[];
 }
 
 export const ArticleView: React.FC<ArticleViewProps> = ({
@@ -27,9 +29,12 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
   onSelectCategory,
   onNavigateHome,
   onNavigateEpaper,
-  disableAds = false
+  disableAds = false,
+  ads = []
 }) => {
   const [copied, setCopied] = useState(false);
+
+  const inlineAd = ads.find(a => (a.position === 'article_inline' || a.position === 'sidebar') && a.status === 'active');
 
   // Dynamic SEO Page Title & Meta Tags
   useEffect(() => {
@@ -228,11 +233,33 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
 
           {/* In-Article Advertisement - completely hidden when disableAds is enabled */}
           {!disableAds && (
-            <div className="my-6 p-4 bg-gray-50 border border-dashed border-gray-300 rounded text-center">
-              <span className="text-[10px] uppercase font-bold text-gray-400 block mb-1">বিজ্ঞাপন (Article Inline)</span>
-              <div className="h-16 bg-white border border-gray-200 rounded flex items-center justify-center text-xs font-bold text-gray-700">
-                বার্তাচিত্র ডিজিটাল বিজ্ঞাপন নেটওয়ার্ক • যোগাযোগ: ads@bartachitro.com
+            <div className="my-6 bg-gray-50 border border-gray-200 rounded-xl overflow-hidden shadow-xs">
+              <div className="bg-gray-100 px-3 py-1 border-b border-gray-200 flex justify-between items-center text-[10px] text-gray-500 font-bold uppercase tracking-wider">
+                <span>বিজ্ঞাপন (Article Inline)</span>
+                <span>{inlineAd ? 'স্পন্সরড' : 'স্লট: ৭২৮x৯০'}</span>
               </div>
+              {inlineAd ? (
+                <a
+                  href={inlineAd.target_url || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => trackAdClick(inlineAd.id)}
+                  className="block relative group overflow-hidden bg-slate-900"
+                  title={inlineAd.title}
+                >
+                  <img
+                    src={inlineAd.image_url}
+                    alt={inlineAd.title}
+                    className="w-full h-auto max-h-36 object-cover object-center group-hover:scale-101 transition-transform"
+                  />
+                </a>
+              ) : (
+                <div className="p-4 text-center">
+                  <div className="h-16 bg-white border border-gray-200 rounded flex items-center justify-center text-xs font-bold text-gray-700">
+                    বার্তাচিত্র ডিজিটাল বিজ্ঞাপন নেটওয়ার্ক • যোগাযোগ: ads@bartachitro.com
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

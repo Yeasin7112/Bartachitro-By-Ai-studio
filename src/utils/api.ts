@@ -159,6 +159,7 @@ export async function updateNewsArticle(article: NewsArticle): Promise<NewsArtic
 export async function deleteNewsArticle(id: number): Promise<void> {
   await apiRequest(`news.php?id=${id}`, {
     method: 'DELETE',
+    body: JSON.stringify({ id }),
   });
 }
 
@@ -199,6 +200,7 @@ export async function updateCategoryItem(category: Category): Promise<Category> 
 export async function deleteCategoryItem(id: number): Promise<void> {
   await apiRequest(`categories.php?id=${id}`, {
     method: 'DELETE',
+    body: JSON.stringify({ id }),
   });
 }
 
@@ -220,24 +222,51 @@ export async function fetchAdvertisements(): Promise<Advertisement[]> {
 }
 
 export async function createAdvertisement(ad: Partial<Advertisement>): Promise<Advertisement> {
+  const cleanAd: Partial<Advertisement> = {
+    title: (ad.title || 'নতুন বিজ্ঞাপন').trim(),
+    position: ad.position || 'sidebar',
+    image_url: (ad.image_url || '').trim(),
+    target_url: (ad.target_url || '#').trim(),
+    status: ad.status === 'inactive' ? 'inactive' : 'active',
+    views: typeof ad.views === 'number' ? ad.views : 0,
+    clicks: typeof ad.clicks === 'number' ? ad.clicks : 0,
+  };
   const res = await apiRequest<{ status: string; data: Advertisement; id: number }>('ads.php', {
     method: 'POST',
-    body: JSON.stringify(ad),
+    body: JSON.stringify(cleanAd),
   });
-  return res.data;
+  return res.data || ({ ...cleanAd, id: res.id || Date.now() } as Advertisement);
 }
 
 export async function updateAdvertisement(ad: Advertisement): Promise<Advertisement> {
-  const res = await apiRequest<{ status: string; data: Advertisement }>(`ads.php?id=${ad.id}`, {
+  const cleanAd: Advertisement = {
+    ...ad,
+    title: (ad.title || '').trim(),
+    image_url: (ad.image_url || '').trim(),
+    target_url: (ad.target_url || '#').trim(),
+    position: ad.position || 'sidebar',
+    status: ad.status === 'inactive' ? 'inactive' : 'active',
+  };
+  const res = await apiRequest<{ status: string; data: Advertisement }>(`ads.php?id=${cleanAd.id}`, {
     method: 'PUT',
-    body: JSON.stringify(ad),
+    body: JSON.stringify(cleanAd),
   });
-  return res.data || ad;
+  return res.data || cleanAd;
+}
+
+export async function trackAdClick(id: number): Promise<void> {
+  try {
+    await apiRequest(`ads.php?id=${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ action: 'click' })
+    });
+  } catch {}
 }
 
 export async function deleteAdvertisement(id: number): Promise<void> {
   await apiRequest(`ads.php?id=${id}`, {
     method: 'DELETE',
+    body: JSON.stringify({ id }),
   });
 }
 
@@ -266,6 +295,7 @@ export async function saveEpaperData(epaper: Partial<Epaper> & { pages?: EpaperP
 export async function deleteEpaperEdition(id: number): Promise<void> {
   await apiRequest(`epaper.php?id=${id}`, {
     method: 'DELETE',
+    body: JSON.stringify({ id }),
   });
 }
 
@@ -296,6 +326,7 @@ export async function markMessageAsRead(id: number, isRead = true): Promise<void
 export async function deleteContactMessage(id: number): Promise<void> {
   await apiRequest(`messages.php?id=${id}`, {
     method: 'DELETE',
+    body: JSON.stringify({ id }),
   });
 }
 
@@ -327,6 +358,7 @@ export async function updateBlogPost(blog: BlogPost): Promise<BlogPost> {
 export async function deleteBlogPost(id: number): Promise<void> {
   await apiRequest(`blogs.php?id=${id}`, {
     method: 'DELETE',
+    body: JSON.stringify({ id }),
   });
 }
 
@@ -366,6 +398,7 @@ export async function updateAdminUser(user: AdminUser, password?: string): Promi
 export async function deleteAdminUser(id: number): Promise<void> {
   await apiRequest(`users.php?id=${id}`, {
     method: 'DELETE',
+    body: JSON.stringify({ id }),
   });
 }
 
