@@ -7,6 +7,7 @@ import {
 import { AdminUser, AdminRole } from '../../types';
 import { bnNum } from '../../utils/bengaliHelpers';
 import { UpdatePasswordModal } from './UpdatePasswordModal';
+import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
 
 interface AdminUserManagementProps {
   users: AdminUser[];
@@ -45,6 +46,26 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
   // Edit User Password State
   const [editPassword, setEditPassword] = useState('');
   const [showEditPassword, setShowEditPassword] = useState(false);
+
+  // In-app Delete Confirmation Modal State
+  const [deleteModalUser, setDeleteModalUser] = useState<AdminUser | null>(null);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
+
+  const handleConfirmDeleteUser = async () => {
+    if (!deleteModalUser) return;
+    setIsDeletingUser(true);
+    try {
+      await onDeleteUser(deleteModalUser.id);
+      setFeedback(`"${deleteModalUser.name}" কে অ্যাডমিন তালিকা থেকে সফলভাবে সরানো হয়েছে।`);
+      setTimeout(() => setFeedback(''), 3000);
+      setDeleteModalUser(null);
+    } catch (err: any) {
+      setFeedback(err.message || 'ইউজার মুছতে ব্যর্থ হয়েছে।');
+      setTimeout(() => setFeedback(''), 4000);
+    } finally {
+      setIsDeletingUser(false);
+    }
+  };
 
   const isSuperAdmin = currentUser.role === 'super_admin';
 
@@ -344,17 +365,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                       </button>
                       {u.role !== 'super_admin' && (
                         <button
-                          onClick={async () => {
-                            if (!window.confirm(`আপনি কি "${u.name}" কে অ্যাডমিন তালিকা থেকে মুছে ফেলতে চান?`)) return;
-                            try {
-                              await onDeleteUser(u.id);
-                              setFeedback(`"${u.name}" কে অ্যাডমিন তালিকা থেকে সফলভাবে সরানো হয়েছে।`);
-                              setTimeout(() => setFeedback(''), 3000);
-                            } catch (err: any) {
-                              setFeedback(err.message || 'ইউজার মুছতে ব্যর্থ হয়েছে।');
-                              setTimeout(() => setFeedback(''), 4000);
-                            }
-                          }}
+                          onClick={() => setDeleteModalUser(u)}
                           className="bg-red-900/60 hover:bg-red-800 text-red-200 p-1.5 rounded-lg text-xs transition-colors cursor-pointer"
                           title="ব্যবহারকারী মুছে ফেলুন"
                         >
@@ -466,17 +477,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
                             </button>
                             {u.role !== 'super_admin' && (
                               <button
-                                onClick={async () => {
-                                  if (!window.confirm(`আপনি কি "${u.name}" কে অ্যাডমিন তালিকা থেকে মুছে ফেলতে চান?`)) return;
-                                  try {
-                                    await onDeleteUser(u.id);
-                                    setFeedback(`"${u.name}" কে অ্যাডমিন তালিকা থেকে সফলভাবে সরানো হয়েছে।`);
-                                    setTimeout(() => setFeedback(''), 3000);
-                                  } catch (err: any) {
-                                    setFeedback(err.message || 'ইউজার মুছতে ব্যর্থ হয়েছে।');
-                                    setTimeout(() => setFeedback(''), 4000);
-                                  }
-                                }}
+                                onClick={() => setDeleteModalUser(u)}
                                 className="bg-red-900/60 hover:bg-red-800 text-red-200 p-1.5 rounded-lg text-xs transition-colors cursor-pointer"
                                 title="ব্যবহারকারী মুছে ফেলুন"
                               >
@@ -791,6 +792,21 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
           </div>
         </div>
       )}
+
+      {/* In-app Delete Confirmation Dialog */}
+      <DeleteConfirmModal
+        isOpen={Boolean(deleteModalUser)}
+        title="ব্যবহারকারী মুছে ফেলতে চান?"
+        message="আপনি কি নিশ্চিত যে এই ব্যবহারকারীকে অ্যাডমিন তালিকা থেকে অপসারণ করতে চান? এর ফলে তার প্রশাসনিক প্রবেশাধিকার বাতিল হবে।"
+        itemTitle={deleteModalUser ? `${deleteModalUser.name} (${deleteModalUser.role_title || deleteModalUser.role})` : undefined}
+        confirmButtonText="হ্যাঁ, অপসারণ করুন"
+        cancelButtonText="বাতিল"
+        isDeleting={isDeletingUser}
+        onConfirm={handleConfirmDeleteUser}
+        onCancel={() => {
+          if (!isDeletingUser) setDeleteModalUser(null);
+        }}
+      />
 
       {/* Password Update Modal for Admin and Moderator Accounts */}
       {resetModalUser && (

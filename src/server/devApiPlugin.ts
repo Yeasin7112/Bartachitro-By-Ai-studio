@@ -80,10 +80,15 @@ export function devApiPlugin(): Plugin {
               '.mp4': 'video/mp4',
               '.webm': 'video/webm',
               '.ogg': 'video/ogg',
-              '.mov': 'video/quicktime'
+              '.mov': 'video/quicktime',
+              '.apk': 'application/vnd.android.package-archive',
+              '.pdf': 'application/pdf'
             };
             res.statusCode = 200;
             res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
+            if (ext === '.apk') {
+              res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+            }
             res.setHeader('Access-Control-Allow-Origin', '*');
             fs.createReadStream(filePath).pipe(res);
             return;
@@ -100,32 +105,52 @@ export function devApiPlugin(): Plugin {
 
         // Helper to read raw body buffer
         const readRawBodyBuffer = async (): Promise<Buffer> => {
+          if (req.readableEnded || req.complete) {
+            return Buffer.alloc(0);
+          }
           return new Promise((resolve) => {
             const chunks: Buffer[] = [];
+            let resolved = false;
+            const finish = () => {
+              if (resolved) return;
+              resolved = true;
+              resolve(Buffer.concat(chunks));
+            };
             req.on('data', (chunk) => {
               chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
             });
-            req.on('end', () => {
-              resolve(Buffer.concat(chunks));
-            });
+            req.on('end', finish);
+            req.on('close', finish);
+            req.on('error', () => finish());
+            setTimeout(finish, 200);
           });
         };
 
-        // Helper to read JSON request body
+        // Helper to read JSON request body safely
         const readJsonBody = async (): Promise<any> => {
+          if (req.readableEnded || req.complete) {
+            return {};
+          }
           return new Promise((resolve) => {
             const chunks: Buffer[] = [];
-            req.on('data', (chunk) => {
-              chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-            });
-            req.on('end', () => {
+            let resolved = false;
+            const finish = () => {
+              if (resolved) return;
+              resolved = true;
               try {
                 const str = Buffer.concat(chunks).toString('utf-8');
                 resolve(str ? JSON.parse(str) : {});
               } catch {
                 resolve({});
               }
+            };
+            req.on('data', (chunk) => {
+              chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
             });
+            req.on('end', finish);
+            req.on('close', finish);
+            req.on('error', () => finish());
+            setTimeout(finish, 200);
           });
         };
 
@@ -246,6 +271,63 @@ export function devApiPlugin(): Plugin {
             };
             persist('epaper.json', epaper);
 
+            // Trigger Automatic Facebook Page Post if enabled or requested
+            const shouldAutoPostFb = Boolean(body.auto_post_facebook) || 
+              Boolean(settings.facebook_auto_post?.enabled && (
+                settings.facebook_auto_post?.auto_post_on_create || 
+                (newArticle.is_breaking && settings.facebook_auto_post?.auto_post_on_breaking)
+              ));
+
+            if (shouldAutoPostFb && newArticle.status === 'published') {
+              const fbCfg = settings.facebook_auto_post;
+              if (fbCfg && fbCfg.page_id) {
+                const siteHost = req.headers.host ? `https://${req.headers.host}` : 'https://bartachitro.com';
+                const articleUrl = `${siteHost}/article.php?slug=${encodeURIComponent(newArticle.slug)}`;
+                const postType = fbCfg.post_type || 'photo';
+                const imageUrl = newArticle.featured_image || '';
+                const hashtags = fbCfg.default_hashtags || '#বার্তাচিত্র #সংবাদ #বাংলাদেশ';
+                const fullMsg = `${newArticle.title}\n\n${newArticle.summary}\n\nবিস্তারিত পড়ুন: ${articleUrl}\n\n${hashtags}`.trim();
+
+                if (fbCfg.test_mode || fbCfg.page_access_token.startsWith('test_') || fbCfg.page_access_token.startsWith('demo_') || fbCfg.page_access_token === 'simulated_token') {
+                  const simId = `${fbCfg.page_id}_${Date.now()}`;
+                  (newArticle as any).facebook_post_id = simId;
+                  (newArticle as any).facebook_posted_at = new Date().toISOString();
+                  (newArticle as any).facebook_post_url = `https://facebook.com/${simId}`;
+                  (newArticle as any).facebook_post_status = 'posted';
+                  persist('news.json', newsList);
+                } else if (fbCfg.page_access_token) {
+                  // Perform async real post
+                  (async () => {
+                    try {
+                      let fbUrl = '';
+                      const form = new URLSearchParams();
+                      if (postType === 'photo' && imageUrl) {
+                        fbUrl = `https://graph.facebook.com/v19.0/${encodeURIComponent(fbCfg.page_id)}/photos`;
+                        form.append('url', imageUrl.startsWith('http') ? imageUrl : `${siteHost}${imageUrl}`);
+                        form.append('caption', fullMsg);
+                        form.append('access_token', fbCfg.page_access_token);
+                      } else {
+                        fbUrl = `https://graph.facebook.com/v19.0/${encodeURIComponent(fbCfg.page_id)}/feed`;
+                        form.append('message', fullMsg);
+                        form.append('link', articleUrl);
+                        form.append('access_token', fbCfg.page_access_token);
+                      }
+                      const res = await fetch(fbUrl, { method: 'POST', body: form });
+                      const d = await res.json();
+                      if (d && (d.id || d.post_id)) {
+                        const pid = d.id || d.post_id;
+                        (newArticle as any).facebook_post_id = pid;
+                        (newArticle as any).facebook_posted_at = new Date().toISOString();
+                        (newArticle as any).facebook_post_url = `https://facebook.com/${pid}`;
+                        (newArticle as any).facebook_post_status = 'posted';
+                        persist('news.json', newsList);
+                      }
+                    } catch {}
+                  })();
+                }
+              }
+            }
+
             return sendJson({ status: 'ok', id: newId, data: newArticle, message: 'Article created successfully' }, 201);
           }
 
@@ -270,8 +352,12 @@ export function devApiPlugin(): Plugin {
           }
 
           if (method === 'DELETE') {
-            const body = await readJsonBody();
-            const id = parseInt(urlObj.searchParams.get('id') || body.id, 10);
+            const queryId = urlObj.searchParams.get('id');
+            let id = queryId ? parseInt(queryId, 10) : 0;
+            if (!id) {
+              const body = await readJsonBody();
+              id = parseInt(body?.id, 10);
+            }
             if (!id) return sendJson({ error: 'Article ID is required' }, 400);
 
             newsList = newsList.filter(n => n.id !== id);
@@ -475,8 +561,14 @@ export function devApiPlugin(): Plugin {
             return sendJson({ status: 'ok', message: 'Message marked read' });
           }
           if (method === 'DELETE') {
-            const body = await readJsonBody();
-            const id = parseInt(urlObj.searchParams.get('id') || body.id, 10);
+            const queryId = urlObj.searchParams.get('id');
+            let id = queryId ? parseInt(queryId, 10) : 0;
+            if (!id) {
+              const body = await readJsonBody();
+              id = parseInt(body?.id, 10);
+            }
+            if (!id) return sendJson({ error: 'Message ID is required' }, 400);
+
             messages = messages.filter(m => m.id !== id);
             persist('messages.json', messages);
             return sendJson({ status: 'ok', message: 'Message deleted', id });
@@ -789,11 +881,13 @@ export function devApiPlugin(): Plugin {
                         else if (ct.includes('webm')) ext = 'webm';
                         else if (ct.includes('ogg')) ext = 'ogg';
                         else if (ct.includes('mov') || ct.includes('quicktime')) ext = 'mov';
+                        else if (ct.includes('android') || ct.includes('apk') || originalFilename.toLowerCase().endsWith('.apk')) ext = 'apk';
                         else ext = 'jpg';
                       }
 
+                      const isApk = ext === 'apk';
                       const isVideo = ['mp4', 'webm', 'ogg', 'mov', 'mkv', 'avi'].includes(ext);
-                      const prefix = isVideo ? 'video-' : 'upload-';
+                      const prefix = isApk ? 'app-' : (isVideo ? 'video-' : 'upload-');
                       const safeFilename = `${prefix}${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
                       const filePath = path.join(uploadDir, safeFilename);
 
@@ -814,7 +908,7 @@ export function devApiPlugin(): Plugin {
             // 2. Base64 JSON Body
             try {
               const body = JSON.parse(rawBuffer.toString('utf8') || '{}');
-              const base64Str = body.image || body.file || body.video;
+              const base64Str = body.image || body.file || body.video || body.apk;
               if (base64Str && typeof base64Str === 'string') {
                 const matches = base64Str.match(/^data:([^;]+);base64,(.+)$/s);
                 if (matches) {
@@ -827,6 +921,10 @@ export function devApiPlugin(): Plugin {
                   else if (mime.includes('svg')) ext = 'svg';
                   else if (mime.includes('gif')) ext = 'gif';
                   else if (mime.includes('ico')) ext = 'ico';
+                  else if (mime.includes('android') || mime.includes('apk') || mime.includes('octet-stream') || body.filename?.toLowerCase().endsWith('.apk')) {
+                    ext = 'apk';
+                    prefix = 'app-';
+                  }
                   else if (mime.includes('mp4')) { ext = 'mp4'; prefix = 'video-'; }
                   else if (mime.includes('webm')) { ext = 'webm'; prefix = 'video-'; }
                   else if (mime.includes('ogg')) { ext = 'ogg'; prefix = 'video-'; }
@@ -849,6 +947,261 @@ export function devApiPlugin(): Plugin {
             } catch {}
 
             return sendJson({ error: 'No valid image or video file received' }, 400);
+          }
+        }
+
+        // 12. RSS Feed XML API (/api/rss, /api/rss.xml, /rss.xml)
+        if (pathname === '/api/rss' || pathname === '/rss.xml') {
+          const siteHost = req.headers.host ? `https://${req.headers.host}` : 'https://bartachitro.com';
+          const itemsXml = newsList
+            .filter(n => n.status === 'published')
+            .slice(0, 50)
+            .map(n => {
+              const fullArticleUrl = `${siteHost}/article.php?slug=${encodeURIComponent(n.slug)}`;
+              const fullImg = n.featured_image ? (n.featured_image.startsWith('http') ? n.featured_image : `${siteHost}${n.featured_image}`) : '';
+              return `    <item>
+      <title><![CDATA[${n.title}]]></title>
+      <link>${fullArticleUrl}</link>
+      <guid isPermaLink="true">${fullArticleUrl}</guid>
+      <pubDate>${new Date(n.published_at).toUTCString()}</pubDate>
+      <dc:creator><![CDATA[${n.author_name || 'বার্তাচিত্র প্রতিবেদক'}]]></dc:creator>
+      <category><![CDATA[${n.category_name || 'জাতীয়'}]]></category>
+      <description><![CDATA[${n.summary || n.title}]]></description>
+      ${fullImg ? `<enclosure url="${fullImg}" length="0" type="image/jpeg" />` : ''}
+      ${fullImg ? `<media:content url="${fullImg}" medium="image" />` : ''}
+    </item>`;
+            }).join('\n');
+
+          const rssDoc = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title><![CDATA[${settings.site_name || 'বার্তাচিত্র'} - সংবাদ ও ছবি]]></title>
+    <link>${siteHost}</link>
+    <description><![CDATA[${settings.meta_description || 'বাংলাদেশের শীর্ষস্থানীয় অনলাইন সংবাদপত্র ও ই-পত্রিকা পোর্টাল'}]]></description>
+    <language>bn</language>
+    <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
+    <image>
+      <url>${siteHost}/logo.svg</url>
+      <title><![CDATA[${settings.site_name || 'বার্তাচিত্র'}]]></title>
+      <link>${siteHost}</link>
+    </image>
+${itemsXml}
+  </channel>
+</rss>`;
+
+          res.statusCode = 200;
+          res.setHeader('Content-Type', 'application/rss+xml; charset=utf-8');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.end(rssDoc);
+          return;
+        }
+
+        // 13. Facebook Graph API Test (/api/facebook/test)
+        if (pathname === '/api/facebook/test') {
+          if (method !== 'POST') return sendJson({ error: 'Method not allowed' }, 405);
+          const body = await readJsonBody();
+          const pageId = (body.page_id || settings.facebook_auto_post?.page_id || '').trim();
+          const token = (body.page_access_token || settings.facebook_auto_post?.page_access_token || '').trim();
+
+          if (!pageId) {
+            return sendJson({ status: 'error', message: 'ফেসবুক পেজ আইডি (Page ID) প্রদান করুন।' }, 400);
+          }
+
+          // Test / Demo Simulation
+          if (body.test_mode || token.startsWith('test_') || token.startsWith('demo_') || token === 'simulated_token') {
+            const demoPage = {
+              id: pageId,
+              name: 'বার্তাচিত্র - BartaChitro (ভেরিফায়েড পেজ)',
+              link: `https://facebook.com/${pageId}`,
+              picture: {
+                data: {
+                  url: 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=100&h=100&fit=crop'
+                }
+              },
+              followers_count: 52400,
+              is_simulated: true
+            };
+            return sendJson({
+              status: 'ok',
+              message: 'টেস্ট মোড সফল! আপনার ডেমো ফেসবুক পেজ ভেরিফিকেশন সম্পন্ন হয়েছে।',
+              page: demoPage
+            });
+          }
+
+          if (!token) {
+            return sendJson({ status: 'error', message: 'ফেসবুক পেজ অ্যাক্সেস টোকেন (Page Access Token) প্রয়োজন।' }, 400);
+          }
+
+          try {
+            const graphUrl = `https://graph.facebook.com/v19.0/${encodeURIComponent(pageId)}?fields=id,name,link,picture,followers_count&access_token=${encodeURIComponent(token)}`;
+            const fbRes = await fetch(graphUrl);
+            const fbData = await fbRes.json();
+
+            if (!fbRes.ok || fbData.error) {
+              const errDetails = fbData.error?.message || 'ফেসবুক পেজ যাচাই করতে সমস্যা হয়েছে।';
+              let userFriendly = errDetails;
+              if (errDetails.includes('Invalid OAuth') || errDetails.includes('access token')) {
+                userFriendly = 'ফেসবুক টোকেনটি সঠিক নয় বা মেয়াদোত্তীর্ণ হয়ে গেছে। মেটা ডেভেলপার থেকে নতুন পার্মানেন্ট পেজ টোকেন সংগ্রহ করুন।';
+              } else if (errDetails.includes('Cannot find') || errDetails.includes('Object with ID')) {
+                userFriendly = 'ফেসবুক পেজ আইডি (Page ID) খুঁজে পাওয়া যায়নি। আপনার পেজের About সেকশন থেকে সংখ্যাসূচক আইডি নিশ্চিত করুন।';
+              }
+              return sendJson({
+                status: 'error',
+                message: userFriendly,
+                raw_error: fbData.error
+              }, 400);
+            }
+
+            return sendJson({
+              status: 'ok',
+              message: `অভিনন্দন! "${fbData.name}" ফেসবুক পেজের সাথে সফলভাবে সংযোগ স্থাপিত হয়েছে।`,
+              page: fbData
+            });
+          } catch (err: any) {
+            return sendJson({
+              status: 'error',
+              message: `সার্ভার সংযোগ সমস্যা: ${err.message || 'ফেসবুক গ্রাফ এপিআই অ্যাক্সেস করা যায়নি'}`
+            }, 500);
+          }
+        }
+
+        // 14. Facebook Post API (/api/facebook/post)
+        if (pathname === '/api/facebook/post') {
+          if (method !== 'POST') return sendJson({ error: 'Method not allowed' }, 405);
+          const body = await readJsonBody();
+          const fbConfig: any = settings.facebook_auto_post || {};
+          const pageId = (body.page_id || fbConfig.page_id || '').trim();
+          const token = (body.page_access_token || fbConfig.page_access_token || '').trim();
+          const postType = body.post_type || fbConfig.post_type || 'photo';
+
+          if (!pageId) {
+            return sendJson({ status: 'error', message: 'ফেসবুক পেজ আইডি কনফিগার করা নেই।' }, 400);
+          }
+
+          const siteHost = req.headers.host ? `https://${req.headers.host}` : 'https://bartachitro.com';
+          const articleTitle = body.title || 'শিরোনামবিহীন সংবাদ';
+          const articleSummary = body.summary || '';
+          const articleUrl = body.url || `${siteHost}/article.php?slug=${encodeURIComponent(body.slug || '')}`;
+          const imageUrl = body.image_url || body.featured_image || '';
+          const hashtags = body.hashtags || fbConfig.default_hashtags || '#বার্তাচিত্র #সংবাদ #বাংলাদেশ';
+
+          const fullMessage = body.custom_message || `${articleTitle}\n\n${articleSummary}\n\nবিস্তারিত পড়ুন: ${articleUrl}\n\n${hashtags}`.trim();
+
+          // Simulation or Test Mode
+          if (body.test_mode || fbConfig.test_mode || token.startsWith('test_') || token.startsWith('demo_') || token === 'simulated_token') {
+            const simulatedPostId = `${pageId}_${Date.now()}`;
+            const simulatedUrl = `https://facebook.com/${pageId}/posts/${Date.now()}`;
+
+            if (body.article_id) {
+              newsList = newsList.map(n => n.id === body.article_id ? {
+                ...n,
+                facebook_post_id: simulatedPostId,
+                facebook_posted_at: new Date().toISOString(),
+                facebook_post_url: simulatedUrl,
+                facebook_post_status: 'posted'
+              } : n);
+              persist('news.json', newsList);
+            }
+
+            return sendJson({
+              status: 'ok',
+              is_simulated: true,
+              post_id: simulatedPostId,
+              post_url: simulatedUrl,
+              message: 'ফেসবুক পেজে সফলভাবে টেস্ট পোস্ট পাবলিশ করা হয়েছে (সিমুলেশন মোড)!'
+            });
+          }
+
+          if (!token) {
+            return sendJson({ status: 'error', message: 'ফেসবুক পেজ অ্যাক্সেস টোকেন প্রয়োজন।' }, 400);
+          }
+
+          try {
+            let fbPostUrl = '';
+            let postData: any = {};
+
+            if (postType === 'photo' && imageUrl) {
+              // Upload photo with caption
+              fbPostUrl = `https://graph.facebook.com/v19.0/${encodeURIComponent(pageId)}/photos`;
+              const formParams = new URLSearchParams();
+              const fullImg = imageUrl.startsWith('http') ? imageUrl : `${siteHost}${imageUrl}`;
+              formParams.append('url', fullImg);
+              formParams.append('caption', fullMessage);
+              formParams.append('access_token', token);
+
+              const fbRes = await fetch(fbPostUrl, {
+                method: 'POST',
+                body: formParams
+              });
+              postData = await fbRes.json();
+            } else {
+              // Standard feed link post
+              fbPostUrl = `https://graph.facebook.com/v19.0/${encodeURIComponent(pageId)}/feed`;
+              const formParams = new URLSearchParams();
+              formParams.append('message', fullMessage);
+              formParams.append('link', articleUrl);
+              formParams.append('access_token', token);
+
+              const fbRes = await fetch(fbPostUrl, {
+                method: 'POST',
+                body: formParams
+              });
+              postData = await fbRes.json();
+            }
+
+            if (postData.error) {
+              const errMsg = postData.error.message || 'ফেসবুকে পোস্ট করতে ব্যর্থ হয়েছে।';
+              if (body.article_id) {
+                newsList = newsList.map(n => n.id === body.article_id ? {
+                  ...n,
+                  facebook_post_status: 'failed',
+                  facebook_post_error: errMsg
+                } : n);
+                persist('news.json', newsList);
+              }
+              return sendJson({
+                status: 'error',
+                message: errMsg,
+                raw_error: postData.error
+              }, 400);
+            }
+
+            const postId = postData.id || postData.post_id;
+            const postPermalink = `https://facebook.com/${postId}`;
+
+            if (body.article_id) {
+              newsList = newsList.map(n => n.id === body.article_id ? {
+                ...n,
+                facebook_post_id: postId,
+                facebook_posted_at: new Date().toISOString(),
+                facebook_post_url: postPermalink,
+                facebook_post_status: 'posted'
+              } : n);
+              persist('news.json', newsList);
+            }
+
+            // Update settings last post stats
+            if (settings.facebook_auto_post) {
+              settings.facebook_auto_post = {
+                ...settings.facebook_auto_post,
+                last_post_id: postId,
+                last_post_time: new Date().toISOString(),
+                last_post_status: 'success'
+              };
+              persist('settings.json', settings);
+            }
+
+            return sendJson({
+              status: 'ok',
+              post_id: postId,
+              post_url: postPermalink,
+              message: 'ফেসবুক পেজে সফলভাবে পোস্ট পাবলিশ হয়েছে!'
+            });
+          } catch (err: any) {
+            return sendJson({
+              status: 'error',
+              message: `পোস্টিং এরর: ${err.message || 'ফেসবুকে পোস্ট পাঠানো যায়নি'}`
+            }, 500);
           }
         }
 

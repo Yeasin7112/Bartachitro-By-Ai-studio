@@ -27,26 +27,36 @@ export const LeadHero: React.FC<LeadHeroProps> = ({
 
   const activeSidebarAd = ads.find(a => (a.position === 'sidebar' || a.position === 'lead_bottom') && a.status === 'active');
 
-  const sideLatest = latestArticles.length > 0 ? latestArticles.slice(0, 4) : subStories.slice(0, 4);
-  const bottomSubStories = subStories.slice(0, 2);
+  // Candidate articles excluding the 1st lead story to prevent any duplication
+  const candidateArticles = Array.from(
+    new Map(
+      [...subStories, ...latestArticles]
+        .filter(a => a && a.id !== leadStory.id)
+        .map(item => [item.id, item])
+    ).values()
+  );
 
-  // For mobile stream (BBC Bangla & Banglavision style)
-  const mobileListStories = [...subStories, ...latestArticles.filter(a => a.id !== leadStory.id && !subStories.some(s => s.id === a.id))].slice(0, 6);
+  // ১. ১ম নিউজের ঠিক পরের ৩টি নিউজ পাশাপাশি
+  const threeSideStories = candidateArticles.slice(0, 3);
+
+  // ২. এরপরের নিউজগুলো নিচে নিচে (যেমন এখন আছে)
+  const subsequentStories = candidateArticles.slice(3);
 
   return (
     <section className="mb-6 w-full" aria-label="প্রধান ও শীর্ষ সংবাদ">
       {/* ========================================================
-          MOBILE VIEW: Exact BBC Bangla & Banglavision BD Style
-          Full-width lead image with clean text below + 
-          High-density horizontal thumbnail-left rows with dividers
+          MOBILE VIEW:
+          1. ১ম নিউজ (Lead Hero Story)
+          2. ১ম নিউজের পরে ৩টি নিউজ পাশাপাশি
+          3. এরপরের নিউজগুলো নিচে নিচে
           ======================================================== */}
       <div className="block md:hidden">
-        {/* Mobile Lead Story (BBC Bangla & Banglavision style) */}
+        {/* Mobile Lead Story (১ম নিউজ) */}
         <article 
           onClick={() => onOpenArticle(leadStory)}
           className="cursor-pointer group pb-3"
         >
-          {/* Full-width clean photo on top (no text overlay) */}
+          {/* Full-width clean photo on top */}
           <div className="w-full aspect-[16/10] overflow-hidden bg-gray-100 rounded-xs mb-2.5">
             <img 
               src={leadStory.featured_image} 
@@ -65,14 +75,12 @@ export const LeadHero: React.FC<LeadHeroProps> = ({
               <span>{leadStory.title}</span>
             </h2>
 
-            {/* Banglavision style 2-line clean summary */}
             {leadStory.summary && (
               <p className="text-xs text-gray-600 leading-relaxed mt-1.5 line-clamp-2">
                 {leadStory.summary}
               </p>
             )}
 
-            {/* Time ago in muted font */}
             <div className="flex items-center gap-2 mt-1.5 text-[11px] text-gray-400">
               <span>{timeAgoBn(leadStory.published_at)}</span>
               <span>•</span>
@@ -81,40 +89,72 @@ export const LeadHero: React.FC<LeadHeroProps> = ({
           </div>
         </article>
 
-        {/* Thin divider line matching screenshot */}
-        <div className="border-b border-gray-200 mb-1" />
+        {/* ১ম নিউজের পরে ৩টি নিউজ পাশাপাশি (User Request: make fonts size more bigger) */}
+        {threeSideStories.length > 0 && (
+          <div className="border-t border-b border-gray-200 py-4 my-3 bg-gray-50/50 -mx-1 px-2.5 rounded-sm">
+            <div className="grid grid-cols-3 gap-3 sm:gap-4">
+              {threeSideStories.map((story) => (
+                <article
+                  key={story.id}
+                  onClick={() => onOpenArticle(story)}
+                  className="flex flex-col cursor-pointer group"
+                >
+                  <div className="w-full aspect-[16/10] bg-gray-100 overflow-hidden rounded-xs mb-2">
+                    <img
+                      src={story.featured_image}
+                      alt={story.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                      loading="lazy"
+                    />
+                  </div>
+                  <span className="text-xs font-bold text-red-700 line-clamp-1">
+                    {story.category_name}
+                  </span>
+                  <h3 className="font-extrabold text-sm sm:text-base text-gray-950 leading-snug line-clamp-3 group-hover:text-red-700 transition-colors mt-1 font-bengali-display">
+                    {story.title}
+                  </h3>
+                  <span className="text-[11px] text-gray-500 mt-1 font-medium">
+                    {timeAgoBn(story.published_at)}
+                  </span>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
 
-        {/* Mobile Subsequent Stories List (BBC Bangla / Banglavision exact horizontal card layout) */}
-        <div className="divide-y divide-gray-200">
-          {mobileListStories.map((story) => (
-            <article 
-              key={story.id}
-              onClick={() => onOpenArticle(story)}
-              className="flex gap-3 py-3 cursor-pointer group"
-            >
-              {/* Left: Fixed-ratio rectangular photo thumbnail */}
-              <div className="w-28 aspect-[16/10] shrink-0 bg-gray-100 overflow-hidden rounded-xs">
-                <img 
-                  src={story.featured_image} 
-                  alt={story.title} 
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" 
-                  loading="lazy" 
-                />
-              </div>
-
-              {/* Right: Bold Bengali Headline + Timestamp below */}
-              <div className="flex flex-col justify-between flex-1 min-w-0">
-                <h3 className="font-bold text-xs sm:text-sm text-gray-900 leading-snug line-clamp-2 sm:line-clamp-3 group-hover:text-red-700 transition-colors">
-                  {story.title}
-                </h3>
-                <div className="flex items-center justify-between text-[11px] text-gray-400 mt-1">
-                  <span>{timeAgoBn(story.published_at)}</span>
-                  <span className="text-[10px] text-red-600 font-semibold">{story.category_name}</span>
+        {/* এরপরের নিউজগুলো নিচে নিচে (যেমন এখন আছে) */}
+        {subsequentStories.length > 0 && (
+          <div className="divide-y divide-gray-200">
+            {subsequentStories.map((story) => (
+              <article 
+                key={story.id}
+                onClick={() => onOpenArticle(story)}
+                className="flex gap-3 py-3 cursor-pointer group"
+              >
+                {/* Left: Fixed-ratio rectangular photo thumbnail */}
+                <div className="w-28 aspect-[16/10] shrink-0 bg-gray-100 overflow-hidden rounded-xs">
+                  <img 
+                    src={story.featured_image} 
+                    alt={story.title} 
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" 
+                    loading="lazy" 
+                  />
                 </div>
-              </div>
-            </article>
-          ))}
-        </div>
+
+                {/* Right: Bold Bengali Headline + Timestamp below */}
+                <div className="flex flex-col justify-between flex-1 min-w-0">
+                  <h3 className="font-bold text-xs sm:text-sm text-gray-900 leading-snug line-clamp-2 sm:line-clamp-3 group-hover:text-red-700 transition-colors">
+                    {story.title}
+                  </h3>
+                  <div className="flex items-center justify-between text-[11px] text-gray-400 mt-1">
+                    <span>{timeAgoBn(story.published_at)}</span>
+                    <span className="text-[10px] text-red-600 font-semibold">{story.category_name}</span>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
 
         {/* Mobile E-paper quick banner */}
         {onNavigateEpaper && (
@@ -136,13 +176,15 @@ export const LeadHero: React.FC<LeadHeroProps> = ({
       </div>
 
       {/* ========================================================
-          DESKTOP VIEW: High-Density 12-Column Newspaper Layout
-          (Span 6 Lead, Span 3 Latest, Span 3 Ad & Epaper)
+          DESKTOP VIEW: High-Density Layout
+          Col 1: ১ম নিউজ + নিচে ৩টি নিউজ পাশাপাশি
+          Col 2: এরপরের নিউজগুলো নিচে নিচে (সর্বশেষ সংবাদ)
+          Col 3: বিজ্ঞাপন ও ই-পত্রিকা
           ======================================================== */}
       <div className="hidden md:grid md:grid-cols-12 gap-6 items-start">
-        {/* Col 1 (Span 6): Main Lead Story + 2 Sub-stories below */}
+        {/* Col 1 (Span 6): ১ম নিউজ + ঠিক নিচে ৩টি নিউজ পাশাপাশি */}
         <div className="md:col-span-12 lg:col-span-6 flex flex-col gap-4 lg:border-r lg:border-gray-200 lg:pr-6">
-          {/* Main Story */}
+          {/* Main Story (১ম নিউজ) */}
           <div className="relative group cursor-pointer" onClick={() => onOpenArticle(leadStory)}>
             <div className="bg-gray-100 w-full h-[260px] sm:h-[300px] overflow-hidden rounded relative">
               <img 
@@ -171,22 +213,30 @@ export const LeadHero: React.FC<LeadHeroProps> = ({
             </div>
           </div>
 
-          {/* Sub Stories (2-column Grid below main story) */}
-          {bottomSubStories.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-gray-100 pt-4 mt-1">
-              {bottomSubStories.map((story) => (
+          {/* ১ম নিউজের পরে ৩টি নিউজ পাশাপাশি */}
+          {threeSideStories.length > 0 && (
+            <div className="grid grid-cols-3 gap-3.5 border-t border-gray-200 pt-4 mt-1">
+              {threeSideStories.map((story) => (
                 <div 
                   key={story.id}
                   onClick={() => onOpenArticle(story)}
-                  className="flex flex-col gap-1 cursor-pointer group"
+                  className="flex flex-col gap-1.5 cursor-pointer group"
                 >
-                  <span className="text-red-700 text-[10px] font-bold">
+                  <div className="w-full aspect-[16/10] bg-gray-100 overflow-hidden rounded">
+                    <img 
+                      src={story.featured_image} 
+                      alt={story.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                      loading="lazy"
+                    />
+                  </div>
+                  <span className="text-red-700 text-xs font-bold line-clamp-1">
                     {story.category_name}
                   </span>
-                  <h3 className="font-bold text-sm text-gray-900 group-hover:text-red-700 transition-colors line-clamp-2 leading-snug">
+                  <h3 className="font-bold text-[15px] lg:text-base text-gray-900 group-hover:text-red-700 transition-colors line-clamp-3 leading-snug font-bengali-display">
                     {story.title}
                   </h3>
-                  <span className="text-[10px] text-gray-400 mt-0.5">
+                  <span className="text-[11px] text-gray-400 mt-0.5">
                     {timeAgoBn(story.published_at)}
                   </span>
                 </div>
@@ -195,7 +245,7 @@ export const LeadHero: React.FC<LeadHeroProps> = ({
           )}
         </div>
 
-        {/* Col 2 (Span 3): Latest News Column with High Density Rows */}
+        {/* Col 2 (Span 3): এরপরের সংবাদগুলো নিচে নিচে (সর্বশেষ সংবাদ) */}
         <div className="md:col-span-6 lg:col-span-3 lg:border-r lg:border-gray-200 lg:px-4">
           <div className="flex items-center justify-between mb-4">
             <h4 className="font-bold text-sm text-gray-900 border-b-2 border-red-700 pb-1 font-bengali-display">
@@ -204,7 +254,7 @@ export const LeadHero: React.FC<LeadHeroProps> = ({
           </div>
 
           <div className="flex flex-col gap-3.5 divide-y divide-gray-100">
-            {sideLatest.map((item, idx) => (
+            {subsequentStories.slice(0, 5).map((item, idx) => (
               <div 
                 key={item.id}
                 onClick={() => onOpenArticle(item)}

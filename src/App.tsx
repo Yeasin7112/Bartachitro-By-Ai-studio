@@ -23,7 +23,8 @@ import { Footer } from './components/Footer';
 import { AdminPanel } from './components/AdminPanel';
 import { AdminLogin } from './components/AdminLogin';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { Newspaper } from 'lucide-react';
+import { AppDownloadView } from './components/AppDownloadView';
+import { Newspaper, Smartphone } from 'lucide-react';
 import { 
   fetchSiteSettings, saveSiteSettings,
   fetchNewsList, createNewsArticle, updateNewsArticle, deleteNewsArticle, recordNewsView,
@@ -49,7 +50,7 @@ export default function App() {
 
   // View routing state
   const [currentView, setCurrentView] = useState<
-    'home' | 'article' | 'category' | 'epaper' | 'search' | 'archive' | 'contact' | 'about' | 'admin' | 'blog'
+    'home' | 'article' | 'category' | 'epaper' | 'search' | 'archive' | 'contact' | 'about' | 'admin' | 'blog' | 'app_download'
   >('home');
   const [activeCategorySlug, setActiveCategorySlug] = useState<string>('home');
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
@@ -183,6 +184,8 @@ export default function App() {
       setCurrentView('admin');
     } else if (path.startsWith('/epaper')) {
       setCurrentView('epaper');
+    } else if (path.startsWith('/app') || path.startsWith('/download') || path.startsWith('/apk')) {
+      setCurrentView('app_download');
     } else if (path.startsWith('/blog') || path.startsWith('/opinion')) {
       setCurrentView('blog');
     } else if (path.startsWith('/archive')) {
@@ -238,6 +241,10 @@ export default function App() {
     setActiveCategorySlug('home');
     setSelectedArticle(null);
     navigateTo('home', '/');
+  };
+
+  const handleNavigateAppDownload = () => {
+    navigateTo('app_download', '/app');
   };
 
   const handleNavigateEpaper = () => {
@@ -508,6 +515,7 @@ export default function App() {
           onUpdateAd={handleUpdateAd}
           onDeleteAd={handleDeleteAd}
           onToggleAdStatus={handleToggleAdStatus}
+          onPreviewAppPage={handleNavigateAppDownload}
         />
       </ErrorBoundary>
     );
@@ -540,7 +548,7 @@ export default function App() {
   const breakingNews = publishedNews.filter(n => n.is_breaking);
   const leadStory = publishedNews.find(n => n.is_featured) || publishedNews[0];
   const subStories = publishedNews.filter(n => n.id !== leadStory?.id).slice(0, 3);
-  const latestNews = publishedNews.slice(0, 8);
+  const latestNews = publishedNews.filter(n => n.id !== leadStory?.id);
 
   const nationalNews = publishedNews.filter(n => n.category_slug === 'national');
   const politicsNews = publishedNews.filter(n => n.category_slug === 'politics');
@@ -559,6 +567,7 @@ export default function App() {
         onNavigateSearch={handleNavigateSearch}
         onNavigateArchive={handleNavigateArchive}
         onNavigateBlog={handleNavigateBlog}
+        onNavigateAppDownload={handleNavigateAppDownload}
         isBlogActive={currentView === 'blog'}
         onOpenArticle={handleOpenArticle}
         onOpenAdmin={handleOpenAdmin}
@@ -713,7 +722,7 @@ export default function App() {
             />
 
             {/* E-Paper Teaser Card - High Density */}
-            <div className="bg-gray-900 text-white rounded p-5 sm:p-6 flex flex-col md:flex-row justify-between items-center gap-4 border border-gray-800 mb-8 shadow-xs">
+            <div className="bg-gray-900 text-white rounded p-5 sm:p-6 flex flex-col md:flex-row justify-between items-center gap-4 border border-gray-800 mb-6 shadow-xs">
               <div className="space-y-1 text-center md:text-left">
                 <div className="inline-flex items-center gap-1.5 bg-red-700 text-white text-[10px] font-bold px-2 py-0.5 uppercase tracking-wider">
                   <Newspaper className="w-3 h-3" />
@@ -733,6 +742,40 @@ export default function App() {
                 আজকের ই-পত্রিকা খুলুন →
               </button>
             </div>
+
+            {/* Android App Teaser Banner */}
+            {settings.android_app?.enabled !== false && (
+              <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-950 text-white rounded-xl p-5 sm:p-6 flex flex-col md:flex-row justify-between items-center gap-4 border border-emerald-800/40 mb-8 shadow-xs">
+                <div className="flex items-center gap-4 text-center md:text-left flex-col md:flex-row">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0 shadow-inner">
+                    <Smartphone className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="inline-flex items-center gap-1.5 bg-emerald-700/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                      <span>অ্যান্ড্রয়েড অ্যাপ্লিকেশন</span>
+                      {(settings.android_app?.version_name || settings.android_app?.version) && (
+                        <span className="bg-emerald-900 px-1.5 py-0.2 rounded-full text-[9px]">v{settings.android_app.version_name || settings.android_app.version}</span>
+                      )}
+                    </div>
+                    <h3 className="text-xl sm:text-2xl font-bold font-bengali-display text-white">
+                      {settings.android_app?.app_name || 'বার্তাচিত্র মোবাইল অ্যাপ'}
+                    </h3>
+                    <p className="text-xs text-gray-300 max-w-xl">
+                      {settings.android_app?.app_tagline || 'মোবাইলে দ্রুত ও স্বাচ্ছন্দ্যে তাজা খবর পেতে আজই ডাউনলোড করুন আমাদের অফিসিয়াল অ্যান্ড্রয়েড অ্যাপ।'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={handleNavigateAppDownload}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-lg text-xs transition-colors cursor-pointer flex items-center gap-2 shadow-md hover:shadow-emerald-900/30"
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    <span>ডাউনলোড ও ইনস্টলেশন গাইড →</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -808,6 +851,15 @@ export default function App() {
             onNavigateHome={handleNavigateHome}
           />
         )}
+
+        {/* ANDROID APP DOWNLOAD VIEW */}
+        {currentView === 'app_download' && (
+          <AppDownloadView
+            settings={settings}
+            onNavigateHome={handleNavigateHome}
+            onNavigateEpaper={handleNavigateEpaper}
+          />
+        )}
       </main>
 
       {/* 4. Footer */}
@@ -820,6 +872,7 @@ export default function App() {
         onNavigateContact={handleNavigateContact}
         onNavigateAbout={handleNavigateAbout}
         onNavigateBlog={handleNavigateBlog}
+        onNavigateAppDownload={handleNavigateAppDownload}
         onOpenAdmin={handleOpenAdmin}
       />
     </div>

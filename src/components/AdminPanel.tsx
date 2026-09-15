@@ -7,13 +7,14 @@ import {
   Database, ShieldCheck, UserCheck, RefreshCw, Upload, Globe,
   GripVertical, ArrowUp, ArrowDown, ListOrdered, KeyRound,
   BarChart3, Calendar, ChevronLeft, ChevronRight, SlidersHorizontal, Download,
-  Menu
+  Menu, Smartphone, Share2
 } from 'lucide-react';
 import { 
   NewsArticle, Category, Advertisement, Epaper, 
   SiteSettings, ContactMessage, BlogPost, AdminUser, AdminRole 
 } from '../types';
 import { bnNum, bnDate } from '../utils/bengaliHelpers';
+import { postArticleToFacebook } from '../utils/api';
 import { ImageUploader } from './ImageUploader';
 import { VideoUploader } from './VideoUploader';
 import { RichTextEditor } from './RichTextEditor';
@@ -26,6 +27,8 @@ import { AdminAnalyticsDashboard } from './admin/AdminAnalyticsDashboard';
 import { AdminExportImport } from './admin/AdminExportImport';
 import { AdminAdsManagement } from './admin/AdminAdsManagement';
 import { AdminMessagesInbox } from './admin/AdminMessagesInbox';
+import { AdminAppManagement } from './admin/AdminAppManagement';
+import { AdminFacebookAutoPost } from './AdminFacebookAutoPost';
 import { DeleteConfirmModal } from './common/DeleteConfirmModal';
 import { BackupData } from '../utils/zipExporter';
 import { SiteLogo } from './SiteLogo';
@@ -63,6 +66,7 @@ interface AdminPanelProps {
   onUpdateAd?: (ad: Advertisement) => Promise<void> | void;
   onDeleteAd?: (id: number) => Promise<void> | void;
   onToggleAdStatus?: (id: number) => Promise<void> | void;
+  onPreviewAppPage?: () => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -97,10 +101,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onAddAd,
   onUpdateAd,
   onDeleteAd,
-  onToggleAdStatus
+  onToggleAdStatus,
+  onPreviewAppPage
 }) => {
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'analytics' | 'news' | 'add_news' | 'media' | 'categories' | 'breaking' | 'blogs' | 'add_blog' | 'export_import' | 'ads' | 'messages' | 'settings' | 'users'
+    'dashboard' | 'analytics' | 'news' | 'add_news' | 'media' | 'categories' | 'breaking' | 'blogs' | 'add_blog' | 'export_import' | 'ads' | 'messages' | 'settings' | 'users' | 'android_app' | 'facebook_autopost'
   >('dashboard');
 
   // Active Admin Profile User (Default to authenticated user or first)
@@ -139,7 +144,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     ads: 'বিজ্ঞাপন ব্যবস্থাপনা',
     messages: 'বার্তা ইনবক্স',
     users: 'অ্যাডমিন রোল',
-    settings: 'সাইট সেটিংস'
+    settings: 'সাইট সেটিংস',
+    facebook_autopost: 'ফেসবুক অটো-পোস্ট',
+    android_app: 'অ্যান্ড্রয়েড অ্যাপ (.APK)'
   };
 
   useEffect(() => {
@@ -504,27 +511,63 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
-  const handleDeleteNewsClick = async (id: number) => {
-    if (!window.confirm('আপনি কি এই সংবাদটি স্থায়ীভাবে মুছে ফেলতে চান?')) return;
-    try {
-      await onDeleteNews(id);
-      setFeedback('সংবাদটি সফলভাবে মুছে ফেলা হয়েছে।');
-      setErrorMessage('');
-      setTimeout(() => setFeedback(''), 2500);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'সংবাদ মুছতে ব্যর্থ হয়েছে।');
-    }
+  // In-app Confirmation Modal State for Deletions (News, Categories, Blogs)
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    type: 'news' | 'category' | 'blog' | null;
+    id: number | null;
+    title: string;
+  }>({
+    isOpen: false,
+    type: null,
+    id: null,
+    title: '',
+  });
+  const [isDeletingItem, setIsDeletingItem] = useState<boolean>(false);
+
+  const handleDeleteNewsClick = (id: number) => {
+    const item = newsList.find(n => n.id === id);
+    setDeleteModal({
+      isOpen: true,
+      type: 'news',
+      id,
+      title: item ? item.title : `সংবাদ #${id}`,
+    });
   };
 
-  const handleDeleteCategoryClick = async (id: number) => {
-    if (!window.confirm('আপনি কি এই ক্যাটাগরিটি মুছে ফেলতে চান?')) return;
+  const handleDeleteCategoryClick = (id: number) => {
+    const item = categories.find(c => c.id === id);
+    setDeleteModal({
+      isOpen: true,
+      type: 'category',
+      id,
+      title: item ? item.name : `ক্যাটাগরি #${id}`,
+    });
+  };
+
+  const handleConfirmItemDelete = async () => {
+    if (!deleteModal.id || !deleteModal.type) return;
+    const { id, type } = deleteModal;
+    setIsDeletingItem(true);
     try {
-      await onDeleteCategory(id);
-      setFeedback('ক্যাটাগরিটি মুছে ফেলা হয়েছে।');
+      if (type === 'news') {
+        await onDeleteNews(id);
+        setFeedback('সংবাদটি সফলভাবে মুছে ফেলা হয়েছে।');
+      } else if (type === 'category') {
+        await onDeleteCategory(id);
+        setFeedback('ক্যাটাগরিটি সফলভাবে মুছে ফেলা হয়েছে।');
+      } else if (type === 'blog' && onDeleteBlog) {
+        await onDeleteBlog(id);
+        setFeedback('ব্লগটি সফলভাবে মুছে ফেলা হয়েছে।');
+      }
       setErrorMessage('');
       setTimeout(() => setFeedback(''), 2500);
+      setDeleteModal({ isOpen: false, type: null, id: null, title: '' });
     } catch (err: any) {
-      setErrorMessage(err.message || 'ক্যাটাগরি মুছতে ব্যর্থ হয়েছে।');
+      setErrorMessage(err.message || 'আইটেমটি মুছতে ব্যর্থ হয়েছে।');
+      setTimeout(() => setErrorMessage(''), 3500);
+    } finally {
+      setIsDeletingItem(false);
     }
   };
 
@@ -650,6 +693,34 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
     try {
       await onAddNews(newArticle);
+
+      // Auto post to Facebook if enabled
+      const fbConfig = localSettings.facebook_auto_post;
+      if (fbConfig?.enabled && (fbConfig.auto_post_on_create || (newArticle.is_breaking && fbConfig.auto_post_on_breaking))) {
+        postArticleToFacebook({
+          article_id: newArticle.id,
+          page_id: fbConfig.page_id,
+          page_access_token: fbConfig.page_access_token,
+          post_type: fbConfig.post_type || 'photo',
+          title: newArticle.title,
+          summary: newArticle.summary || '',
+          slug: newArticle.slug,
+          image_url: newArticle.featured_image,
+          hashtags: fbConfig.default_hashtags,
+          test_mode: fbConfig.test_mode
+        }).then(fbRes => {
+          if (fbRes?.post_id) {
+            onUpdateNews({
+              ...newArticle,
+              facebook_post_id: fbRes.post_id,
+              facebook_posted_at: new Date().toISOString(),
+              facebook_post_url: fbRes.post_url,
+              facebook_post_status: 'posted'
+            });
+          }
+        }).catch(e => console.warn('Facebook auto post notice:', e));
+      }
+
       setFeedback('সংবাদটি সফলভাবে ডাটাবেজে সংরক্ষণ ও প্রকাশিত হয়েছে!');
       setErrorMessage('');
       setNewsTitle('');
@@ -861,18 +932,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setEditingBlog(null);
   };
 
-  const handleDeleteBlogAction = async (id: number) => {
-    if (!window.confirm('আপনি কি এই ব্লগটি মুছে ফেলতে চান?')) return;
-    try {
-      if (onDeleteBlog) {
-        await onDeleteBlog(id);
-      }
-      setFeedback('ব্লগটি সফলভাবে মুছে ফেলা হয়েছে।');
-      setErrorMessage('');
-      setTimeout(() => setFeedback(''), 2000);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'ব্লগ মুছতে ব্যর্থ হয়েছে।');
-    }
+  const handleDeleteBlogAction = (id: number) => {
+    const item = blogs.find(b => b.id === id);
+    setDeleteModal({
+      isOpen: true,
+      type: 'blog',
+      id,
+      title: item ? item.title : `ব্লগ #${id}`,
+    });
   };
 
   const handleToggleBlogStatus = async (blog: BlogPost) => {
@@ -1098,6 +1165,36 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </span>
                 </button>
                 <button
+                  onClick={() => { setActiveTab('facebook_autopost'); setIsMobileNavOpen(false); }}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
+                    activeTab === 'facebook_autopost' ? 'bg-[#1877f2] text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Share2 className="w-4 h-4 text-blue-400" /> ফেসবুক অটো-পোস্ট
+                  </span>
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                    localSettings.facebook_auto_post?.enabled 
+                      ? 'bg-blue-900 text-blue-200' 
+                      : 'bg-slate-800 text-slate-400'
+                  }`}>
+                    {localSettings.facebook_auto_post?.enabled ? 'Active' : 'Off'}
+                  </span>
+                </button>
+                <button
+                  onClick={() => { setActiveTab('android_app'); setIsMobileNavOpen(false); }}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
+                    activeTab === 'android_app' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Smartphone className="w-4 h-4 text-emerald-400" /> অ্যাপ ও APK রিলিজ
+                  </span>
+                  <span className="bg-emerald-900/60 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                    APK
+                  </span>
+                </button>
+                <button
                   onClick={() => { setActiveTab('settings'); setIsMobileNavOpen(false); }}
                   className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
                     activeTab === 'settings' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
@@ -1129,14 +1226,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   </p>
                 </div>
               </div>
-              <button 
-                type="button"
-                onClick={() => { setShowPasswordModal(true); setIsMobileNavOpen(false); }}
-                className="w-full mb-2 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700/80 text-xs py-2 rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer font-semibold shadow-xs"
-              >
-                <KeyRound className="w-3.5 h-3.5 text-amber-400" /> 
-                <span>পাসওয়ার্ড পরিবর্তন করুন</span>
-              </button>
               <button 
                 onClick={onCloseAdmin}
                 className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs py-2 rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer font-semibold"
@@ -1325,6 +1414,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </button>
 
             <button
+              onClick={() => setActiveTab('facebook_autopost')}
+              className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
+                activeTab === 'facebook_autopost' ? 'bg-[#1877f2] text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <Share2 className="w-4 h-4 text-blue-400" /> ফেসবুক অটো-পোস্ট
+              </span>
+              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                localSettings.facebook_auto_post?.enabled 
+                  ? 'bg-blue-900 text-blue-200' 
+                  : 'bg-slate-800 text-slate-400'
+              }`}>
+                {localSettings.facebook_auto_post?.enabled ? 'Active' : 'Off'}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('android_app')}
+              className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
+                activeTab === 'android_app' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <Smartphone className="w-4 h-4 text-emerald-400" /> অ্যাপ ও APK রিলিজ
+              </span>
+              <span className="bg-emerald-900/60 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                APK
+              </span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('settings')}
               className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
                 activeTab === 'settings' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
@@ -1357,15 +1478,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           </div>
           <button 
-            type="button"
-            onClick={() => setShowPasswordModal(true)}
-            className="w-full mb-2 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700/80 text-xs py-2 rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer font-semibold shadow-xs"
-            title="আপনার অ্যাকাউন্টের পাসওয়ার্ড পরিবর্তন করুন"
-          >
-            <KeyRound className="w-3.5 h-3.5 text-amber-400" /> 
-            <span>পাসওয়ার্ড পরিবর্তন করুন</span>
-          </button>
-          <button 
             onClick={onCloseAdmin}
             className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs py-2 rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer font-semibold"
           >
@@ -1385,37 +1497,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {/* Main Admin Content Area */}
       <main className="flex-1 p-3.5 sm:p-5 md:p-8 overflow-y-auto min-h-screen md:max-h-screen w-full min-w-0">
-        {/* Top Quick Status & Actions Bar */}
-        <div className="flex items-center justify-between gap-3 bg-slate-950/60 border border-slate-800/80 px-4 py-2.5 rounded-xl mb-6 flex-wrap">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-xs text-slate-300 font-medium">
-              লগইন আছেন: <strong className="text-white">{currentAdminUser.name}</strong> 
-              <span className="text-slate-400 text-[11px] ml-1.5 font-mono">
-                ({currentAdminUser.role === 'super_admin' ? 'সুপার অ্যাডমিন' : currentAdminUser.role === 'editor' ? 'সম্পাদক' : 'মডারেটর'})
-              </span>
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowPasswordModal(true)}
-              className="bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700/80 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer font-semibold shadow-xs"
-              title="পাসওয়ার্ড পরিবর্তন করুন (পুরাতন, নতুন ও নিশ্চিতকরণ পাসওয়ার্ড)"
-            >
-              <KeyRound className="w-3.5 h-3.5 text-amber-400" /> 
-              <span>পাসওয়ার্ড পরিবর্তন</span>
-            </button>
-            <button 
-              onClick={onCloseAdmin}
-              className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <ExternalLink className="w-3.5 h-3.5" /> 
-              <span className="hidden sm:inline">মূল সাইট</span>
-            </button>
-          </div>
-        </div>
-
         {/* Feedback Alert */}
         {feedback && (
           <div className="bg-emerald-900/80 border border-emerald-500 text-emerald-200 px-4 py-3 rounded-lg mb-6 flex items-center justify-between gap-2 text-sm shadow-md animate-in fade-in">
@@ -3408,6 +3489,33 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         )}
 
+        {/* TAB 8.5: ANDROID APP & APK RELEASE MANAGEMENT */}
+        {activeTab === 'android_app' && (
+          <AdminAppManagement
+            settings={localSettings}
+            onUpdateSettings={async (updatedSettings) => {
+              setLocalSettings(updatedSettings);
+              await onUpdateSettings(updatedSettings);
+            }}
+            onPreviewAppPage={onPreviewAppPage}
+          />
+        )}
+
+        {/* TAB 8.8: FACEBOOK AUTO POST & GRAPH API */}
+        {activeTab === 'facebook_autopost' && (
+          <AdminFacebookAutoPost
+            settings={localSettings}
+            newsList={newsList}
+            onUpdateSettings={async (updatedSettings) => {
+              setLocalSettings(updatedSettings);
+              await onUpdateSettings(updatedSettings);
+            }}
+            onUpdateNewsArticle={async (updatedArticle) => {
+              await onUpdateNews(updatedArticle);
+            }}
+          />
+        )}
+
         {/* TAB 9: MULTI-ADMIN ROLE MANAGEMENT */}
         {activeTab === 'users' && (
           <AdminUserManagement
@@ -4063,6 +4171,35 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         </div>
       )}
+      {/* In-app Delete Confirmation Dialog */}
+      <DeleteConfirmModal
+        isOpen={deleteModal.isOpen}
+        title={
+          deleteModal.type === 'news'
+            ? 'সংবাদটি মুছে ফেলতে চান?'
+            : deleteModal.type === 'category'
+            ? 'ক্যাটাগরিটি মুছে ফেলতে চান?'
+            : 'ব্লগটি মুছে ফেলতে চান?'
+        }
+        message={
+          deleteModal.type === 'news'
+            ? 'আপনি কি নিশ্চিত যে এই সংবাদটি স্থায়ীভাবে মুছে ফেলতে চান? এটি ডাটাবেস থেকে অপসারিত হবে।'
+            : deleteModal.type === 'category'
+            ? 'আপনি কি নিশ্চিত যে এই ক্যাটাগরিটি মুছে ফেলতে চান?'
+            : 'আপনি কি নিশ্চিত যে এই ব্লগটি মুছে ফেলতে চান?'
+        }
+        itemTitle={deleteModal.title}
+        confirmButtonText="হ্যাঁ, মুছে ফেলুন"
+        cancelButtonText="বাতিল"
+        isDeleting={isDeletingItem}
+        onConfirm={handleConfirmItemDelete}
+        onCancel={() => {
+          if (!isDeletingItem) {
+            setDeleteModal({ isOpen: false, type: null, id: null, title: '' });
+          }
+        }}
+      />
+
       {/* Password Update Modal for Current Admin / Moderator */}
       {showPasswordModal && (
         <UpdatePasswordModal

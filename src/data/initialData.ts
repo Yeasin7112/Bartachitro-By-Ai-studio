@@ -1,4 +1,64 @@
-import { Category, NewsArticle, Epaper, Advertisement, SiteSettings, ContactMessage, BlogPost, AdminUser } from '../types';
+import { Category, NewsArticle, Epaper, Advertisement, SiteSettings, ContactMessage, BlogPost, AdminUser, AndroidAppConfig, FacebookAutoPostConfig } from '../types';
+
+export const INITIAL_FACEBOOK_AUTO_POST: FacebookAutoPostConfig = {
+  enabled: false,
+  page_id: '',
+  page_name: '',
+  page_access_token: '',
+  post_type: 'photo',
+  auto_post_on_create: true,
+  auto_post_on_breaking: true,
+  default_hashtags: '#বার্তাচিত্র #সংবাদ #বাংলাদেশ #Bartachitra',
+  include_link_in_caption: true,
+  test_mode: false,
+  last_post_status: 'idle'
+};
+
+export const INITIAL_ANDROID_APP: AndroidAppConfig = {
+  enabled: true,
+  app_name: 'বার্তাচিত্র - BartaChitro',
+  version_name: 'v1.2.0',
+  version_code: 12,
+  apk_filename: 'bartachitro-v1.2.0.apk',
+  apk_url: '/uploads/bartachitro-v1.2.0.apk',
+  file_size_formatted: '14.8 MB',
+  uploaded_at: '2026-09-14',
+  min_android: 'Android 6.0 (Marshmallow) বা তার পরবর্তী ভার্সন',
+  package_name: 'com.bartachitro.news',
+  download_count: 1450,
+  release_notes: 'নতুন ভার্সন v1.2.0: অতি দ্রুত সংবাদ লোডিং, ব্রেকিং নিউজ পুশ নোটিফিকেশন অ্যালার্ট, চোখের আরামদায়ক ডার্ক মোড এবং ইন্টারনেট ছাড়াও অফলাইন নিউজ পড়ার সুবিধা যুক্ত করা হয়েছে।',
+  warning_text: 'প্লে স্টোরের বাইরে সরাসরি APK ফাইল ডাউনলোড করার সময় অ্যান্ড্রয়েড সিকিউরিটি প্রম্পট ("File might be harmful" বা "অজানা উৎস") দেখাতে পারে। এটি অ্যান্ড্রয়েডের একটি স্বাভাবিক নিরাপত্তা প্রটোকল। নির্দ্বিধায় "Download anyway" চাপুন এবং সেটিংসে "Allow from this source" সক্রিয় করে ইনস্টলেশন সম্পন্ন করুন। বার্তাচিত্র অ্যাপটি ১০০% নিরাপদ ও ভাইরাসমুক্ত।',
+  instruction_text: 'বার্তাচিত্র মোবাইল অ্যাপটি আপনার অ্যান্ড্রয়েড ফোনে খুব সহজে ইনস্টল করতে নিচের ৪টি ধাপ অনুসরণ করুন:',
+  instruction_steps: [
+    {
+      step: 1,
+      title: 'APK ফাইলটি ডাউনলোড করুন',
+      description: 'নিচের "ডাউনলোড এপিকে (.APK)" বাটনে ট্যাপ করুন। ব্রাউজারে "File might be harmful" সতর্কবার্তা দেখালে "Download anyway" বাটনে চাপ দিন।'
+    },
+    {
+      step: 2,
+      title: 'ডাউনলোডকৃত ফাইলে ট্যাপ করুন',
+      description: 'ডাউনলোড সম্পন্ন হওয়ার পর আপনার ফোনের নোটিফিকেশন বারে অথবা Downloads ফোল্ডারে গিয়ে "bartachitro-v1.2.0.apk" ফাইলে ক্লিক করুন।'
+    },
+    {
+      step: 3,
+      title: 'Unknown Sources বা অজানা উৎস অন করুন',
+      description: 'যদি ফোন সেটিংসে "Install unknown apps" অনুমতি চায়, তবে Settings এ গিয়ে "Allow from this source" অপশনটি চালু (ON) করে দিন।'
+    },
+    {
+      step: 4,
+      title: 'ইনস্টলেশন শেষ করুন ও অ্যাপ উপভোগ করুন',
+      description: 'স্ক্রিনে "Install" বাটনে ক্লিক করুন। কয়েক সেকেন্ডেই ইনস্টল সম্পন্ন হয়ে যাবে। এবার "Open" বাটনে চাপ দিয়ে যেকোনো সময় দেশ-বিদেশের ব্রেকিং নিউজ পড়ুন।'
+    }
+  ],
+  features: [
+    'মুহূর্তের মধ্যে ব্রেকিং নিউজ পুশ নোটিফিকেশন',
+    'অল্প ডেটা খরচ ও সুপার ফাস্ট পেইজ লোডিং স্পিড',
+    'ইন্টারনেট সংযোগ ছাড়াও অফলাইনে সংবাদ পড়ার ব্যবস্থা',
+    'রাতে চোখের ক্লান্তিমুক্ত পড়ার জন্য আকর্ষণীয় ডার্ক মোড',
+    'অনলাইন ই-পত্রিকা ও লাইভ ফটো গ্যালারি ব্রাউজিং'
+  ]
+};
 
 export const INITIAL_CATEGORIES: Category[] = [
   { id: 1, name: 'জাতীয়', slug: 'national', display_order: 1, status: 'active' },
@@ -244,7 +304,9 @@ export const INITIAL_SETTINGS: SiteSettings = {
   youtube_url: 'https://youtube.com',
   meta_description: 'বার্তাচিত্র-সংবাদ ও ছবি। Bartachitra - বাংলাদেশের শীর্ষস্থানীয় অনলাইন সংবাদপত্র ও ই-পত্রিকা পোর্টাল',
   meta_keywords: 'বার্তাচিত্র, বাংলা সংবাদ, বাংলাদেশ, ই-পত্রিকা, ব্রেকিং নিউজ',
-  disable_ads: false
+  disable_ads: false,
+  android_app: INITIAL_ANDROID_APP,
+  facebook_auto_post: INITIAL_FACEBOOK_AUTO_POST
 };
 
 export const INITIAL_MESSAGES: ContactMessage[] = [

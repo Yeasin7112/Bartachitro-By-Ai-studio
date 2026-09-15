@@ -572,3 +572,51 @@ export async function subscribeNewsletter(email: string): Promise<{ status: stri
 function responseOk(res: Response): boolean {
   return res.status >= 200 && res.status < 300;
 }
+
+// ==========================================
+// 12. FACEBOOK GRAPH API & AUTO-POST
+// ==========================================
+
+export async function testFacebookConnection(config: {
+  page_id: string;
+  page_access_token: string;
+  test_mode?: boolean;
+}): Promise<{ status: string; message: string; page?: any }> {
+  const res = await fetch(`${API_BASE}/facebook/test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config)
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || 'ফেসবুক পেজ সংযোগ ব্যর্থ হয়েছে');
+  }
+  return data;
+}
+
+export async function postArticleToFacebook(payload: {
+  article_id?: number;
+  page_id?: string;
+  page_access_token?: string;
+  post_type?: 'photo' | 'link';
+  title: string;
+  summary: string;
+  slug?: string;
+  url?: string;
+  image_url?: string;
+  hashtags?: string;
+  custom_message?: string;
+  test_mode?: boolean;
+}): Promise<{ status: string; message: string; post_id?: string; post_url?: string; is_simulated?: boolean }> {
+  const res = await fetch(`${API_BASE}/facebook/post`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || 'ফেসবুকে পোস্ট করতে ব্যর্থ হয়েছে');
+  }
+  return data;
+}
+

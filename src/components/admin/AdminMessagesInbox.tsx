@@ -5,6 +5,7 @@ import {
   CheckCheck, AlertCircle, MessageSquare, Send, Copy, RefreshCw
 } from 'lucide-react';
 import { ContactMessage } from '../../types';
+import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
 
 interface AdminMessagesInboxProps {
   messages: ContactMessage[];
@@ -56,6 +57,8 @@ export const AdminMessagesInbox: React.FC<AdminMessagesInboxProps> = ({
   const [selectedMessage, setSelectedMessage] = useState<ContactMessage | null>(null);
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [copiedEmail, setCopiedEmail] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ContactMessage | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Computed counts
   const totalCount = messages.length;
@@ -122,24 +125,31 @@ export const AdminMessagesInbox: React.FC<AdminMessagesInboxProps> = ({
     }
   };
 
-  // Handle Delete Message
-  const handleDelete = async (id: number, e?: React.MouseEvent) => {
+  // Open Delete Confirmation Dialog
+  const handleOpenDeleteModal = (msg: ContactMessage, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (!window.confirm('আপনি কি এই বার্তাটি মুছে ফেলতে চান? এটি পুনরুদ্ধার করা যাবে না।')) {
-      return;
-    }
-    setProcessingId(id);
+    setDeleteTarget(msg);
+  };
+
+  // Confirm and Execute Message Deletion
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    const targetId = deleteTarget.id;
+    setIsDeleting(true);
+    setProcessingId(targetId);
     try {
-      await onDeleteMessage(id);
+      await onDeleteMessage(targetId);
       setFeedback('বার্তাটি সফলভাবে মুছে ফেলা হয়েছে।');
       setTimeout(() => setFeedback(''), 2500);
-      if (selectedMessage && selectedMessage.id === id) {
+      if (selectedMessage && selectedMessage.id === targetId) {
         setSelectedMessage(null);
       }
+      setDeleteTarget(null);
     } catch (err: any) {
       setErrorMessage(err.message || 'বার্তা মুছতে ব্যর্থ হয়েছে।');
       setTimeout(() => setErrorMessage(''), 3000);
     } finally {
+      setIsDeleting(false);
       setProcessingId(null);
     }
   };
@@ -453,7 +463,7 @@ export const AdminMessagesInbox: React.FC<AdminMessagesInboxProps> = ({
                       <button
                         type="button"
                         disabled={isBusy}
-                        onClick={(e) => handleDelete(m.id, e)}
+                        onClick={(e) => handleOpenDeleteModal(m, e)}
                         className="p-2 rounded-lg bg-red-950/60 hover:bg-red-900/80 border border-red-800/60 text-red-300 text-xs flex items-center gap-1 transition-colors cursor-pointer"
                         title="বার্তাটি মুছে ফেলুন"
                       >
@@ -592,7 +602,7 @@ export const AdminMessagesInbox: React.FC<AdminMessagesInboxProps> = ({
                             <button
                               type="button"
                               disabled={isBusy}
-                              onClick={(e) => handleDelete(m.id, e)}
+                              onClick={(e) => handleOpenDeleteModal(m, e)}
                               className="p-1.5 text-red-400 hover:text-red-300 hover:bg-slate-700 rounded transition-colors cursor-pointer"
                               title="মুছে ফেলুন"
                             >
@@ -717,7 +727,7 @@ export const AdminMessagesInbox: React.FC<AdminMessagesInboxProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => handleDelete(selectedMessage.id)}
+                  onClick={(e) => handleOpenDeleteModal(selectedMessage, e)}
                   className="px-3 py-2 rounded-lg bg-red-950/80 hover:bg-red-900 border border-red-800/80 text-red-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -746,6 +756,21 @@ export const AdminMessagesInbox: React.FC<AdminMessagesInboxProps> = ({
           </div>
         </div>
       )}
+
+      {/* In-app Non-blocking Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={Boolean(deleteTarget)}
+        title="বার্তা মুছে ফেলতে চান?"
+        message="আপনি কি নিশ্চিত যে এই বার্তাটি স্থায়ীভাবে মুছে ফেলতে চান? এটি পুনরায় ফিরিয়ে আনা সম্ভব হবে না।"
+        itemTitle={deleteTarget ? `${deleteTarget.name} (${deleteTarget.email}) — "${deleteTarget.subject}"` : undefined}
+        confirmButtonText="হ্যাঁ, মুছে ফেলুন"
+        cancelButtonText="বাতিল"
+        isDeleting={isDeleting}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          if (!isDeleting) setDeleteTarget(null);
+        }}
+      />
     </div>
   );
 };

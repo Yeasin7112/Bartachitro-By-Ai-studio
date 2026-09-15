@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SiteSettings, Category } from '../types';
-import { Mail, Phone, MapPin, Newspaper, BookOpen, Send, CheckCircle2, AlertCircle, Loader2, Facebook, Code2, ExternalLink } from 'lucide-react';
+import { Mail, Phone, MapPin, Newspaper, BookOpen, Send, CheckCircle2, AlertCircle, Loader2, Facebook, Code2, ExternalLink, Smartphone } from 'lucide-react';
 import { SiteLogo } from './SiteLogo';
 import { subscribeNewsletter } from '../utils/api';
 
@@ -13,6 +13,7 @@ interface FooterProps {
   onNavigateContact: () => void;
   onNavigateAbout: () => void;
   onNavigateBlog?: () => void;
+  onNavigateAppDownload?: () => void;
   onOpenAdmin?: () => void;
 }
 
@@ -24,7 +25,8 @@ export const Footer: React.FC<FooterProps> = ({
   onNavigateEpaper,
   onNavigateContact,
   onNavigateAbout,
-  onNavigateBlog
+  onNavigateBlog,
+  onNavigateAppDownload
 }) => {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -175,6 +177,16 @@ export const Footer: React.FC<FooterProps> = ({
             ডিজিটাল সেবা
           </h4>
           <ul className="space-y-1.5 text-[11px]">
+            {settings?.android_app?.enabled !== false && onNavigateAppDownload && (
+              <li>
+                <button 
+                  onClick={onNavigateAppDownload} 
+                  className="text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-semibold cursor-pointer"
+                >
+                  <Smartphone className="w-3 h-3 text-emerald-400" /> অ্যান্ড্রয়েড অ্যাপ (.APK)
+                </button>
+              </li>
+            )}
             <li>
               <button 
                 onClick={onNavigateBlog} 

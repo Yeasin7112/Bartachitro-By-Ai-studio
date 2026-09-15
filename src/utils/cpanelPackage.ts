@@ -452,10 +452,10 @@ $logoUrl = !empty($settings['logo_url']) ? $settings['logo_url'] : 'assets/logo.
 
 <!-- Breaking News Ticker -->
 <?php if (!empty($breakingNews)): ?>
-<div class="bg-red-700 text-white py-2 px-4 shadow-inner">
-    <div class="max-w-7xl mx-auto flex items-center gap-3 text-xs sm:text-sm">
-        <span class="bg-black/40 px-2 py-0.5 rounded font-black tracking-wider uppercase text-[11px] shrink-0">ব্রেকিং</span>
-        <div class="truncate">
+<div class="bg-red-700 text-white py-2 px-3 shadow-inner border-b border-red-800">
+    <div class="max-w-7xl mx-auto flex items-center gap-2 text-base sm:text-lg">
+        <span class="bg-yellow-400 text-red-950 font-black px-2 py-0.5 rounded font-bengali-display tracking-tight text-xs shrink-0 shadow-2xs">ব্রেকিং<span class="hidden sm:inline"> নিউজ</span></span>
+        <div class="truncate font-bold min-w-0 flex-1">
             <?php foreach ($breakingNews as $b): ?>
                 <a href="article.php?slug=<?= urlencode($b['slug']) ?>" class="hover:underline mr-6">▪ <?= htmlspecialchars($b['title']) ?></a>
             <?php endforeach; ?>
@@ -467,9 +467,14 @@ $logoUrl = !empty($settings['logo_url']) ? $settings['logo_url'] : 'assets/logo.
 <!-- Main Container -->
 <main class="max-w-7xl mx-auto px-4 py-6 space-y-8">
     <!-- Lead Section -->
-    <?php if (!empty($leadNews)): $first = $leadNews[0]; ?>
-    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="lg:col-span-2 bg-white rounded-xl overflow-hidden border border-slate-200 shadow-xs">
+    <?php if (!empty($leadNews)): 
+        $first = $leadNews[0]; 
+        $sideThree = array_slice($leadNews, 1, 3);
+        $subsequent = array_slice($leadNews, 4);
+    ?>
+    <section class="space-y-4">
+        <!-- ১ম প্রধান সংবাদ -->
+        <div class="bg-white rounded-xl overflow-hidden border border-slate-200 shadow-xs">
             <a href="article.php?slug=<?= urlencode($first['slug']) ?>" class="block group">
                 <img src="<?= htmlspecialchars($first['featured_image']) ?>" class="w-full h-80 sm:h-96 object-cover group-hover:scale-101 transition duration-300">
                 <div class="p-6 space-y-2">
@@ -479,18 +484,35 @@ $logoUrl = !empty($settings['logo_url']) ? $settings['logo_url'] : 'assets/logo.
                 </div>
             </a>
         </div>
-        <div class="space-y-4">
-            <h3 class="text-base font-bold font-display text-red-700 border-b-2 border-red-700 pb-1">বিশেষ সংবাদ</h3>
-            <?php for ($i = 1; $i < count($leadNews); $i++): $item = $leadNews[$i]; ?>
-            <a href="article.php?slug=<?= urlencode($item['slug']) ?>" class="block bg-white p-3.5 rounded-lg border border-slate-200 hover:border-red-400 transition flex gap-3">
-                <img src="<?= htmlspecialchars($item['featured_image']) ?>" class="w-24 h-20 object-cover rounded shrink-0">
+
+        <!-- ১ম নিউজের পরে ৩টি নিউজ পাশাপাশি -->
+        <?php if (!empty($sideThree)): ?>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-b border-slate-200 py-4">
+            <?php foreach ($sideThree as $item): ?>
+            <a href="article.php?slug=<?= urlencode($item['slug']) ?>" class="block bg-white p-3 rounded-lg border border-slate-200 hover:border-red-400 transition group flex flex-col">
+                <img src="<?= htmlspecialchars($item['featured_image']) ?>" class="w-full aspect-[16/10] object-cover rounded mb-2">
+                <span class="text-xs text-red-700 font-bold"><?= htmlspecialchars($item['category_name'] ?? 'সংবাদ') ?></span>
+                <h3 class="text-base font-bold font-display line-clamp-3 hover:text-red-700 mt-1 leading-snug"><?= htmlspecialchars($item['title']) ?></h3>
+            </a>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+
+        <!-- এরপরের নিউজগুলো নিচে নিচে -->
+        <?php if (!empty($subsequent)): ?>
+        <div class="divide-y divide-slate-200 bg-white rounded-lg border border-slate-200 p-4">
+            <?php foreach ($subsequent as $item): ?>
+            <a href="article.php?slug=<?= urlencode($item['slug']) ?>" class="py-3 flex gap-3 group">
+                <img src="<?= htmlspecialchars($item['featured_image']) ?>" class="w-24 h-18 object-cover rounded shrink-0">
                 <div>
-                    <h4 class="text-xs sm:text-sm font-bold font-display line-clamp-2 hover:text-red-700"><?= htmlspecialchars($item['title']) ?></h4>
+                    <span class="text-[10px] text-red-700 font-bold"><?= htmlspecialchars($item['category_name'] ?? 'সংবাদ') ?></span>
+                    <h4 class="text-sm font-bold line-clamp-2 group-hover:text-red-700"><?= htmlspecialchars($item['title']) ?></h4>
                     <span class="text-[11px] text-slate-500 mt-1 block"><?= htmlspecialchars($item['author_name']) ?></span>
                 </div>
             </a>
-            <?php endfor; ?>
+            <?php endforeach; ?>
         </div>
+        <?php endif; ?>
     </section>
     <?php endif; ?>
 

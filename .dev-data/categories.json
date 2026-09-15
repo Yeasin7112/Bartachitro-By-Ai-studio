@@ -1,0 +1,65 @@
+[
+  {
+    "id": 1,
+    "name": "জাতীয়",
+    "slug": "national",
+    "display_order": 1,
+    "status": "active"
+  },
+  {
+    "id": 2,
+    "name": "রাজনীতি",
+    "slug": "politics",
+    "display_order": 2,
+    "status": "active"
+  },
+  {
+    "id": 3,
+    "name": "অর্থনীতি",
+    "slug": "economy",
+    "display_order": 3,
+    "status": "active"
+  },
+  {
+    "id": 4,
+    "name": "আন্তর্জাতিক",
+    "slug": "international",
+    "display_order": 4,
+    "status": "active"
+  },
+  {
+    "id": 5,
+    "name": "খেলাধুলা",
+    "slug": "sports",
+    "display_order": 5,
+    "status": "active"
+  },
+  {
+    "id": 6,
+    "name": "বিনোদন",
+    "slug": "entertainment",
+    "display_order": 6,
+    "status": "active"
+  },
+  {
+    "id": 7,
+    "name": "তথ্যপ্রযুক্তি",
+    "slug": "technology",
+    "display_order": 7,
+    "status": "active"
+  },
+  {
+    "id": 8,
+    "name": "জীবনযাপন",
+    "slug": "lifestyle",
+    "display_order": 8,
+    "status": "active"
+  },
+  {
+    "id": 9,
+    "name": "মতামত",
+    "slug": "opinion",
+    "display_order": 9,
+    "status": "active"
+  }
+]

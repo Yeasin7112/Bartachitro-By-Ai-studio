@@ -34,6 +34,11 @@ export interface NewsArticle {
   seo_title?: string;
   seo_description?: string;
   seo_keywords?: string;
+  facebook_post_id?: string;
+  facebook_posted_at?: string;
+  facebook_post_url?: string;
+  facebook_post_status?: 'not_posted' | 'posted' | 'failed';
+  facebook_post_error?: string;
 }
 
 export interface EpaperPage {
@@ -117,6 +122,52 @@ export interface SiteSettings {
   meta_description: string;
   meta_keywords: string;
   disable_ads?: boolean;
+  android_app?: AndroidAppConfig;
+  facebook_auto_post?: FacebookAutoPostConfig;
+}
+
+export interface FacebookAutoPostConfig {
+  enabled: boolean;
+  page_id: string;
+  page_name?: string;
+  page_access_token: string;
+  post_type: 'photo' | 'link';
+  auto_post_on_create: boolean;
+  auto_post_on_breaking: boolean;
+  default_hashtags?: string;
+  include_link_in_caption?: boolean;
+  test_mode?: boolean;
+  last_post_id?: string;
+  last_post_time?: string;
+  last_post_status?: 'success' | 'failed' | 'idle';
+  last_post_error?: string;
+}
+
+export interface AndroidAppInstructionStep {
+  step: number;
+  title: string;
+  description: string;
+}
+
+export interface AndroidAppConfig {
+  enabled: boolean;
+  app_name: string;
+  app_tagline?: string;
+  version_name: string;
+  version?: string;
+  version_code?: number;
+  apk_filename: string;
+  apk_url: string;
+  file_size_formatted?: string;
+  uploaded_at?: string;
+  min_android?: string;
+  package_name?: string;
+  instruction_text?: string;
+  instruction_steps?: AndroidAppInstructionStep[];
+  warning_text?: string;
+  release_notes?: string;
+  features?: string[];
+  download_count?: number;
 }
 
 export type AdminRole = 'super_admin' | 'editor' | 'moderator';

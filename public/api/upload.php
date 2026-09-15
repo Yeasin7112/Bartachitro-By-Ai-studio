@@ -50,6 +50,9 @@ $allowedMimes = [
     'image/x-icon' => 'ico',
     'image/vnd.microsoft.icon' => 'ico',
     'application/pdf' => 'pdf',
+    'application/vnd.android.package-archive' => 'apk',
+    'application/x-zip-compressed' => 'apk',
+    'application/zip' => 'apk',
     'video/mp4' => 'mp4',
     'video/webm' => 'webm',
     'video/ogg' => 'ogg',
@@ -58,7 +61,7 @@ $allowedMimes = [
 
 try {
     // 1. Check if multipart file was uploaded
-    $uploadedFile = $_FILES['file'] ?? $_FILES['image'] ?? $_FILES['video'] ?? null;
+    $uploadedFile = $_FILES['file'] ?? $_FILES['image'] ?? $_FILES['video'] ?? $_FILES['apk'] ?? null;
 
     if ($uploadedFile && isset($uploadedFile['tmp_name']) && is_uploaded_file($uploadedFile['tmp_name'])) {
         if ($uploadedFile['error'] !== UPLOAD_ERR_OK) {
@@ -70,17 +73,24 @@ try {
         $detectedMime = finfo_file($finfo, $uploadedFile['tmp_name']);
         finfo_close($finfo);
 
-        if (!$detectedMime || !isset($allowedMimes[$detectedMime])) {
-            sendResponse(['error' => 'নিরাপত্তাজনিত কারণে এই ধরণের ফাইল আপলোড নিষিদ্ধ। শুধু ছবি (JPG, PNG, WebP, SVG, GIF) বা ভিডিও (MP4, WebM) অনুমোদিত।'], 400);
+        $origName = $uploadedFile['name'] ?? '';
+        $origExt = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+
+        if ($origExt === 'apk') {
+            $cleanExt = 'apk';
+        } elseif ($detectedMime && isset($allowedMimes[$detectedMime])) {
+            $cleanExt = $allowedMimes[$detectedMime];
+        } else {
+            sendResponse(['error' => 'নিরাপত্তাজনিত কারণে এই ধরণের ফাইল আপলোড নিষিদ্ধ। শুধু ছবি (JPG, PNG, WebP, SVG, GIF), ভিডিও (MP4) বা অ্যান্ড্রয়েড অ্যাপ (APK) অনুমোদিত।'], 400);
         }
 
-        $cleanExt = $allowedMimes[$detectedMime];
         $isVideo = in_array($cleanExt, ['mp4', 'webm', 'ogg', 'mov']);
+        $isApk = ($cleanExt === 'apk');
 
-        // Size limits: 50MB for video, 15MB for image/pdf
-        $maxSize = $isVideo ? (50 * 1024 * 1024) : (15 * 1024 * 1024);
+        // Size limits: 100MB for APK, 50MB for video, 15MB for image/pdf
+        $maxSize = $isApk ? (100 * 1024 * 1024) : ($isVideo ? (50 * 1024 * 1024) : (15 * 1024 * 1024));
         if ($uploadedFile['size'] > $maxSize) {
-            sendResponse(['error' => 'ফাইল সাইজ অনুমোদিত সীমার বেশি। ছবি সর্বোচ্চ ১৫ মেগাবাইট এবং ভিডিও সর্বোচ্চ ৫০ মেগাবাইট।'], 400);
+            sendResponse(['error' => 'ফাইল সাইজ অনুমোদিত সীমার বেশি। ছবি সর্বোচ্চ ১৫MB, ভিডিও ৫০MB এবং APK সর্বোচ্চ ১০০MB।'], 400);
         }
 
         // If SVG, check for embedded scripts or dangerous markup
@@ -91,7 +101,7 @@ try {
             }
         }
 
-        $prefix = $isVideo ? 'video-' : 'upload-';
+        $prefix = $isApk ? 'app-' : ($isVideo ? 'video-' : 'upload-');
         $randomHex = bin2hex(random_bytes(8));
         $filename = $prefix . time() . '-' . $randomHex . '.' . $cleanExt;
         $targetPath = $uploadDir . '/' . $filename;

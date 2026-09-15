@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Clock, Eye, UserPen, Share2, Copy, Check, Printer, 
-  Home, ChevronRight, Newspaper, ArrowLeft, Play, Video 
+  Home, ChevronRight, Newspaper, ArrowLeft, Play, Video, ExternalLink 
 } from 'lucide-react';
 import { NewsArticle, Advertisement } from '../types';
 import { bnNum, bnDate, timeAgoBn } from '../utils/bengaliHelpers';
 import { ArticleComments } from './ArticleComments';
 import { getYouTubeEmbedUrl } from './VideoUploader';
 import { trackAdClick } from '../utils/api';
+import { FacebookShareModal } from './FacebookShareModal';
 
 interface ArticleViewProps {
   article: NewsArticle;
@@ -33,28 +34,60 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
   ads = []
 }) => {
   const [copied, setCopied] = useState(false);
+  const [isFbShareModalOpen, setIsFbShareModalOpen] = useState(false);
 
   const inlineAd = ads.find(a => (a.position === 'article_inline' || a.position === 'sidebar') && a.status === 'active');
 
-  // Dynamic SEO Page Title & Meta Tags
+  // Dynamic SEO Page Title & Open Graph / Twitter Meta Tags
   useEffect(() => {
     const originalTitle = document.title;
     const pageTitle = article.seo_title || `${article.title} - বার্তাচিত্র`;
     document.title = pageTitle;
 
-    // Meta description update
-    let metaDesc = document.querySelector('meta[name="description"]');
-    if (!metaDesc) {
-      metaDesc = document.createElement('meta');
-      metaDesc.setAttribute('name', 'description');
-      document.head.appendChild(metaDesc);
+    const setMetaTag = (attrName: 'name' | 'property', attrVal: string, contentVal: string) => {
+      let elem = document.querySelector(`meta[${attrName}="${attrVal}"]`);
+      if (!elem) {
+        elem = document.createElement('meta');
+        elem.setAttribute(attrName, attrVal);
+        document.head.appendChild(elem);
+      }
+      elem.setAttribute('content', contentVal);
+      return elem;
+    };
+
+    // Standard SEO
+    setMetaTag('name', 'description', article.seo_description || article.summary || '');
+    setMetaTag('name', 'keywords', article.seo_keywords || 'বার্তাচিত্র, সংবাদ, বাংলাদেশ');
+
+    // Open Graph for Facebook
+    const articleUrl = window.location.href;
+    const fullImg = article.featured_image?.startsWith('http') 
+      ? article.featured_image 
+      : `${window.location.origin}${article.featured_image || ''}`;
+
+    setMetaTag('property', 'og:type', 'article');
+    setMetaTag('property', 'og:title', article.title);
+    setMetaTag('property', 'og:description', article.summary || article.title);
+    setMetaTag('property', 'og:url', articleUrl);
+    setMetaTag('property', 'og:site_name', 'বার্তাচিত্র');
+    if (fullImg) {
+      setMetaTag('property', 'og:image', fullImg);
+      setMetaTag('property', 'og:image:secure_url', fullImg);
+      setMetaTag('property', 'og:image:width', '1200');
+      setMetaTag('property', 'og:image:height', '630');
+      setMetaTag('property', 'og:image:alt', article.title);
     }
-    const prevDesc = metaDesc.getAttribute('content') || '';
-    metaDesc.setAttribute('content', article.seo_description || article.summary || '');
+
+    // Twitter Card
+    setMetaTag('name', 'twitter:card', 'summary_large_image');
+    setMetaTag('name', 'twitter:title', article.title);
+    setMetaTag('name', 'twitter:description', article.summary || article.title);
+    if (fullImg) {
+      setMetaTag('name', 'twitter:image', fullImg);
+    }
 
     return () => {
       document.title = originalTitle;
-      if (metaDesc) metaDesc.setAttribute('content', prevDesc);
     };
   }, [article]);
 
@@ -185,14 +218,16 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
             <span className="text-xs font-bold text-gray-700 flex items-center gap-1 mr-1">
               <Share2 className="w-3.5 h-3.5" /> শেয়ার:
             </span>
-            <a 
-              href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`}
-              target="_blank" 
-              rel="noreferrer"
-              className="bg-[#1877f2] text-white text-[11px] font-semibold px-2.5 py-1 rounded flex items-center gap-1 hover:opacity-90"
+            <button
+              onClick={() => setIsFbShareModalOpen(true)}
+              className="bg-[#1877f2] hover:bg-[#166fe5] text-white text-[11px] font-bold px-3 py-1 rounded flex items-center gap-1.5 shadow-xs transition-transform active:scale-95 cursor-pointer"
+              title="ছবি ও ক্যাপশন সহ ফেসবুকে শেয়ার করুন"
             >
-              ফেসবুক
-            </a>
+              <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+              </svg>
+              <span>ফেসবুকে শেয়ার (ছবি ও টেক্সট)</span>
+            </button>
             <a 
               href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(article.title)}&url=${encodeURIComponent(window.location.href)}`}
               target="_blank" 
@@ -390,6 +425,13 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
           </div>
         </aside>
       </div>
+
+      {/* Facebook Direct Share Modal */}
+      <FacebookShareModal
+        article={article}
+        isOpen={isFbShareModalOpen}
+        onClose={() => setIsFbShareModalOpen(false)}
+      />
     </div>
   );
 };

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Calendar, CloudSun, Newspaper, Search, Menu, X, 
   Download, ShieldCheck, Home, ArrowRight, ChevronRight, ChevronDown,
-  BookOpen, Clock
+  BookOpen, Clock, Smartphone
 } from 'lucide-react';
 import { Category, NewsArticle, SiteSettings } from '../types';
 import { bnNum } from '../utils/bengaliHelpers';
@@ -17,6 +17,7 @@ interface HeaderProps {
   onNavigateSearch: (query: string) => void;
   onNavigateArchive: () => void;
   onNavigateBlog?: () => void;
+  onNavigateAppDownload?: () => void;
   isBlogActive?: boolean;
   onOpenArticle: (article: NewsArticle) => void;
   onOpenAdmin: () => void;
@@ -35,6 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigateSearch,
   onNavigateArchive,
   onNavigateBlog,
+  onNavigateAppDownload,
   isBlogActive = false,
   onOpenArticle,
   onOpenAdmin,
@@ -106,39 +108,54 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-xs">
-      {/* 1. Top Utility Bar - Clean, Compact, Highly Visible */}
-      <div className="bg-gray-100 border-b border-gray-200 text-[11px] sm:text-xs text-gray-800 px-3 sm:px-6 py-1">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 overflow-hidden whitespace-nowrap">
-          {/* Left: Date & Time */}
-          <div className="flex items-center gap-1.5 sm:gap-2.5 font-medium text-gray-900">
-            <span className="flex items-center gap-1">
-              <Calendar className="w-3 h-3 text-red-600 shrink-0" />
-              <span>{formattedDate}</span>
-            </span>
+      {/* 1. Top Utility Bar - Clean, Compact, Fully Visible on Mobile & Desktop */}
+      <div className="bg-gray-100 border-b border-gray-200 text-[11px] sm:text-xs text-gray-800 px-2 sm:px-6 py-1">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-1.5 sm:gap-3">
+          {/* Left: Date & Live Time (Always fully visible on mobile & desktop) */}
+          <div className="flex items-center gap-1 sm:gap-2 font-medium text-gray-800 shrink-0">
+            <Calendar className="w-3 h-3 text-red-600 shrink-0" />
+            <span className="font-semibold text-gray-900">{dayName}, {day} {month}</span>
+            <span className="hidden sm:inline font-semibold text-gray-900">{year}</span>
             <span className="text-gray-300">|</span>
-            <span className="flex items-center gap-1 text-gray-700">
+            <span className="flex items-center gap-0.5 text-gray-700">
               <Clock className="w-3 h-3 text-gray-500 shrink-0" />
-              <span>সময়: {formattedTime}</span>
+              <span>{formattedTime}</span>
             </span>
           </div>
 
-          {/* Right: E-paper link & discreet Admin access */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Right: Android App, E-paper link & Admin Login (Always Visible on Mobile) */}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {settings?.android_app?.enabled !== false && onNavigateAppDownload && (
+              <button
+                onClick={onNavigateAppDownload}
+                className="hidden sm:flex text-emerald-700 hover:text-emerald-800 font-bold items-center gap-1 cursor-pointer transition-colors bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px]"
+                title="বার্তাচিত্র অ্যান্ড্রয়েড অ্যাপ ডাউনলোড করুন"
+              >
+                <Smartphone className="w-3 h-3 text-emerald-600 shrink-0" />
+                <span>অ্যাপ</span>
+              </button>
+            )}
+
+            {/* E-paper Link */}
             <button 
               onClick={onNavigateEpaper}
-              className="text-red-700 hover:text-red-800 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+              className="text-red-700 hover:text-red-800 active:bg-red-100 font-bold flex items-center gap-0.5 sm:gap-1 cursor-pointer transition-colors px-1 sm:px-1.5 py-0.5 rounded hover:bg-red-50 text-[11px] sm:text-xs"
               title="ই-পেপার সংস্করণ"
             >
               <Newspaper className="w-3 h-3 text-red-700 shrink-0" />
               <span>ই-পেপার</span>
             </button>
+
             <span className="text-gray-300">|</span>
+
+            {/* Admin Login Button - Clear & Easy to Tap on Mobile */}
             <button 
               onClick={onOpenAdmin}
-              className="text-gray-400 hover:text-gray-700 transition-colors cursor-pointer flex items-center"
-              title="অ্যাডমিন প্যানেল"
+              className="text-slate-800 hover:text-red-700 active:bg-gray-200 font-bold flex items-center gap-0.5 sm:gap-1 cursor-pointer transition-colors px-1 sm:px-1.5 py-0.5 rounded bg-gray-200/90 hover:bg-gray-200 text-[10px] sm:text-xs shadow-2xs"
+              title="অ্যাডমিন প্যানেলে প্রবেশ করুন"
             >
-              <ShieldCheck className="w-3 h-3" />
+              <ShieldCheck className="w-3 h-3 text-red-600 shrink-0" />
+              <span>লগইন</span>
             </button>
           </div>
         </div>
@@ -222,6 +239,16 @@ export const Header: React.FC<HeaderProps> = ({
               <Newspaper className="w-3.5 h-3.5 text-red-700" />
               ই-পত্রিকা
             </button>
+            {settings?.android_app?.enabled !== false && onNavigateAppDownload && (
+              <button
+                onClick={onNavigateAppDownload}
+                className="text-emerald-700 hover:text-emerald-800 font-bold transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-xs"
+                title="বার্তাচিত্র মোবাইল অ্যাপ (.APK)"
+              >
+                <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
+                <span>অ্যাপ ডাউনলোড</span>
+              </button>
+            )}
           </nav>
         </div>
 
@@ -441,6 +468,22 @@ export const Header: React.FC<HeaderProps> = ({
           ))}
 
           <div className="border-t border-gray-200 my-2 pt-3 flex flex-col gap-2">
+            {settings?.android_app?.enabled !== false && onNavigateAppDownload && (
+              <button
+                onClick={() => {
+                  onNavigateAppDownload();
+                  setMobileNavOpen(false);
+                }}
+                className="text-left py-2 px-3 text-sm text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 rounded flex items-center justify-between"
+              >
+                <span className="flex items-center gap-2">
+                  <Smartphone className="w-4 h-4 text-emerald-600" /> অ্যান্ড্রয়েড অ্যাপ (.APK)
+                </span>
+                <span className="text-[10px] bg-emerald-600 text-white px-1.5 py-0.5 rounded font-bold">
+                  ফ্রি ডাউনলোড
+                </span>
+              </button>
+            )}
             <button
               onClick={() => {
                 onNavigateEpaper();
