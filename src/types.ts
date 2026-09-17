@@ -28,6 +28,7 @@ export interface NewsArticle {
   views: number;
   is_featured: boolean;
   is_breaking: boolean;
+  allow_comments?: boolean;
   status: 'published' | 'draft';
   published_at: string;
   updated_at?: string;

@@ -20,6 +20,9 @@ Options -Indexes
   RewriteCond %{REQUEST_FILENAME} -f
   RewriteRule ^ - [L]
 
+  # Route /api/facebook and subpaths (/api/facebook/test, /api/facebook/post) to api/facebook.php
+  RewriteRule ^api/facebook(/.*)?$ api/facebook.php [L,QSA]
+
   # Route /api/something to /api/something.php if the .php file exists
   RewriteCond %{DOCUMENT_ROOT}/api/$1.php -f [OR]
   RewriteCond %{REQUEST_FILENAME}.php -f
@@ -44,7 +47,17 @@ Options -Indexes
   AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css application/javascript application/json image/svg+xml
 </IfModule>
 
-# 5. Security Headers (Same-origin cPanel deployment)
+# 5. Android APK MIME Type & Direct Download
+<IfModule mod_mime.c>
+  AddType application/vnd.android.package-archive .apk
+</IfModule>
+<FilesMatch "\.apk$">
+  Header set Content-Disposition "attachment"
+  Header set Content-Type "application/vnd.android.package-archive"
+  Header set Cache-Control "public, max-age=3600"
+</FilesMatch>
+
+# 6. Security Headers (Same-origin cPanel deployment)
 <IfModule mod_headers.c>
   Header set X-Content-Type-Options "nosniff"
   Header set X-Frame-Options "SAMEORIGIN"

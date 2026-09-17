@@ -6,19 +6,159 @@ html {
 
 @layer base {
   body {
-    font-family: 'Hind Siliguri', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  }
-  h1, h2, h3, .font-display {
-    font-family: 'Noto Serif Bengali', 'Hind Siliguri', serif;
+    font-family: 'Noto Sans Bengali', 'Hind Siliguri', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
   }
 }
 
-.font-bengali-display {
-  font-family: 'Noto Serif Bengali', 'Hind Siliguri', serif;
+/* True Newspaper Font-Faces with Guaranteed Real Bold Outlines */
+@font-face {
+  font-family: 'Kalpurush';
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+  src: url('https://fonts.maateen.me/kalpurush/Kalpurush-v0.258.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Kalpurush';
+  font-display: swap;
+  font-style: normal;
+  font-weight: 700;
+  src: url('https://fonts.maateen.me/solaiman-lipi/solaimanlipi-bold-v1.0.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Kalpurush';
+  font-display: swap;
+  font-style: normal;
+  font-weight: 800;
+  src: url('https://fonts.maateen.me/solaiman-lipi/solaimanlipi-bold-v1.0.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'SolaimanLipi';
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+  src: url('https://fonts.maateen.me/solaiman-lipi/solaimanlipi-normal-v1.0.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'SolaimanLipi';
+  font-display: swap;
+  font-style: normal;
+  font-weight: 700;
+  src: url('https://fonts.maateen.me/solaiman-lipi/solaimanlipi-bold-v1.0.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'SolaimanLipi';
+  font-display: swap;
+  font-style: normal;
+  font-weight: 800;
+  src: url('https://fonts.maateen.me/solaiman-lipi/solaimanlipi-bold-v1.0.woff2') format('woff2');
 }
 
-.font-bengali-body {
-  font-family: 'Hind Siliguri', sans-serif;
+/* ==========================================================================
+   Bengali Numerals (০ ১ ২ ৩ ৪ ৫ ৬ ৭ ৮ ৯) Dedicated Fix:
+   SolaimanLipi and Hind Siliguri have an open, comma-like hook for digit '১' (U+09E7)
+   which makes "১৭ দিন আগে" look like ",৭ দিন আগে" and "১৬" look like ",৬".
+   This unicode-range rule routes all Bengali digits to Noto Sans Bengali where
+   the digit '১' has a full, solid closed round head and crystal-clear visibility.
+   ========================================================================== */
+@font-face {
+  font-family: 'Hind Siliguri';
+  font-display: swap;
+  font-style: normal;
+  font-weight: 100 900;
+  src: url('https://fonts.gstatic.com/s/notosansbengali/v33/Cn-fJsCGWQxOjaGwMQ6fIiMywrNJIky6nvd8BjzVMvJx2mc4I3mYvNY.woff2') format('woff2');
+  unicode-range: U+09E6-09EF;
+}
+@font-face {
+  font-family: 'SolaimanLipi';
+  font-display: swap;
+  font-style: normal;
+  font-weight: 100 900;
+  src: url('https://fonts.gstatic.com/s/notosansbengali/v33/Cn-fJsCGWQxOjaGwMQ6fIiMywrNJIky6nvd8BjzVMvJx2mc4I3mYvNY.woff2') format('woff2');
+  unicode-range: U+09E6-09EF;
+}
+@font-face {
+  font-family: 'Kalpurush';
+  font-display: swap;
+  font-style: normal;
+  font-weight: 100 900;
+  src: url('https://fonts.gstatic.com/s/notosansbengali/v33/Cn-fJsCGWQxOjaGwMQ6fIiMywrNJIky6nvd8BjzVMvJx2mc4I3mYvNY.woff2') format('woff2');
+  unicode-range: U+09E6-09EF;
+}
+
+/* ==========================================================================
+   1. NEWS HEADLINES (Samakal / Prothom Alo / Screenshot Style)
+   Unmistakably Heavy BOLD (700 / 800) using SolaimanLipi & Kalpurush
+   ========================================================================== */
+.font-bengali-display,
+.font-headline,
+.news-headline,
+.headline-bold,
+article h1,
+article h2,
+article h3,
+article h4,
+.news-title {
+  font-family: 'SolaimanLipi', 'Kalpurush', 'Noto Serif Bengali', serif !important;
+  font-weight: 700 !important;
+  -webkit-text-stroke: 0.35px currentColor;
+  letter-spacing: -0.015em;
+}
+
+/* ==========================================================================
+   2. NEWS BODY / ARTICLE CONTENT / EXCERPTS (100% Matches Screenshot)
+   Regular weight (400) of the EXACT SAME FONT as the news headlines!
+   ========================================================================== */
+.font-news-body,
+.article-content,
+.article-content p,
+.article-excerpt,
+.news-body {
+  font-family: 'SolaimanLipi', 'Kalpurush', 'Noto Serif Bengali', serif !important;
+  font-weight: 400 !important;
+  line-height: 1.75;
+  -webkit-text-stroke: 0 !important;
+}
+
+/* ==========================================================================
+   3. SITE MENU / NAVIGATION / GENERAL UI BODY
+   Clean geometric sans-serif (Hind Siliguri)
+   ========================================================================== */
+.font-bengali-body,
+.font-bengali-ui,
+.font-menu {
+  font-family: 'Noto Sans Bengali', 'Hind Siliguri', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-text-stroke: 0 !important;
+}
+
+/* ==========================================================================
+   4. ADMIN PANEL: 100% STRICT ROLLBACK TO ORIGINAL ADMIN FONT
+   Preserves Hind Siliguri for all admin UI, inputs, tables, buttons, and
+   original Noto Serif Bengali / Hind Siliguri for admin headers
+   ========================================================================== */
+.admin-panel-root,
+.admin-panel-root *,
+.font-admin,
+.font-admin * {
+  font-family: 'Hind Siliguri', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  -webkit-text-stroke: 0 !important;
+}
+
+.admin-panel-root .font-bengali-display,
+.admin-panel-root h1,
+.admin-panel-root h2,
+.admin-panel-root h3,
+.admin-panel-root h4,
+.font-admin .font-bengali-display,
+.font-admin h1,
+.font-admin h2,
+.font-admin h3,
+.font-admin h4 {
+  font-family: 'Noto Serif Bengali', 'Hind Siliguri', serif !important;
+  font-weight: 600 !important;
+  -webkit-text-stroke: 0 !important;
 }
 
 /* Custom scrollbar */

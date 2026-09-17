@@ -14,18 +14,72 @@ export function bnNum(num: number | string): string {
 }
 
 /**
+ * Parses any date string (ISO with Z, ISO with offset, or local "YYYY-MM-DD HH:mm:ss")
+ * anchored accurately to Bangladesh Standard Time (BST, UTC+6).
+ */
+export function parseBanglaDate(dateInput: string | Date | undefined | null): Date {
+  if (!dateInput) return new Date();
+  if (dateInput instanceof Date) return isNaN(dateInput.getTime()) ? new Date() : dateInput;
+
+  const str = String(dateInput).trim();
+  if (!str) return new Date();
+
+  // If already explicit timezone (ends with Z, or has +/-HH:mm offset)
+  if (str.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(str)) {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // If "YYYY-MM-DD HH:mm:ss" or "YYYY-MM-DDTHH:mm:ss" (without timezone offset)
+  // All local database timestamps in the Bangladeshi portal are in Bangladesh Standard Time (BST, UTC+6)
+  const bstMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (bstMatch) {
+    const [, y, m, d, h, min, s = '00'] = bstMatch;
+    // Anchor explicitly to Bangladesh Standard Time (+06:00)
+    const isoWithBst = `${y}-${m}-${d}T${h}:${min}:${s}+06:00`;
+    const parsed = new Date(isoWithBst);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+
+  const fallback = new Date(str);
+  return isNaN(fallback.getTime()) ? new Date() : fallback;
+}
+
+/**
+ * Returns current timestamp in Bangladesh Standard Time (BST, UTC+6)
+ * Format: "YYYY-MM-DD HH:mm:ss"
+ */
+export function getNowBangladeshString(): string {
+  const d = new Date();
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Dhaka',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).formatToParts(d);
+
+  const get = (type: string) => parts.find(p => p.type === type)?.value || '00';
+  return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
+}
+
+/**
  * Convert any Date or string to Bangladesh Standard Time (BST, UTC+6)
  */
 export function toBangladeshDate(dateInput: string | Date = new Date()): Date {
-  const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  const d = parseBanglaDate(dateInput);
   if (isNaN(d.getTime())) return new Date();
   try {
     const dhakaStr = d.toLocaleString('en-US', { timeZone: 'Asia/Dhaka' });
-    return new Date(dhakaStr);
-  } catch {
-    const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
-    return new Date(utc + (3600000 * 6));
-  }
+    const dhakaDate = new Date(dhakaStr);
+    if (!isNaN(dhakaDate.getTime())) return dhakaDate;
+  } catch {}
+  
+  const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+  return new Date(utc + (3600000 * 6));
 }
 
 /**
@@ -113,11 +167,13 @@ export function bnDate(dateStr: string | Date = new Date(), includeTime = true):
   return formatted;
 }
 
-export function timeAgoBn(dateStr: string): string {
-  const date = new Date(dateStr);
+export function timeAgoBn(dateStr: string | Date | undefined | null): string {
+  if (!dateStr) return '';
+  const date = parseBanglaDate(dateStr);
   const now = new Date();
-  const diffSecs = Math.floor((now.getTime() - date.getTime()) / 1000);
+  let diffSecs = Math.floor((now.getTime() - date.getTime()) / 1000);
 
+  // If clock skew or future post within 60s, show "কিছুক্ষণ আগে"
   if (diffSecs < 60) {
     return 'কিছুক্ষণ আগে';
   } else if (diffSecs < 3600) {
@@ -127,7 +183,7 @@ export function timeAgoBn(dateStr: string): string {
   } else if (diffSecs < 2592000) {
     return `${bnNum(Math.floor(diffSecs / 86400))} দিন আগে`;
   } else {
-    return bnDate(dateStr, false);
+    return bnDate(date, false);
   }
 }
 
@@ -137,3 +193,4 @@ export function limitWords(str: string, wordLimit = 20): string {
   if (words.length <= wordLimit) return str;
   return words.slice(0, wordLimit).join(' ') + '...';
 }
+

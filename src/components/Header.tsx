@@ -107,19 +107,19 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-xs">
+    <header className="bg-white border-b border-gray-200">
       {/* 1. Top Utility Bar - Clean, Compact, Fully Visible on Mobile & Desktop */}
-      <div className="bg-gray-100 border-b border-gray-200 text-[11px] sm:text-xs text-gray-800 px-2 sm:px-6 py-1">
+      <div className="bg-gray-100 border-b border-gray-200 text-[11px] sm:text-xs text-gray-800 px-2 sm:px-6 py-1 font-bengali-ui">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-1.5 sm:gap-3">
           {/* Left: Date & Live Time (Always fully visible on mobile & desktop) */}
-          <div className="flex items-center gap-1 sm:gap-2 font-medium text-gray-800 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2 font-medium text-gray-800 shrink-0 font-bengali-ui">
             <Calendar className="w-3 h-3 text-red-600 shrink-0" />
-            <span className="font-semibold text-gray-900">{dayName}, {day} {month}</span>
-            <span className="hidden sm:inline font-semibold text-gray-900">{year}</span>
+            <span className="font-bold text-gray-950">{dayName}, {day} {month}</span>
+            <span className="hidden sm:inline font-bold text-gray-950">{year}</span>
             <span className="text-gray-300">|</span>
             <span className="flex items-center gap-0.5 text-gray-700">
               <Clock className="w-3 h-3 text-gray-500 shrink-0" />
-              <span>{formattedTime}</span>
+              <span className="font-medium">{formattedTime}</span>
             </span>
           </div>
 

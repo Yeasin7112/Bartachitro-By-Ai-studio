@@ -70,6 +70,11 @@ CREATE TABLE IF NOT EXISTS `news` (
   `seo_title` VARCHAR(255) DEFAULT NULL,
   `seo_description` TEXT DEFAULT NULL,
   `seo_keywords` VARCHAR(255) DEFAULT NULL,
+  `facebook_post_id` VARCHAR(255) DEFAULT NULL,
+  `facebook_post_url` VARCHAR(500) DEFAULT NULL,
+  `facebook_posted_at` DATETIME DEFAULT NULL,
+  `facebook_post_status` VARCHAR(50) DEFAULT NULL,
+  `facebook_post_error` TEXT DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_category` (`category_id`),
   KEY `idx_status_published` (`status`, `published_at`),
@@ -229,7 +234,9 @@ INSERT INTO `settings` (`key_name`, `key_value`) VALUES
 ('instagram_url', 'https://instagram.com/bartachitro'),
 ('meta_title', 'বার্তাচিত্র - সংবাদ ও ছবি। Bartachitra'),
 ('meta_description', 'বার্তাচিত্র-সংবাদ ও ছবি। Bartachitra - বাংলাদেশের শীর্ষস্থানীয় অনলাইন সংবাদপত্র ও ই-পত্রিকা পোর্টাল।'),
-('copyright_text', '© ২০২৬ বার্তাচিত্র মিডিয়া লিমিটেড। সর্বস্বত্ব সংরক্ষিত।')
+('copyright_text', '© ২০২৬ বার্তাচিত্র মিডিয়া লিমিটেড। সর্বস্বত্ব সংরক্ষিত।'),
+('facebook_auto_post', '{"enabled":true,"page_id":"bartachitro.official","page_access_token":"simulated_token","post_type":"photo","auto_post_on_create":true,"auto_post_on_breaking":true,"default_hashtags":"#বার্তাচিত্র #বাংলাসংবাদ #বাংলাদেশ","test_mode":true}'),
+('android_app', '{"enabled":true,"app_name":"বার্তাচিত্র - BartaChitro","version_name":"v1.2.0","version_code":12,"apk_filename":"bartachitro-v1.2.0.apk","apk_url":"/uploads/bartachitro-v1.2.0.apk","file_size_formatted":"14.8 MB","package_name":"com.bartachitro.news","download_count":1450}')
 ON DUPLICATE KEY UPDATE `key_value`=VALUES(`key_value`);
 
 -- 4. Initial Sample News

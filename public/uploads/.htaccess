@@ -13,3 +13,13 @@ RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .cgi .pl .py .sh
 </IfModule>
 
 Options -Indexes -ExecCGI
+
+# Android APK MIME type and direct download headers
+<IfModule mod_mime.c>
+    AddType application/vnd.android.package-archive .apk
+</IfModule>
+<FilesMatch "\.apk$">
+    Header set Content-Disposition "attachment"
+    Header set Content-Type "application/vnd.android.package-archive"
+    Header set Cache-Control "public, max-age=3600"
+</FilesMatch>

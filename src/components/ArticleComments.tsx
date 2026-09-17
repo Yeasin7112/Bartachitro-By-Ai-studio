@@ -12,9 +12,10 @@ export interface ArticleComment {
 
 interface ArticleCommentsProps {
   articleId: number;
+  allowComments?: boolean;
 }
 
-export const ArticleComments: React.FC<ArticleCommentsProps> = ({ articleId }) => {
+export const ArticleComments: React.FC<ArticleCommentsProps> = ({ articleId, allowComments = true }) => {
   const [comments, setComments] = useState<ArticleComment[]>([]);
   const [name, setName] = useState('');
   const [commentText, setCommentText] = useState('');
@@ -22,6 +23,7 @@ export const ArticleComments: React.FC<ArticleCommentsProps> = ({ articleId }) =
 
   // Load comments for this article from localStorage
   useEffect(() => {
+    if (!allowComments) return;
     try {
       const stored = localStorage.getItem(`bartachitro_comments_${articleId}`);
       if (stored) {
@@ -49,7 +51,12 @@ export const ArticleComments: React.FC<ArticleCommentsProps> = ({ articleId }) =
     } catch {
       setComments([]);
     }
-  }, [articleId]);
+  }, [articleId, allowComments]);
+
+  // If comments are off, remove the entire section completely
+  if (!allowComments) {
+    return null;
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,7 +143,9 @@ export const ArticleComments: React.FC<ArticleCommentsProps> = ({ articleId }) =
       {/* Timestamped Comments List */}
       <div className="space-y-3">
         {comments.length === 0 ? (
-          <p className="text-xs text-gray-400 py-3 text-center">এখনো কোনো মন্তব্য নেই। প্রথম মন্তব্যটি আপনিই করুন!</p>
+          <p className="text-xs text-gray-400 py-3 text-center">
+            এখনো কোনো মন্তব্য নেই। প্রথম মন্তব্যটি আপনিই করুন!
+          </p>
         ) : (
           comments.map((comment) => (
             <div key={comment.id} className="bg-white border border-gray-200 rounded-xl p-3.5 sm:p-4 shadow-2xs space-y-1.5">

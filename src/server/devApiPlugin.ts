@@ -25,6 +25,33 @@ export function devApiPlugin(): Plugin {
     try { fs.mkdirSync(uploadDir, { recursive: true }); } catch {}
   }
 
+  // Bangladesh Standard Time (BST, UTC+6) date & time helpers
+  const getBangladeshDateTimeString = (d: Date = new Date()): string => {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Dhaka',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).formatToParts(d);
+    const get = (type: string) => parts.find(p => p.type === type)?.value || '00';
+    return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
+  };
+
+  const getBangladeshDateString = (d: Date = new Date()): string => {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Dhaka',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).formatToParts(d);
+    const get = (type: string) => parts.find(p => p.type === type)?.value || '00';
+    return `${get('year')}-${get('month')}-${get('day')}`;
+  };
+
   const loadOrCreate = <T>(fileName: string, fallback: T): T => {
     const filePath = path.join(dataDir, fileName);
     if (fs.existsSync(filePath)) {
@@ -55,6 +82,20 @@ export function devApiPlugin(): Plugin {
   let subscribers = loadOrCreate('subscribers.json', [
     { id: 1, email: 'reader@bartachitro.com', created_at: '2026-09-01 10:00:00' }
   ]);
+  let analytics = loadOrCreate('analytics.json', {
+    daily_traffic: {} as Record<string, { total_views: number; news_views: number; blog_views: number; page_views: number; unique_ips: string[] }>,
+    view_logs: [] as Array<{
+      id: number;
+      content_type: string;
+      content_id?: number | null;
+      content_title?: string;
+      category_id?: number | null;
+      category_name?: string;
+      device_type: string;
+      created_at: string;
+      view_date: string;
+    }>
+  });
   const activeSessions = new Map<string, any>();
 
   return {
@@ -254,7 +295,7 @@ export function devApiPlugin(): Plugin {
               is_featured: Boolean(body.is_featured),
               is_breaking: Boolean(body.is_breaking),
               status: body.status || 'published',
-              published_at: body.published_at || new Date().toISOString(),
+              published_at: body.published_at || getBangladeshDateTimeString(),
               seo_title: body.seo_title || body.title,
               seo_description: body.seo_description || body.summary,
               seo_keywords: body.seo_keywords || ''
@@ -266,7 +307,7 @@ export function devApiPlugin(): Plugin {
             const publishedCount = newsList.filter(n => n.status === 'published').length;
             epaper = {
               ...epaper,
-              edition_date: new Date().toISOString().slice(0, 10),
+              edition_date: getBangladeshDateString(),
               total_pages: Math.max(1, publishedCount + 1)
             };
             persist('epaper.json', epaper);
@@ -547,7 +588,7 @@ export function devApiPlugin(): Plugin {
               subject: body.subject || 'সাধারণ বার্তা',
               message: body.message || '',
               is_read: false,
-              created_at: new Date().toISOString().replace('T', ' ').substring(0, 19)
+              created_at: getBangladeshDateTimeString()
             };
             messages = [newMsg, ...messages];
             persist('messages.json', messages);
@@ -593,7 +634,7 @@ export function devApiPlugin(): Plugin {
             const newSub = {
               id: subscribers.length > 0 ? Math.max(...subscribers.map(s => s.id)) + 1 : 1,
               email,
-              created_at: new Date().toISOString().replace('T', ' ').substring(0, 19)
+              created_at: getBangladeshDateTimeString()
             };
             subscribers = [newSub, ...subscribers];
             persist('subscribers.json', subscribers);
@@ -636,7 +677,7 @@ export function devApiPlugin(): Plugin {
               likes: 0,
               is_featured: Boolean(body.is_featured),
               status: body.status || 'published',
-              published_at: body.published_at || new Date().toISOString(),
+              published_at: body.published_at || getBangladeshDateTimeString(),
               tags: Array.isArray(body.tags) ? body.tags : (body.tags ? body.tags.split(',') : [])
             };
             blogs = [newBlog, ...blogs];
@@ -1202,6 +1243,216 @@ ${itemsXml}
               status: 'error',
               message: `পোস্টিং এরর: ${err.message || 'ফেসবুকে পোস্ট পাঠানো যায়নি'}`
             }, 500);
+          }
+        }
+
+        // 15. Real Analytics & Traffic Counting API (/api/analytics)
+        if (pathname === '/api/analytics') {
+          const today = new Date().toISOString().slice(0, 10);
+
+          if (method === 'GET') {
+            const range = urlObj.searchParams.get('range') || 'weekly';
+
+            // 1. All-time views from news and blogs
+            const totalNewsViews = newsList.reduce((acc, curr) => acc + (Number(curr.views) || 0), 0);
+            const totalBlogViews = blogs.reduce((acc, curr) => acc + (Number(curr.views) || 0), 0);
+            const grandTotalViews = totalNewsViews + totalBlogViews;
+
+            // 2. Today's recorded views
+            const todayStats = analytics.daily_traffic[today] || {
+              total_views: 0,
+              news_views: 0,
+              blog_views: 0,
+              page_views: 0,
+              unique_ips: []
+            };
+
+            // 3. Weekly & Monthly sums from actual recorded daily_traffic
+            const now = new Date();
+            let weeklyTotal = 0;
+            let monthlyTotal = 0;
+
+            for (let i = 0; i < 30; i++) {
+              const d = new Date(now);
+              d.setDate(d.getDate() - i);
+              const dateStr = d.toISOString().slice(0, 10);
+              const dayViews = analytics.daily_traffic[dateStr]?.total_views || 0;
+              if (i < 7) {
+                weeklyTotal += dayViews;
+              }
+              monthlyTotal += dayViews;
+            }
+
+            // If daily_traffic was just initialized and today has views, sync appropriately
+            if (weeklyTotal === 0 && todayStats.total_views > 0) {
+              weeklyTotal = todayStats.total_views;
+            }
+            if (monthlyTotal === 0 && todayStats.total_views > 0) {
+              monthlyTotal = todayStats.total_views;
+            }
+
+            // 4. Real Chart Points based on actual daily records (0 for days without traffic)
+            const daysCount = range === 'today' ? 1 : range === 'monthly' ? 14 : range === 'all' ? 30 : 7;
+            const chartPoints: Array<{ date: string; day: string; views: number; news_views: number; blog_views: number }> = [];
+            const bengaliDays = ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহঃ', 'শুক্র', 'শনি'];
+
+            for (let i = daysCount - 1; i >= 0; i--) {
+              const d = new Date(now);
+              d.setDate(d.getDate() - i);
+              const dateStr = d.toISOString().slice(0, 10);
+              const dayName = bengaliDays[d.getDay()];
+              const dayNum = d.getDate();
+              const stats = analytics.daily_traffic[dateStr];
+              chartPoints.push({
+                date: dateStr,
+                day: `${dayName} (${dayNum})`,
+                views: stats?.total_views || 0,
+                news_views: stats?.news_views || 0,
+                blog_views: stats?.blog_views || 0
+              });
+            }
+
+            // 5. Recent 8 live views (Real-time activity)
+            const recentViews = (analytics.view_logs || []).slice(0, 8);
+
+            // 6. Device breakdown from logs
+            const deviceStats = { desktop: 0, mobile: 0, tablet: 0 };
+            (analytics.view_logs || []).forEach(log => {
+              const d = (log.device_type || 'desktop') as keyof typeof deviceStats;
+              if (deviceStats[d] !== undefined) {
+                deviceStats[d]++;
+              }
+            });
+
+            return sendJson({
+              status: 'ok',
+              metrics: {
+                grand_total_views: grandTotalViews,
+                total_news_views: totalNewsViews,
+                total_blog_views: totalBlogViews,
+                today_views: todayStats.total_views,
+                today_news_views: todayStats.news_views,
+                today_blog_views: todayStats.blog_views,
+                today_unique: todayStats.unique_ips?.length || 0,
+                weekly_views: weeklyTotal,
+                monthly_views: monthlyTotal,
+                total_news_count: newsList.length,
+                total_blog_count: blogs.length
+              },
+              chart_data: chartPoints,
+              recent_views: recentViews,
+              device_stats: deviceStats,
+              server_time: new Date().toISOString()
+            });
+          }
+
+          if (method === 'POST') {
+            const body = await readJsonBody();
+
+            // A. Reset All Demo Counters (Admin Protected)
+            if (body.action === 'reset_views') {
+              newsList = newsList.map(n => ({ ...n, views: 0 }));
+              persist('news.json', newsList);
+
+              blogs = blogs.map(b => ({ ...b, views: 0 }));
+              persist('blogs.json', blogs);
+
+              analytics = {
+                daily_traffic: {},
+                view_logs: []
+              };
+              persist('analytics.json', analytics);
+
+              return sendJson({
+                status: 'ok',
+                message: 'সকল ডেমো ভিউ কাউন্টার সফলভাবে রিসেট করা হয়েছে। এখন থেকে সম্পূর্ণ রিয়েল-টাইম ভিউ গণনা হবে।'
+              });
+            }
+
+            // B. Record Real View Hit
+            const contentType = ['news', 'blog', 'page'].includes(body.type) ? body.type : 'news';
+            const contentId = body.id ? parseInt(body.id, 10) : null;
+            let contentTitle = (body.title || '').trim();
+            let categoryId = body.category_id ? parseInt(body.category_id, 10) : null;
+            let categoryName = (body.category_name || '').trim();
+
+            // Increment article or blog view
+            if (contentType === 'news' && contentId) {
+              newsList = newsList.map(n => {
+                if (n.id === contentId) {
+                  contentTitle = n.title;
+                  categoryId = n.category_id;
+                  categoryName = n.category_name || '';
+                  return { ...n, views: (Number(n.views) || 0) + 1 };
+                }
+                return n;
+              });
+              persist('news.json', newsList);
+            } else if (contentType === 'blog' && contentId) {
+              blogs = blogs.map(b => {
+                if (b.id === contentId) {
+                  contentTitle = b.title;
+                  categoryName = b.category_tag || 'মতামত';
+                  return { ...b, views: (Number(b.views) || 0) + 1 };
+                }
+                return b;
+              });
+              persist('blogs.json', blogs);
+            }
+
+            // Determine client device type from header
+            const userAgent = (req.headers['user-agent'] || '').toLowerCase();
+            let deviceType = 'desktop';
+            if (/tablet|ipad|playbook|silk/i.test(userAgent)) {
+              deviceType = 'tablet';
+            } else if (/mobile|android|iphone|ipod/i.test(userAgent)) {
+              deviceType = 'mobile';
+            }
+
+            // Record into daily traffic
+            const clientIp = (req.headers['x-forwarded-for'] as string || req.socket.remoteAddress || '127.0.0.1').split(',')[0].trim();
+            if (!analytics.daily_traffic[today]) {
+              analytics.daily_traffic[today] = {
+                total_views: 0,
+                news_views: 0,
+                blog_views: 0,
+                page_views: 0,
+                unique_ips: []
+              };
+            }
+
+            const dt = analytics.daily_traffic[today];
+            dt.total_views += 1;
+            if (contentType === 'news') dt.news_views += 1;
+            else if (contentType === 'blog') dt.blog_views += 1;
+            else dt.page_views += 1;
+
+            if (!dt.unique_ips.includes(clientIp)) {
+              dt.unique_ips.push(clientIp);
+            }
+
+            // Add to view_logs (keep latest 100)
+            const logEntry = {
+              id: Date.now(),
+              content_type: contentType,
+              content_id: contentId,
+              content_title: contentTitle || (contentType === 'news' ? 'সংবাদ পরিদর্শন' : contentType === 'blog' ? 'মতামত পাঠ' : 'পোর্টাল ভিজিট'),
+              category_id: categoryId,
+              category_name: categoryName || 'সাধারণ',
+              device_type: deviceType,
+              created_at: new Date().toISOString(),
+              view_date: today
+            };
+
+            analytics.view_logs = [logEntry, ...(analytics.view_logs || [])].slice(0, 100);
+            persist('analytics.json', analytics);
+
+            return sendJson({
+              status: 'ok',
+              message: 'View counted successfully',
+              content_type: contentType,
+              content_id: contentId
+            });
           }
         }
 

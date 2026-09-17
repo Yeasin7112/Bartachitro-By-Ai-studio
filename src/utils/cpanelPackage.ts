@@ -99,7 +99,7 @@ CREATE TABLE \`news\` (
   \`category_id\` int(11) NOT NULL,
   \`title\` varchar(255) NOT NULL,
   \`slug\` varchar(255) NOT NULL,
-  \`summary\` text NOT NULL,
+  \`summary\` text DEFAULT NULL,
   \`content\` longtext NOT NULL,
   \`author_name\` varchar(150) NOT NULL,
   \`featured_image\` varchar(500) NOT NULL,
@@ -107,11 +107,17 @@ CREATE TABLE \`news\` (
   \`views\` int(11) NOT NULL DEFAULT 0,
   \`is_featured\` tinyint(1) NOT NULL DEFAULT 0,
   \`is_breaking\` tinyint(1) NOT NULL DEFAULT 0,
+  \`allow_comments\` tinyint(1) NOT NULL DEFAULT 1,
   \`status\` enum('published','draft') NOT NULL DEFAULT 'published',
   \`published_at\` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   \`seo_title\` varchar(255) DEFAULT NULL,
   \`seo_description\` text DEFAULT NULL,
   \`seo_keywords\` varchar(500) DEFAULT NULL,
+  \`facebook_post_id\` varchar(255) DEFAULT NULL,
+  \`facebook_post_url\` varchar(500) DEFAULT NULL,
+  \`facebook_posted_at\` datetime DEFAULT NULL,
+  \`facebook_post_status\` varchar(50) DEFAULT NULL,
+  \`facebook_post_error\` text DEFAULT NULL,
   PRIMARY KEY (\`id\`),
   KEY \`category_id\` (\`category_id\`),
   KEY \`slug\` (\`slug\`),
@@ -121,9 +127,9 @@ CREATE TABLE \`news\` (
 `;
 
   if (newsList && newsList.length > 0) {
-    sql += `INSERT INTO \`news\` (\`id\`, \`category_id\`, \`title\`, \`slug\`, \`summary\`, \`content\`, \`author_name\`, \`featured_image\`, \`image_caption\`, \`views\`, \`is_featured\`, \`is_breaking\`, \`status\`, \`published_at\`, \`seo_title\`, \`seo_description\`, \`seo_keywords\`) VALUES\n`;
+    sql += `INSERT INTO \`news\` (\`id\`, \`category_id\`, \`title\`, \`slug\`, \`summary\`, \`content\`, \`author_name\`, \`featured_image\`, \`image_caption\`, \`views\`, \`is_featured\`, \`is_breaking\`, \`allow_comments\`, \`status\`, \`published_at\`, \`seo_title\`, \`seo_description\`, \`seo_keywords\`, \`facebook_post_id\`, \`facebook_post_url\`, \`facebook_posted_at\`, \`facebook_post_status\`) VALUES\n`;
     const newsRows = newsList.map(n => {
-      return `(${n.id}, ${n.category_id}, ${escapeSql(n.title)}, ${escapeSql(n.slug)}, ${escapeSql(n.summary)}, ${escapeSql(n.content)}, ${escapeSql(n.author_name)}, ${escapeSql(n.featured_image)}, ${escapeSql(n.image_caption || '')}, ${n.views || 0}, ${n.is_featured ? 1 : 0}, ${n.is_breaking ? 1 : 0}, ${escapeSql(n.status)}, ${escapeSql(n.published_at)}, ${escapeSql(n.seo_title || n.title)}, ${escapeSql(n.seo_description || n.summary)}, ${escapeSql(n.seo_keywords || '')})`;
+      return `(${n.id}, ${n.category_id}, ${escapeSql(n.title)}, ${escapeSql(n.slug)}, ${escapeSql(n.summary || '')}, ${escapeSql(n.content)}, ${escapeSql(n.author_name)}, ${escapeSql(n.featured_image)}, ${escapeSql(n.image_caption || '')}, ${n.views || 0}, ${n.is_featured ? 1 : 0}, ${n.is_breaking ? 1 : 0}, ${n.allow_comments !== false ? 1 : 0}, ${escapeSql(n.status)}, ${escapeSql(n.published_at)}, ${escapeSql(n.seo_title || n.title)}, ${escapeSql(n.seo_description || n.summary || n.title)}, ${escapeSql(n.seo_keywords || '')}, ${escapeSql(n.facebook_post_id)}, ${escapeSql(n.facebook_post_url)}, ${escapeSql(n.facebook_posted_at)}, ${escapeSql(n.facebook_post_status || 'idle')})`;
     });
     sql += newsRows.join(',\n') + ';\n\n';
   }
@@ -197,7 +203,28 @@ CREATE TABLE \`settings\` (
     ['youtube_url', settings.youtube_url || 'https://youtube.com'],
     ['meta_description', settings.meta_description || ''],
     ['meta_keywords', settings.meta_keywords || ''],
-    ['disable_ads', settings.disable_ads ? '1' : '0']
+    ['disable_ads', settings.disable_ads ? '1' : '0'],
+    ['facebook_auto_post', JSON.stringify(settings.facebook_auto_post || {
+      enabled: false,
+      page_id: '',
+      page_access_token: '',
+      post_type: 'photo',
+      auto_post_on_create: true,
+      auto_post_on_breaking: true,
+      default_hashtags: '#বার্তাচিত্র #সংবাদ #বাংলাদেশ',
+      test_mode: false
+    })],
+    ['android_app', JSON.stringify(settings.android_app || {
+      enabled: true,
+      app_name: 'বার্তাচিত্র - BartaChitro',
+      version_name: 'v1.2.0',
+      version_code: 12,
+      apk_filename: 'bartachitro-v1.2.0.apk',
+      apk_url: '/uploads/bartachitro-v1.2.0.apk',
+      file_size_formatted: '14.8 MB',
+      package_name: 'com.bartachitro.news',
+      download_count: 1450
+    })]
   ];
 
   sql += `INSERT INTO \`settings\` (\`key_name\`, \`key_value\`) VALUES\n`;
@@ -281,6 +308,38 @@ INSERT INTO \`epaper_pages\` (\`id\`, \`epaper_id\`, \`page_number\`, \`page_tit
 (3, 1, 3, 'অর্থ ও বাণিজ্য পাতা', 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1600&q=85'),
 (4, 1, 4, 'আন্তর্জাতিক ও বিনোদন', 'https://images.unsplash.com/photo-1526470608268-f674ce90ebd4?w=1600&q=85');
 
+-- --------------------------------------------------------
+-- Table structure for real-time analytics and traffic logs
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS \`daily_traffic\` (
+  \`id\` INT AUTO_INCREMENT PRIMARY KEY,
+  \`view_date\` DATE NOT NULL UNIQUE,
+  \`total_views\` INT NOT NULL DEFAULT 0,
+  \`news_views\` INT NOT NULL DEFAULT 0,
+  \`blog_views\` INT NOT NULL DEFAULT 0,
+  \`page_views\` INT NOT NULL DEFAULT 0,
+  \`unique_visitors\` INT NOT NULL DEFAULT 0,
+  \`updated_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX (\`view_date\`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS \`view_logs\` (
+  \`id\` INT AUTO_INCREMENT PRIMARY KEY,
+  \`content_type\` ENUM('news', 'blog', 'page') NOT NULL DEFAULT 'news',
+  \`content_id\` INT NULL,
+  \`content_title\` VARCHAR(255) NULL,
+  \`category_id\` INT NULL,
+  \`category_name\` VARCHAR(100) NULL,
+  \`ip_hash\` VARCHAR(64) NULL,
+  \`user_agent\` VARCHAR(255) NULL,
+  \`device_type\` VARCHAR(30) DEFAULT 'desktop',
+  \`view_date\` DATE NOT NULL,
+  \`created_at\` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX (\`view_date\`),
+  INDEX (\`content_type\`, \`content_id\`),
+  INDEX (\`created_at\`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS=1;
 COMMIT;
 `;
@@ -317,6 +376,7 @@ function getDbConnection() {
                 PDO::ATTR_EMULATE_PREPARES   => false,
             ];
             $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+            $pdo->exec("SET time_zone = '+06:00'");
         } catch (PDOException $e) {
             die("Database Connection Error: " . $e->getMessage());
         }
@@ -329,6 +389,7 @@ function getDbConnection() {
 /**
  * BartaChitro - Global Application Configurations
  */
+date_default_timezone_set('Asia/Dhaka');
 session_start();
 require_once __DIR__ . '/database.php';
 
@@ -362,6 +423,19 @@ RewriteBase /
 
 # Force UTF-8 Encoding
 AddDefaultCharset UTF-8
+
+# Android APK MIME Type & Direct Download
+<IfModule mod_mime.c>
+    AddType application/vnd.android.package-archive .apk
+</IfModule>
+<FilesMatch "\\.apk$">
+    Header set Content-Disposition "attachment"
+    Header set Content-Type "application/vnd.android.package-archive"
+    Header set Cache-Control "public, max-age=3600"
+</FilesMatch>
+
+# Route Facebook Auto Post API
+RewriteRule ^api/facebook(/.*)?$ api/facebook.php [L,QSA]
 
 # Clean URL Routing for News and Blogs
 RewriteCond %{REQUEST_FILENAME} !-f
@@ -416,53 +490,75 @@ $logoUrl = !empty($settings['logo_url']) ? $settings['logo_url'] : 'assets/logo.
     <meta name="description" content="<?= htmlspecialchars($settings['meta_description'] ?? '') ?>">
     <meta name="keywords" content="<?= htmlspecialchars($settings['meta_keywords'] ?? '') ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Anek+Bangla:wght@400;500;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.maateen.me/kalpurush/font.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { font-family: 'Hind Siliguri', sans-serif; background-color: #f8fafc; }
-        .font-display { font-family: 'Anek Bangla', sans-serif; }
+        @font-face {
+            font-family: 'Hind Siliguri';
+            font-display: swap;
+            font-style: normal;
+            font-weight: 100 900;
+            src: url('https://fonts.gstatic.com/s/notosansbengali/v33/Cn-fJsCGWQxOjaGwMQ6fIiMywrNJIky6nvd8BjzVMvJx2mc4I3mYvNY.woff2') format('woff2');
+            unicode-range: U+09E6-09EF;
+        }
+        @font-face {
+            font-family: 'Kalpurush';
+            font-display: swap;
+            font-style: normal;
+            font-weight: 100 900;
+            src: url('https://fonts.gstatic.com/s/notosansbengali/v33/Cn-fJsCGWQxOjaGwMQ6fIiMywrNJIky6nvd8BjzVMvJx2mc4I3mYvNY.woff2') format('woff2');
+            unicode-range: U+09E6-09EF;
+        }
+        body { font-family: 'Noto Sans Bengali', 'Hind Siliguri', sans-serif; background-color: #f8fafc; }
+        .font-display, h1, h2, h3, h4, .news-headline { font-family: 'Kalpurush', 'Noto Serif Bengali', serif; font-weight: 700; -webkit-text-stroke: 0.35px currentColor; }
+        .article-content, .news-body { font-family: 'Kalpurush', 'Noto Serif Bengali', serif; font-weight: 400; }
     </style>
 </head>
 <body class="text-slate-900">
 
-<!-- Top Header Bar -->
-<header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
-    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-        <a href="index.php" class="flex items-center gap-3">
-            <img src="<?= htmlspecialchars($logoUrl) ?>" alt="<?= htmlspecialchars($settings['site_name'] ?? '${siteName}') ?>" class="h-12 w-auto object-contain max-w-[240px]">
-        </a>
-        <div class="hidden md:flex items-center gap-4 text-xs">
-            <span class="text-slate-600"><?= date('l, d F Y') ?></span>
-            <a href="epaper.php" class="bg-red-700 hover:bg-red-800 text-white font-bold px-3 py-1.5 rounded text-xs transition">ই-পত্রিকা পড়ুন</a>
-            <a href="admin/login.php" class="text-slate-600 hover:text-red-700 font-semibold">অ্যাডমিন লগইন</a>
+<!-- Sticky Header & Breaking News Container -->
+<div class="sticky top-0 z-40 shadow-xs">
+    <!-- Top Header Bar -->
+    <header class="bg-white border-b border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <a href="index.php" class="flex items-center gap-3">
+                <img src="<?= htmlspecialchars($logoUrl) ?>" alt="<?= htmlspecialchars($settings['site_name'] ?? '${siteName}') ?>" class="h-12 w-auto object-contain max-w-[240px]">
+            </a>
+            <div class="hidden md:flex items-center gap-4 text-xs">
+                <span class="text-slate-600"><?= date('l, d F Y') ?></span>
+                <a href="epaper.php" class="bg-red-700 hover:bg-red-800 text-white font-bold px-3 py-1.5 rounded text-xs transition">ই-পত্রিকা পড়ুন</a>
+                <a href="admin/login.php" class="text-slate-600 hover:text-red-700 font-semibold">অ্যাডমিন লগইন</a>
+            </div>
         </div>
-    </div>
-    <!-- Category Navigation -->
-    <nav class="bg-slate-900 text-white overflow-x-auto">
-        <div class="max-w-7xl mx-auto px-4 flex items-center gap-5 text-sm font-semibold py-2 whitespace-nowrap">
-            <a href="index.php" class="text-red-400">প্রচ্ছদ</a>
-            <?php foreach ($categories as $cat): ?>
-                <a href="category.php?slug=<?= urlencode($cat['slug']) ?>" class="hover:text-red-400 transition"><?= htmlspecialchars($cat['name']) ?></a>
-            <?php endforeach; ?>
-            <a href="blog.php" class="text-amber-400 hover:text-amber-300">ব্লগ ও মুক্তচিন্তা</a>
-            <a href="contact.php" class="hover:text-red-400">যোগাযোগ</a>
-        </div>
-    </nav>
-</header>
+        <!-- Category Navigation -->
+        <nav class="bg-slate-900 text-white overflow-x-auto">
+            <div class="max-w-7xl mx-auto px-4 flex items-center gap-5 text-sm font-semibold py-2 whitespace-nowrap">
+                <a href="index.php" class="text-red-400">প্রচ্ছদ</a>
+                <?php foreach ($categories as $cat): ?>
+                    <a href="category.php?slug=<?= urlencode($cat['slug']) ?>" class="hover:text-red-400 transition"><?= htmlspecialchars($cat['name']) ?></a>
+                <?php endforeach; ?>
+                <a href="blog.php" class="text-amber-400 hover:text-amber-300">ব্লগ ও মুক্তচিন্তা</a>
+                <a href="contact.php" class="hover:text-red-400">যোগাযোগ</a>
+            </div>
+        </nav>
+    </header>
 
-<!-- Breaking News Ticker -->
-<?php if (!empty($breakingNews)): ?>
-<div class="bg-red-700 text-white py-2 px-3 shadow-inner border-b border-red-800">
-    <div class="max-w-7xl mx-auto flex items-center gap-2 text-base sm:text-lg">
-        <span class="bg-yellow-400 text-red-950 font-black px-2 py-0.5 rounded font-bengali-display tracking-tight text-xs shrink-0 shadow-2xs">ব্রেকিং<span class="hidden sm:inline"> নিউজ</span></span>
-        <div class="truncate font-bold min-w-0 flex-1">
-            <?php foreach ($breakingNews as $b): ?>
-                <a href="article.php?slug=<?= urlencode($b['slug']) ?>" class="hover:underline mr-6">▪ <?= htmlspecialchars($b['title']) ?></a>
-            <?php endforeach; ?>
+    <!-- Breaking News Ticker -->
+    <?php if (!empty($breakingNews)): ?>
+    <div class="bg-red-700 text-white py-2 px-3 shadow-inner border-b border-red-800">
+        <div class="max-w-7xl mx-auto flex items-center gap-2 text-base sm:text-lg">
+            <span class="bg-yellow-400 text-red-950 font-black px-2 py-0.5 rounded font-bengali-display tracking-tight text-xs shrink-0 shadow-2xs">ব্রেকিং<span class="hidden sm:inline"> নিউজ</span></span>
+            <div class="truncate font-bold min-w-0 flex-1">
+                <?php foreach ($breakingNews as $b): ?>
+                    <a href="article.php?slug=<?= urlencode($b['slug']) ?>" class="hover:underline mr-6">▪ <?= htmlspecialchars($b['title']) ?></a>
+                <?php endforeach; ?>
+            </div>
         </div>
     </div>
+    <?php endif; ?>
 </div>
-<?php endif; ?>
 
 <!-- Main Container -->
 <main class="max-w-7xl mx-auto px-4 py-6 space-y-8">
@@ -655,11 +751,16 @@ $logoUrl = !empty($settings['logo_url']) ? $settings['logo_url'] : 'assets/logo.
     <meta property="og:image" content="<?= htmlspecialchars($article['featured_image']) ?>">
     <meta property="og:type" content="article">
     <meta name="twitter:card" content="summary_large_image">
-    <link href="https://fonts.googleapis.com/css2?family=Anek+Bangla:wght@400;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.maateen.me/kalpurush/font.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: 'Hind Siliguri', sans-serif; background-color: #f8fafc; }
-        .font-display { font-family: 'Anek Bangla', sans-serif; }
+        .font-display, h1, h2, h3, h4 { font-family: 'Kalpurush', 'Noto Serif Bengali', serif; font-weight: 700; }
+        .article-content, .news-body { font-family: 'Kalpurush', 'Noto Serif Bengali', serif; font-weight: 400; line-height: 1.8; }
+        .article-content p { font-family: 'Kalpurush', 'Noto Serif Bengali', serif; font-weight: 400; line-height: 1.8; }
         .article-content img { border-radius: 0.5rem; margin: 1rem 0; max-width: 100%; height: auto; }
         .article-content blockquote { border-left: 4px solid #b91c1c; padding-left: 1rem; font-style: italic; color: #475569; margin: 1.5rem 0; }
     </style>
@@ -721,6 +822,139 @@ $logoUrl = !empty($settings['logo_url']) ? $settings['logo_url'] : 'assets/logo.
 </footer>
 </body>
 </html>
+`,
+
+    'api/analytics.php': `<?php
+/**
+ * BartaChitro - Real-Time Analytics & Traffic Counting API for cPanel
+ */
+require_once __DIR__ . '/../config/config.php';
+header('Content-Type: application/json; charset=utf-8');
+
+$db = getDbConnection();
+$method = $_SERVER['REQUEST_METHOD'];
+
+if ($method === 'GET') {
+    $today = date('Y-m-d');
+    $range = $_GET['range'] ?? 'weekly';
+
+    $newsStmt = $db->query("SELECT COALESCE(SUM(views), 0) as total, COUNT(*) as count FROM news");
+    $newsData = $newsStmt->fetch() ?: ['total' => 0, 'count' => 0];
+
+    $blogStmt = $db->query("SELECT COALESCE(SUM(views), 0) as total, COUNT(*) as count FROM blogs");
+    $blogData = $blogStmt->fetch() ?: ['total' => 0, 'count' => 0];
+
+    $todayStmt = $db->prepare("SELECT * FROM daily_traffic WHERE view_date = :today");
+    $todayStmt->execute([':today' => $today]);
+    $todayRow = $todayStmt->fetch();
+
+    $weeklyStmt = $db->prepare("SELECT COALESCE(SUM(total_views), 0) as total FROM daily_traffic WHERE view_date >= DATE_SUB(:today, INTERVAL 6 DAY)");
+    $weeklyStmt->execute([':today' => $today]);
+    $weeklyTotal = (int)($weeklyStmt->fetch()['total'] ?? 0);
+
+    $monthlyStmt = $db->prepare("SELECT COALESCE(SUM(total_views), 0) as total FROM daily_traffic WHERE view_date >= DATE_SUB(:today, INTERVAL 29 DAY)");
+    $monthlyStmt->execute([':today' => $today]);
+    $monthlyTotal = (int)($monthlyStmt->fetch()['total'] ?? 0);
+
+    $daysCount = $range === 'today' ? 1 : ($range === 'monthly' ? 14 : ($range === 'all' ? 30 : 7));
+    $chartPoints = [];
+    $bengaliDays = ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহঃ', 'শুক্র', 'শনি'];
+
+    for ($i = $daysCount - 1; $i >= 0; $i--) {
+        $dateStr = date('Y-m-d', strtotime("-{$i} days"));
+        $timestamp = strtotime($dateStr);
+        $dayName = $bengaliDays[(int)date('w', $timestamp)];
+        $dayNum = date('j', $timestamp);
+
+        $stmt = $db->prepare("SELECT total_views, news_views, blog_views FROM daily_traffic WHERE view_date = :date");
+        $stmt->execute([':date' => $dateStr]);
+        $row = $stmt->fetch();
+
+        $chartPoints[] = [
+            'date' => $dateStr,
+            'day' => "{$dayName} ({$dayNum})",
+            'views' => $row ? (int)$row['total_views'] : 0,
+            'news_views' => $row ? (int)$row['news_views'] : 0,
+            'blog_views' => $row ? (int)$row['blog_views'] : 0
+        ];
+    }
+
+    $recentStmt = $db->query("SELECT * FROM view_logs ORDER BY id DESC LIMIT 8");
+    $recentViews = $recentStmt ? $recentStmt->fetchAll() : [];
+
+    echo json_encode([
+        'status' => 'ok',
+        'metrics' => [
+            'grand_total_views' => (int)$newsData['total'] + (int)$blogData['total'],
+            'total_news_views' => (int)$newsData['total'],
+            'total_blog_views' => (int)$blogData['total'],
+            'today_views' => $todayRow ? (int)$todayRow['total_views'] : 0,
+            'today_news_views' => $todayRow ? (int)$todayRow['news_views'] : 0,
+            'today_blog_views' => $todayRow ? (int)$todayRow['blog_views'] : 0,
+            'today_unique' => $todayRow ? (int)$todayRow['unique_visitors'] : 0,
+            'weekly_views' => $weeklyTotal,
+            'monthly_views' => $monthlyTotal,
+            'total_news_count' => (int)$newsData['count'],
+            'total_blog_count' => (int)$blogData['count']
+        ],
+        'chart_data' => $chartPoints,
+        'recent_views' => $recentViews
+    ]);
+    exit;
+}
+
+if ($method === 'POST') {
+    $raw = file_get_contents('php://input');
+    $input = json_decode($raw, true) ?: $_POST;
+    $action = $input['action'] ?? 'record';
+
+    if ($action === 'reset_views') {
+        $db->exec("UPDATE news SET views = 0");
+        $db->exec("UPDATE blogs SET views = 0");
+        $db->exec("DELETE FROM daily_traffic");
+        $db->exec("DELETE FROM view_logs");
+        echo json_encode(['status' => 'ok', 'message' => 'সকল ডেমো ভিউ রিসেট সফল হয়েছে']);
+        exit;
+    }
+
+    $type = in_array($input['type'] ?? '', ['news', 'blog', 'page']) ? $input['type'] : 'news';
+    $id = isset($input['id']) ? (int)$input['id'] : null;
+    $today = date('Y-m-d');
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+    $ipHash = hash('sha256', $ip . '-' . $today);
+
+    if ($type === 'news' && $id) {
+        $db->prepare("UPDATE news SET views = views + 1 WHERE id = :id")->execute([':id' => $id]);
+    } elseif ($type === 'blog' && $id) {
+        $db->prepare("UPDATE blogs SET views = views + 1 WHERE id = :id")->execute([':id' => $id]);
+    }
+
+    $newsInc = ($type === 'news') ? 1 : 0;
+    $blogInc = ($type === 'blog') ? 1 : 0;
+    $pageInc = ($type === 'page') ? 1 : 0;
+
+    $upsert = $db->prepare("
+        INSERT INTO daily_traffic (view_date, total_views, news_views, blog_views, page_views, unique_visitors)
+        VALUES (:today, 1, :news_inc, :blog_inc, :page_inc, 1)
+        ON DUPLICATE KEY UPDATE 
+            total_views = total_views + 1,
+            news_views = news_views + :news_inc2,
+            blog_views = blog_views + :blog_inc2,
+            page_views = page_views + :page_inc2
+    ");
+    $upsert->execute([
+        ':today' => $today,
+        ':news_inc' => $newsInc,
+        ':blog_inc' => $blogInc,
+        ':page_inc' => $pageInc,
+        ':news_inc2' => $newsInc,
+        ':blog_inc2' => $blogInc,
+        ':page_inc2' => $pageInc
+    ]);
+
+    echo json_encode(['status' => 'ok', 'message' => 'View counted successfully']);
+    exit;
+}
 `,
 
     'README-cPanel-Setup.txt': `========================================================================

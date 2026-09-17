@@ -2,18 +2,17 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, FileText, PlusCircle, FolderTree, Zap, 
   Image, Sliders, Mail, User, LogOut, ExternalLink, 
-  Trash2, Edit, Check, AlertCircle, Eye, Newspaper, ArrowLeft,
+  Trash2, Edit, Check, CheckCircle2, AlertCircle, Eye, Newspaper, ArrowLeft,
   Search, X, BookOpen, PenTool, Heart, Clock, Sparkles,
   Database, ShieldCheck, UserCheck, RefreshCw, Upload, Globe,
   GripVertical, ArrowUp, ArrowDown, ListOrdered, KeyRound,
   BarChart3, Calendar, ChevronLeft, ChevronRight, SlidersHorizontal, Download,
-  Menu, Smartphone, Share2
+  Menu, Smartphone, Share2, MessageSquare
 } from 'lucide-react';
-import { 
-  NewsArticle, Category, Advertisement, Epaper, 
+import { NewsArticle, Category, Advertisement, Epaper, 
   SiteSettings, ContactMessage, BlogPost, AdminUser, AdminRole 
 } from '../types';
-import { bnNum, bnDate } from '../utils/bengaliHelpers';
+import { bnNum, bnDate, getNowBangladeshString } from '../utils/bengaliHelpers';
 import { postArticleToFacebook } from '../utils/api';
 import { ImageUploader } from './ImageUploader';
 import { VideoUploader } from './VideoUploader';
@@ -21,7 +20,6 @@ import { RichTextEditor } from './RichTextEditor';
 import { SeoMetaHelper } from './SeoMetaHelper';
 import { AdminUserManagement } from './admin/AdminUserManagement';
 import { AdminBackupRestore } from './admin/AdminBackupRestore';
-import { UpdatePasswordModal } from './admin/UpdatePasswordModal';
 import { AdminMediaLibrary } from './admin/AdminMediaLibrary';
 import { AdminAnalyticsDashboard } from './admin/AdminAnalyticsDashboard';
 import { AdminExportImport } from './admin/AdminExportImport';
@@ -67,6 +65,7 @@ interface AdminPanelProps {
   onDeleteAd?: (id: number) => Promise<void> | void;
   onToggleAdStatus?: (id: number) => Promise<void> | void;
   onPreviewAppPage?: () => void;
+  onRefreshData?: () => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -102,7 +101,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onUpdateAd,
   onDeleteAd,
   onToggleAdStatus,
-  onPreviewAppPage
+  onPreviewAppPage,
+  onRefreshData
 }) => {
   const [activeTab, setActiveTab] = useState<
     'dashboard' | 'analytics' | 'news' | 'add_news' | 'media' | 'categories' | 'breaking' | 'blogs' | 'add_blog' | 'export_import' | 'ads' | 'messages' | 'settings' | 'users' | 'android_app' | 'facebook_autopost'
@@ -124,8 +124,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     };
   });
 
-  // Password update modal state
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
   // Mobile navigation drawer toggle
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
@@ -165,6 +163,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [newsVideoUrl, setNewsVideoUrl] = useState('');
   const [newsIsFeatured, setNewsIsFeatured] = useState(false);
   const [newsIsBreaking, setNewsIsBreaking] = useState(false);
+  const [newsAllowComments, setNewsAllowComments] = useState(true);
   const [newsStatus, setNewsStatus] = useState<'published' | 'draft'>('published');
   const [newsSeoTitle, setNewsSeoTitle] = useState('');
   const [newsSeoDescription, setNewsSeoDescription] = useState('');
@@ -238,6 +237,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [editNewsVideoUrl, setEditNewsVideoUrl] = useState('');
   const [editNewsIsFeatured, setEditNewsIsFeatured] = useState(false);
   const [editNewsIsBreaking, setEditNewsIsBreaking] = useState(false);
+  const [editNewsAllowComments, setEditNewsAllowComments] = useState(true);
   const [editNewsStatus, setEditNewsStatus] = useState<'published' | 'draft'>('published');
   const [editNewsPublishedAt, setEditNewsPublishedAt] = useState('');
   const [editNewsViews, setEditNewsViews] = useState<number>(0);
@@ -273,6 +273,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   // Settings form state
   const [localSettings, setLocalSettings] = useState<SiteSettings>(settings);
+  const [isSavingSettings, setIsSavingSettings] = useState<boolean>(false);
+  const [showSettingsSuccessDialog, setShowSettingsSuccessDialog] = useState<boolean>(false);
+  const [settingsSavedSummary, setSettingsSavedSummary] = useState<{
+    siteName: string;
+    siteTagline?: string;
+    savedAt: string;
+  } | null>(null);
 
   useEffect(() => {
     if (settings) {
@@ -302,6 +309,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     setEditNewsVideoUrl(article.video_url || '');
     setEditNewsIsFeatured(!!article.is_featured);
     setEditNewsIsBreaking(!!article.is_breaking);
+    setEditNewsAllowComments(article.allow_comments !== false);
     setEditNewsStatus(article.status || 'published');
     setEditNewsPublishedAt(article.published_at || '');
     setEditNewsViews(article.views || 0);
@@ -334,13 +342,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       category_id: Number(editNewsCategory),
       category_name: catObj?.name || editingNews.category_name,
       category_slug: catObj?.slug || editingNews.category_slug,
-      summary: editNewsSummary.trim() || editNewsTitle.slice(0, 80),
+      summary: '',
       content: formattedContent,
       author_name: editNewsAuthor.trim() || 'বার্তাচিত্র প্রতিবেদক',
       featured_image: editNewsImage.trim() || editingNews.featured_image,
       video_url: editNewsVideoUrl.trim() || undefined,
       is_featured: editNewsIsFeatured,
       is_breaking: editNewsIsBreaking,
+      allow_comments: editNewsAllowComments,
       status: editNewsStatus,
       published_at: editNewsPublishedAt.trim() || editingNews.published_at,
       views: Number(editNewsViews) >= 0 ? Number(editNewsViews) : editingNews.views,
@@ -676,7 +685,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       category_id: Number(newsCategory),
       category_name: catObj?.name || 'জাতীয়',
       category_slug: catObj?.slug || 'national',
-      summary: newsSummary.trim() || newsTitle.slice(0, 80),
+      summary: '',
       content: finalContent,
       author_name: newsAuthor.trim() || 'নিজস্ব প্রতিবেদক',
       featured_image: newsImage.trim() || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&q=80',
@@ -684,10 +693,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       views: 1,
       is_featured: newsIsFeatured,
       is_breaking: newsIsBreaking,
+      allow_comments: newsAllowComments,
       status: newsStatus,
-      published_at: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      published_at: getNowBangladeshString(),
       seo_title: newsSeoTitle.trim() || newsTitle.trim(),
-      seo_description: newsSeoDescription.trim() || newsSummary.trim() || newsTitle.slice(0, 160),
+      seo_description: newsSeoDescription.trim() || newsTitle.slice(0, 160),
       seo_keywords: newsSeoKeywords.trim()
     };
 
@@ -703,7 +713,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           page_access_token: fbConfig.page_access_token,
           post_type: fbConfig.post_type || 'photo',
           title: newArticle.title,
-          summary: newArticle.summary || '',
+          summary: '',
           slug: newArticle.slug,
           image_url: newArticle.featured_image,
           hashtags: fbConfig.default_hashtags,
@@ -727,6 +737,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setNewsSummary('');
       setNewsContent('');
       setNewsVideoUrl('');
+      setNewsIsFeatured(false);
+      setNewsIsBreaking(false);
+      setNewsAllowComments(true);
       setNewsSeoTitle('');
       setNewsSeoDescription('');
       setNewsSeoKeywords('');
@@ -762,14 +775,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSavingSettings(true);
+    setErrorMessage('');
     try {
       await onUpdateSettings(localSettings);
+      setSettingsSavedSummary({
+        siteName: localSettings.site_name || 'বার্তাচিত্র',
+        siteTagline: localSettings.site_tagline || '',
+        savedAt: bnDate(new Date(), true)
+      });
+      setShowSettingsSuccessDialog(true);
       setFeedback('সাইট সেটিংস সফলভাবে আপডেট হয়েছে!');
-      setErrorMessage('');
-      setTimeout(() => setFeedback(''), 3000);
+      setTimeout(() => setFeedback(''), 4000);
     } catch (err: any) {
       console.error('Settings update error:', err);
       setErrorMessage(err.message || 'সেটিংস সংরক্ষণে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।');
+    } finally {
+      setIsSavingSettings(false);
     }
   };
 
@@ -823,7 +845,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       likes: 0,
       is_featured: blogIsFeatured,
       status: blogStatus,
-      published_at: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      published_at: getNowBangladeshString(),
       tags: tagsArray,
       seo_title: blogSeoTitle.trim() || blogTitle.trim(),
       seo_description: blogSeoDescription.trim() || blogSummary.trim(),
@@ -956,7 +978,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col md:flex-row font-bengali-body">
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col md:flex-row font-bengali-body admin-panel-root font-admin">
       {/* Mobile Sticky Top Header (< md screens) */}
       <header className="md:hidden sticky top-0 z-40 bg-slate-950/95 backdrop-blur-md border-b border-slate-800 px-3.5 py-2.5 flex items-center justify-between shadow-lg shrink-0">
         <div className="flex items-center gap-2.5">
@@ -1497,7 +1519,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
       {/* Main Admin Content Area */}
       <main className="flex-1 p-3.5 sm:p-5 md:p-8 overflow-y-auto min-h-screen md:max-h-screen w-full min-w-0">
-        {/* Feedback Alert */}
+        {/* Floating Toast Notification (Always visible regardless of scroll) */}
+        {feedback && (
+          <div className="fixed top-4 right-4 z-50 max-w-sm bg-emerald-950/95 border-2 border-emerald-500 text-emerald-100 px-4 py-3 rounded-xl shadow-2xl flex items-center justify-between gap-3 text-xs sm:text-sm backdrop-blur-md animate-in slide-in-from-top-3 duration-200">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+              <span className="font-semibold">{feedback}</span>
+            </div>
+            <button onClick={() => setFeedback('')} className="text-emerald-300 hover:text-white p-1 cursor-pointer shrink-0">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {errorMessage && (
+          <div className="fixed top-4 right-4 z-50 max-w-sm bg-red-950/95 border-2 border-red-500 text-red-100 px-4 py-3 rounded-xl shadow-2xl flex items-center justify-between gap-3 text-xs sm:text-sm backdrop-blur-md animate-in slide-in-from-top-3 duration-200">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
+              <span className="font-semibold">{errorMessage}</span>
+            </div>
+            <button onClick={() => setErrorMessage('')} className="text-red-300 hover:text-white p-1 cursor-pointer shrink-0">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* In-page Feedback Alert */}
         {feedback && (
           <div className="bg-emerald-900/80 border border-emerald-500 text-emerald-200 px-4 py-3 rounded-lg mb-6 flex items-center justify-between gap-2 text-sm shadow-md animate-in fade-in">
             <div className="flex items-center gap-2">
@@ -1510,7 +1557,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </div>
         )}
 
-        {/* Error Alert */}
+        {/* In-page Error Alert */}
         {errorMessage && (
           <div className="bg-red-950/90 border border-red-600 text-red-100 px-4 py-3 rounded-lg mb-6 flex items-center justify-between gap-2 text-sm shadow-md animate-in fade-in">
             <div className="flex items-center gap-2">
@@ -2131,17 +2178,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5">সংক্ষেপ / সাব-হেডলাইন</label>
-                <textarea 
-                  rows={2}
-                  value={newsSummary}
-                  onChange={(e) => setNewsSummary(e.target.value)}
-                  placeholder="সংবাদের মূল সারসংক্ষেপ..."
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-red-600"
-                />
-              </div>
-
-              <div>
                 <RichTextEditor
                   value={newsContent}
                   onChange={setNewsContent}
@@ -2163,6 +2199,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 label="সংবাদের ভিডিও সংযুক্ত করুন (ঐচ্ছিক - Video Upload / YouTube Link)"
                 helperText="কম্পিউটার বা মোবাইল থেকে সরাসরি ভিডিও আপলোড করুন (MP4, WebM) অথবা ইউটিউব ভিডিও লিংক পেস্ট করুন"
               />
+
+              {/* Reader Comments On/Off Option */}
+              <div className="bg-slate-900/90 border border-slate-700/80 p-4 sm:p-5 rounded-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${newsAllowComments ? 'bg-emerald-900/40 text-emerald-400' : 'bg-slate-800 text-slate-400'}`}>
+                      <MessageSquare className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-bold text-white block">পাঠক মন্তব্য (Reader Comments)</span>
+                      <span className="text-xs text-slate-400 block mt-0.5">
+                        {newsAllowComments 
+                          ? 'অন রয়েছে: পাঠকরা এই সংবাদের নিচে মতামত ও মন্তব্য প্রকাশ করতে পারবে' 
+                          : 'অফ রয়েছে: এই সংবাদের জন্য পাঠক মন্তব্য বন্ধ থাকবে'}
+                      </span>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer select-none self-start sm:self-auto">
+                    <input 
+                      type="checkbox" 
+                      checked={newsAllowComments}
+                      onChange={(e) => setNewsAllowComments(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-12 h-6.5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    <span className={`ml-3 text-xs font-bold px-3 py-1 rounded-full ${newsAllowComments ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-700/80' : 'bg-rose-950/90 text-rose-300 border border-rose-700/80'}`}>
+                      {newsAllowComments ? 'অন (চালু)' : 'অফ (বন্ধ)'}
+                    </span>
+                  </label>
+                </div>
+              </div>
 
               {/* SEO Friendly Optimization Section */}
               <div className="bg-slate-900/90 border border-slate-700/80 p-4 sm:p-5 rounded-xl space-y-4">
@@ -2195,7 +2262,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       rows={2}
                       value={newsSeoDescription}
                       onChange={(e) => setNewsSeoDescription(e.target.value)}
-                      placeholder={newsSummary || "সংবাদের সারসংক্ষেপ..."}
+                      placeholder={newsTitle || "সংবাদের বিবরণ..."}
                       className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
                     />
                   </div>
@@ -2216,7 +2283,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                 <SeoMetaHelper
                   title={newsSeoTitle || newsTitle}
-                  description={newsSeoDescription || newsSummary}
+                  description={newsSeoDescription || newsTitle}
                   keywords={newsSeoKeywords}
                   slug={newsTitle ? newsTitle.trim().toLowerCase().replace(/\s+/g, '-').slice(0, 45) : undefined}
                 />
@@ -3479,12 +3546,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </label>
               </div>
 
-              <button 
-                type="submit"
-                className="bg-red-700 hover:bg-red-600 text-white font-bold px-6 py-2.5 rounded text-xs transition-colors cursor-pointer shadow"
-              >
-                সেটিংস সংরক্ষণ করুন
-              </button>
+              <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-800">
+                <button 
+                  type="submit"
+                  disabled={isSavingSettings}
+                  className="bg-red-700 hover:bg-red-600 disabled:opacity-60 text-white font-bold px-6 py-2.5 rounded text-xs transition-colors cursor-pointer shadow flex items-center gap-2"
+                >
+                  {isSavingSettings ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      সেটিংস সংরক্ষণ করা হচ্ছে...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      সেটিংস সংরক্ষণ করুন
+                    </>
+                  )}
+                </button>
+
+                {settingsSavedSummary && (
+                  <span className="text-xs text-emerald-400 flex items-center gap-1.5 bg-emerald-950/40 border border-emerald-500/30 px-3 py-1.5 rounded-lg">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    সফলভাবে সংরক্ষিত: {settingsSavedSummary.savedAt}
+                  </span>
+                )}
+              </div>
             </form>
           </div>
         )}
@@ -3539,6 +3626,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               handleStartEditNews(article);
               setActiveTab('news');
             }}
+            onRefreshData={onRefreshData}
           />
         )}
 
@@ -3718,17 +3806,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5">সংক্ষেপ বা সাব-হেডলাইন (Summary)</label>
-                <textarea
-                  rows={2}
-                  value={editNewsSummary}
-                  onChange={(e) => setEditNewsSummary(e.target.value)}
-                  placeholder="সংবাদের মূল সারসংক্ষেপ বা আকর্ষণীয় অংশ..."
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500"
-                />
-              </div>
-
-              <div>
                 <RichTextEditor
                   value={editNewsContent}
                   onChange={setEditNewsContent}
@@ -3759,7 +3836,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5">প্রকাশের সময় ও তারিখ</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-300">প্রকাশের সময় ও তারিখ (বাংলাদেশ সময়)</label>
+                    <button
+                      type="button"
+                      onClick={() => setEditNewsPublishedAt(getNowBangladeshString())}
+                      className="text-[10px] text-red-400 hover:text-red-300 hover:underline cursor-pointer flex items-center gap-1"
+                      title="বর্তমান বাংলাদেশ সময় সেট করুন"
+                    >
+                      <Clock className="w-3 h-3" /> বর্তমান সময় দিন
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={editNewsPublishedAt}
@@ -3783,7 +3870,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </div>
 
               {/* Toggles */}
-              <div className="flex flex-wrap gap-6 pt-2 bg-slate-950/60 p-4 rounded-xl border border-slate-800">
+              <div className="flex flex-wrap items-center gap-6 pt-2 bg-slate-950/60 p-4 rounded-xl border border-slate-800">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
@@ -3802,6 +3889,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     className="w-4 h-4 rounded text-amber-500 focus:ring-0 cursor-pointer"
                   />
                   <span className="text-xs font-bold text-amber-400">মূল পাতার লিড বা বিশেষ সংবাদ হিসেবে রাখুন</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editNewsAllowComments}
+                    onChange={(e) => setEditNewsAllowComments(e.target.checked)}
+                    className="w-4 h-4 rounded text-emerald-500 focus:ring-0 cursor-pointer"
+                  />
+                  <span className={`text-xs font-bold ${editNewsAllowComments ? 'text-emerald-400' : 'text-slate-400'}`}>
+                    পাঠক মন্তব্য: {editNewsAllowComments ? 'অন (চালু)' : 'অফ (বন্ধ)'}
+                  </span>
                 </label>
               </div>
 
@@ -3836,7 +3935,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       rows={2}
                       value={editNewsSeoDescription}
                       onChange={(e) => setEditNewsSeoDescription(e.target.value)}
-                      placeholder={editNewsSummary || "সংবাদের সারসংক্ষেপ..."}
+                      placeholder={editNewsTitle || "সংবাদের বিবরণ..."}
                       className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-white focus:outline-none focus:border-emerald-500"
                     />
                   </div>
@@ -3857,7 +3956,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
                 <SeoMetaHelper
                   title={editNewsSeoTitle || editNewsTitle}
-                  description={editNewsSeoDescription || editNewsSummary}
+                  description={editNewsSeoDescription || editNewsTitle}
                   keywords={editNewsSeoKeywords}
                   slug={editNewsTitle ? editNewsTitle.trim().toLowerCase().replace(/[^a-z0-9\u0980-\u09FF]+/g, '-').slice(0, 45) : undefined}
                 />
@@ -4200,17 +4299,96 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         }}
       />
 
-      {/* Password Update Modal for Current Admin / Moderator */}
-      {showPasswordModal && (
-        <UpdatePasswordModal
-          user={currentAdminUser}
-          isOpen={true}
-          onClose={() => setShowPasswordModal(false)}
-          onSuccess={(msg) => {
-            setFeedback(msg);
-            setTimeout(() => setFeedback(''), 4000);
-          }}
-        />
+      {/* Settings Saved Success Dialogue Modal */}
+      {showSettingsSuccessDialog && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setShowSettingsSuccessDialog(false)}
+        >
+          <div 
+            className="bg-slate-900 border border-emerald-500/50 rounded-2xl max-w-md w-full p-6 shadow-2xl relative animate-in zoom-in-95 duration-200 text-slate-100"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="settings-dialog-title"
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => setShowSettingsSuccessDialog(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              title="বন্ধ করুন"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Icon Header */}
+            <div className="text-center pt-2 pb-4">
+              <div className="w-16 h-16 rounded-full bg-emerald-500/15 border-2 border-emerald-500 flex items-center justify-center mx-auto mb-3 text-emerald-400 shadow-[0_0_25px_rgba(16,185,129,0.3)]">
+                <CheckCircle2 className="w-9 h-9" />
+              </div>
+              <h3 id="settings-dialog-title" className="text-xl font-bold text-white font-bengali-display mb-1.5">
+                সেটিংস সফলভাবে সংরক্ষিত হয়েছে!
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed max-w-sm mx-auto">
+                সাইটের সাধারণ পরিচিতি, যোগাযোগ তথ্য, সোশ্যাল মিডিয়া লিংক ও কনফিগারেশন সফলভাবে ডাটাবেসে আপডেট করা হয়েছে।
+              </p>
+            </div>
+
+            {/* Details Box */}
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 mb-5 space-y-2.5 text-xs">
+              <div className="flex items-center justify-between py-1 border-b border-slate-800/80">
+                <span className="text-slate-400">সাইটের নাম:</span>
+                <span className="font-bold text-white text-right truncate max-w-[200px]">
+                  {localSettings.site_name || 'বার্তাচিত্র'}
+                </span>
+              </div>
+              {localSettings.site_tagline && (
+                <div className="flex items-center justify-between py-1 border-b border-slate-800/80">
+                  <span className="text-slate-400">ট্যাগলাইন:</span>
+                  <span className="text-slate-200 text-right truncate max-w-[200px]">
+                    {localSettings.site_tagline}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between py-1 border-b border-slate-800/80">
+                <span className="text-slate-400">বিজ্ঞাপন অবস্থা:</span>
+                <span className={`font-semibold ${localSettings.disable_ads ? 'text-amber-400' : 'text-emerald-400'}`}>
+                  {localSettings.disable_ads ? 'নিষ্ক্রিয় (Disabled)' : 'সক্রিয় (Active)'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-1">
+                <span className="text-slate-400">সংরক্ষণের সময়:</span>
+                <span className="text-slate-300 font-mono text-[11px]">
+                  {settingsSavedSummary?.savedAt || bnDate(new Date(), true)}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowSettingsSuccessDialog(false)}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-colors cursor-pointer shadow flex items-center justify-center gap-2"
+              >
+                <Check className="w-4 h-4" />
+                ঠিক আছে
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSettingsSuccessDialog(false);
+                  onCloseAdmin();
+                }}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-2.5 px-4 rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 border border-slate-700 hover:border-slate-600"
+                title="ওয়েবসাইটে পরিবর্তন দেখতে যান"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                ওয়েবসাইট দেখুন
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

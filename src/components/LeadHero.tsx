@@ -67,7 +67,7 @@ export const LeadHero: React.FC<LeadHeroProps> = ({
 
           {/* Headline directly below image */}
           <div className="px-0.5">
-            <h2 className="text-lg font-bold font-bengali-display text-gray-950 leading-snug group-hover:text-red-700 transition-colors">
+            <h2 className="text-xl sm:text-2xl font-bold font-bengali-display news-headline text-gray-950 leading-snug group-hover:text-red-700 transition-colors">
               <span className="inline-flex items-center gap-1 bg-red-700 text-white text-[10px] font-bold px-1.5 py-0.5 mr-1.5 align-middle rounded-none">
                 <Radio className="w-2.5 h-2.5 animate-pulse" />
                 {leadStory.category_name}
@@ -76,7 +76,7 @@ export const LeadHero: React.FC<LeadHeroProps> = ({
             </h2>
 
             {leadStory.summary && (
-              <p className="text-xs text-gray-600 leading-relaxed mt-1.5 line-clamp-2">
+              <p className="text-xs sm:text-sm text-gray-700 leading-relaxed mt-1.5 line-clamp-2 font-news-body font-normal">
                 {leadStory.summary}
               </p>
             )}
@@ -110,10 +110,10 @@ export const LeadHero: React.FC<LeadHeroProps> = ({
                   <span className="text-xs font-bold text-red-700 line-clamp-1">
                     {story.category_name}
                   </span>
-                  <h3 className="font-extrabold text-sm sm:text-base text-gray-950 leading-snug line-clamp-3 group-hover:text-red-700 transition-colors mt-1 font-bengali-display">
+                  <h3 className="font-bold text-sm sm:text-base text-gray-950 leading-snug line-clamp-3 group-hover:text-red-700 transition-colors mt-1 font-bengali-display news-headline">
                     {story.title}
                   </h3>
-                  <span className="text-[11px] text-gray-500 mt-1 font-medium">
+                  <span className="text-[11px] text-gray-500 mt-1 font-medium font-bengali-ui">
                     {timeAgoBn(story.published_at)}
                   </span>
                 </article>
@@ -143,12 +143,12 @@ export const LeadHero: React.FC<LeadHeroProps> = ({
 
                 {/* Right: Bold Bengali Headline + Timestamp below */}
                 <div className="flex flex-col justify-between flex-1 min-w-0">
-                  <h3 className="font-bold text-xs sm:text-sm text-gray-900 leading-snug line-clamp-2 sm:line-clamp-3 group-hover:text-red-700 transition-colors">
+                  <h3 className="font-bold text-xs sm:text-sm text-gray-900 leading-snug line-clamp-2 sm:line-clamp-3 group-hover:text-red-700 transition-colors font-bengali-display news-headline">
                     {story.title}
                   </h3>
-                  <div className="flex items-center justify-between text-[11px] text-gray-400 mt-1">
+                  <div className="flex items-center justify-between text-[11px] text-gray-500 mt-1 font-medium font-bengali-ui">
                     <span>{timeAgoBn(story.published_at)}</span>
-                    <span className="text-[10px] text-red-600 font-semibold">{story.category_name}</span>
+                    <span className="text-[10px] text-red-600 font-bold">{story.category_name}</span>
                   </div>
                 </div>
               </article>
@@ -196,13 +196,13 @@ export const LeadHero: React.FC<LeadHeroProps> = ({
                 <span className="bg-red-600 px-2 py-0.5 text-[10px] font-bold uppercase rounded-none inline-block">
                   {leadStory.category_name}
                 </span>
-                <h2 className="text-xl sm:text-2xl font-bold leading-tight mt-1 group-hover:text-red-300 transition-colors font-bengali-display">
+                <h2 className="text-xl sm:text-2xl font-bold leading-tight mt-1 group-hover:text-red-300 transition-colors font-bengali-display news-headline">
                   {leadStory.title}
                 </h2>
               </div>
             </div>
 
-            <p className="text-sm text-gray-600 leading-relaxed mt-3">
+            <p className="text-sm text-gray-700 leading-relaxed mt-3 font-news-body font-normal">
               {leadStory.summary}
             </p>
 
@@ -233,10 +233,10 @@ export const LeadHero: React.FC<LeadHeroProps> = ({
                   <span className="text-red-700 text-xs font-bold line-clamp-1">
                     {story.category_name}
                   </span>
-                  <h3 className="font-bold text-[15px] lg:text-base text-gray-900 group-hover:text-red-700 transition-colors line-clamp-3 leading-snug font-bengali-display">
+                  <h3 className="font-bold text-[15px] lg:text-base text-gray-900 group-hover:text-red-700 transition-colors line-clamp-3 leading-snug font-bengali-display news-headline">
                     {story.title}
                   </h3>
-                  <span className="text-[11px] text-gray-400 mt-0.5">
+                  <span className="text-[11px] text-gray-500 mt-0.5 font-medium font-bengali-ui">
                     {timeAgoBn(story.published_at)}
                   </span>
                 </div>
@@ -272,7 +272,7 @@ export const LeadHero: React.FC<LeadHeroProps> = ({
                   <h5 className="text-xs font-bold leading-snug text-gray-900 group-hover:text-red-700 transition-colors line-clamp-2">
                     {item.title}
                   </h5>
-                  <span className="text-[10px] text-gray-400 mt-1">
+                  <span className="text-[11px] text-gray-500 mt-1 font-medium font-bengali-ui">
                     {timeAgoBn(item.published_at)}
                   </span>
                 </div>

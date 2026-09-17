@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { SiteSettings, Category } from '../types';
-import { Mail, Phone, MapPin, Newspaper, BookOpen, Send, CheckCircle2, AlertCircle, Loader2, Facebook, Code2, ExternalLink, Smartphone } from 'lucide-react';
+import { Mail, Phone, MapPin, Newspaper, BookOpen, Facebook, Code2, ExternalLink, Smartphone } from 'lucide-react';
 import { SiteLogo } from './SiteLogo';
-import { subscribeNewsletter } from '../utils/api';
 
 interface FooterProps {
   settings: SiteSettings;
@@ -28,111 +27,8 @@ export const Footer: React.FC<FooterProps> = ({
   onNavigateBlog,
   onNavigateAppDownload
 }) => {
-  const [email, setEmail] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  const handleSubscribe = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanEmail = email.trim();
-    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
-      setStatusMessage({ type: 'error', text: 'অনুগ্রহ করে একটি সঠিক ইমেইল ঠিকানা দিন।' });
-      return;
-    }
-
-    setIsSubmitting(true);
-    setStatusMessage(null);
-    try {
-      const res = await subscribeNewsletter(cleanEmail);
-      if (res.status === 'ok') {
-        setStatusMessage({ type: 'success', text: res.message || 'নিউজলেটারে সাবস্ক্রাইব সফল হয়েছে!' });
-        setEmail('');
-      } else {
-        setStatusMessage({ type: 'error', text: res.message || 'সাবস্ক্রাইব করা সম্ভব হয়নি।' });
-      }
-    } catch {
-      setStatusMessage({ type: 'success', text: 'নিউজলেটারে সাবস্ক্রাইব সফল হয়েছে! আপনাকে ধন্যবাদ।' });
-      setEmail('');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   return (
     <footer className="bg-gray-900 text-gray-400 border-t-2 border-red-700 px-4 sm:px-6 py-8 text-xs">
-      {/* Newsletter Subscription Section */}
-      <div className="max-w-7xl mx-auto pb-6 mb-6 border-b border-gray-800">
-        <div className="bg-gray-800/60 rounded-lg p-4 sm:p-5 border border-gray-700/60 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5 text-center md:text-left">
-            <div className="w-10 h-10 rounded-full bg-red-600/15 border border-red-500/30 flex items-center justify-center text-red-500 shrink-0">
-              <Mail className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-sm sm:text-base font-bold text-white font-bengali-display">
-                প্রতিদিনের সংবাদ আপডেট পেতে সাবস্ক্রাইব করুন
-              </h4>
-              <p className="text-gray-400 text-xs mt-0.5 font-bengali-body">
-                গুরুত্বপূর্ণ খবর ও বিশেষ প্রতিবেদন সরাসরি আপনার ইমেইলে পৌঁছে যাবে।
-              </p>
-            </div>
-          </div>
-
-          {/* Form */}
-          <div className="w-full md:w-auto max-w-md">
-            <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-2">
-              <div className="relative flex-1">
-                <input
-                  type="email"
-                  id="newsletter-email-input"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (statusMessage) setStatusMessage(null);
-                  }}
-                  placeholder="আপনার ইমেইল লিখুন..."
-                  required
-                  className="w-full bg-gray-900/90 border border-gray-700 text-gray-100 placeholder-gray-500 text-xs rounded-md px-3.5 py-2 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
-                />
-              </div>
-              <button
-                type="submit"
-                id="newsletter-submit-button"
-                disabled={isSubmitting}
-                className="bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white font-medium text-xs px-4 py-2 rounded-md flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0 active:scale-95"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>যুক্ত হচ্ছে...</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-3.5 h-3.5" />
-                    <span>সাবস্ক্রাইব</span>
-                  </>
-                )}
-              </button>
-            </form>
-
-            {/* Status Feedback */}
-            {statusMessage && (
-              <div 
-                className={`flex items-center gap-1.5 mt-2 text-[11px] ${
-                  statusMessage.type === 'success' ? 'text-emerald-400' : 'text-red-400'
-                }`}
-              >
-                {statusMessage.type === 'success' ? (
-                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                ) : (
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                )}
-                <span>{statusMessage.text}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
       {/* High Density Content Grid */}
       <div className="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-6 pb-6 border-b border-gray-800">
         {/* Categories Col 1 */}

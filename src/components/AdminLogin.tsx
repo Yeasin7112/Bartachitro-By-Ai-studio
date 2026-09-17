@@ -41,7 +41,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess, onCancel
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 py-12 font-bengali-body relative overflow-hidden">
+    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 py-12 font-bengali-body admin-panel-root font-admin relative overflow-hidden">
       {/* Background Subtle Accents */}
       <div className="absolute -top-32 -left-32 w-96 h-96 bg-red-900/20 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-blue-900/15 rounded-full blur-3xl pointer-events-none" />

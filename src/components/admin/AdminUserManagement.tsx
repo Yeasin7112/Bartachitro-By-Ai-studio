@@ -5,7 +5,7 @@ import {
   Clock, ShieldAlert, Sparkles, X, Eye, EyeOff, RefreshCw, Lock
 } from 'lucide-react';
 import { AdminUser, AdminRole } from '../../types';
-import { bnNum } from '../../utils/bengaliHelpers';
+import { bnNum, getNowBangladeshString } from '../../utils/bengaliHelpers';
 import { UpdatePasswordModal } from './UpdatePasswordModal';
 import { DeleteConfirmModal } from '../common/DeleteConfirmModal';
 
@@ -124,7 +124,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({
       role_title: roleTitle.trim() || roleMeta[role].label,
       avatar: avatar.trim() || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop&crop=face',
       status: 'active',
-      created_at: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      created_at: getNowBangladeshString(),
       last_login: 'নতুন নিবন্ধিত'
     };
 

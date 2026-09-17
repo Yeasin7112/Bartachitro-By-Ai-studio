@@ -32,7 +32,7 @@ import {
   fetchAdvertisements, createAdvertisement, updateAdvertisement, deleteAdvertisement, trackAdClick,
   fetchEpaperData,
   fetchContactMessages, submitContactMessage, markMessageAsRead, deleteContactMessage,
-  fetchBlogPosts, createBlogPost, updateBlogPost, deleteBlogPost, likeBlogPost,
+  fetchBlogPosts, createBlogPost, updateBlogPost, deleteBlogPost, likeBlogPost, recordBlogView,
   fetchAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser,
   checkAdminAuth, logoutAdmin
 } from './utils/api';
@@ -186,6 +186,17 @@ export default function App() {
       setCurrentView('epaper');
     } else if (path.startsWith('/app') || path.startsWith('/download') || path.startsWith('/apk')) {
       setCurrentView('app_download');
+    } else if (path.startsWith('/blog/') || path.startsWith('/opinion/')) {
+      const idStr = path.replace(/^\/(blog|opinion)\//, '').replace(/\/$/, '');
+      const id = parseInt(idStr, 10);
+      if (!isNaN(id)) {
+        const found = blogs.find(b => b.id === id);
+        if (found) {
+          recordBlogView(found.id, found.title, found.category_tag).catch(() => {});
+          setSelectedBlog(found);
+        }
+      }
+      setCurrentView('blog');
     } else if (path.startsWith('/blog') || path.startsWith('/opinion')) {
       setCurrentView('blog');
     } else if (path.startsWith('/archive')) {
@@ -204,12 +215,13 @@ export default function App() {
       if (!isNaN(id)) {
         const found = newsList.find(n => n.id === id);
         if (found) {
+          recordNewsView(found.id, found.title, found.category_id, found.category_name).catch(() => {});
           setSelectedArticle(found);
           setCurrentView('article');
         }
       }
     }
-  }, [newsList]);
+  }, [newsList, blogs]);
 
   useEffect(() => {
     handleUrlRoute();
@@ -226,8 +238,8 @@ export default function App() {
   };
 
   const handleOpenArticle = (article: NewsArticle) => {
-    recordNewsView(article.id).catch(() => {});
-    setNewsList(prev => prev.map(n => n.id === article.id ? { ...n, views: n.views + 1 } : n));
+    recordNewsView(article.id, article.title, article.category_id, article.category_name).catch(() => {});
+    setNewsList(prev => prev.map(n => n.id === article.id ? { ...n, views: (Number(n.views) || 0) + 1 } : n));
     setSelectedArticle(article);
     navigateTo('article', `/news/${article.id}`);
   };
@@ -282,9 +294,18 @@ export default function App() {
   };
 
   const handleOpenBlog = (blog: BlogPost) => {
-    setBlogs(prev => prev.map(b => b.id === blog.id ? { ...b, views: b.views + 1 } : b));
+    recordBlogView(blog.id, blog.title, blog.category_tag).catch(() => {});
+    setBlogs(prev => prev.map(b => b.id === blog.id ? { ...b, views: (Number(b.views) || 0) + 1 } : b));
     setSelectedBlog(blog);
     navigateTo('blog', `/blog/${blog.id}`);
+  };
+
+  const handleReloadAllContent = async () => {
+    try {
+      const [n, b] = await Promise.all([fetchNewsList(), fetchBlogPosts()]);
+      setNewsList(n);
+      setBlogs(b);
+    } catch {}
   };
 
   const handleLikeBlog = async (id: number) => {
@@ -516,6 +537,7 @@ export default function App() {
           onDeleteAd={handleDeleteAd}
           onToggleAdStatus={handleToggleAdStatus}
           onPreviewAppPage={handleNavigateAppDownload}
+          onRefreshData={handleReloadAllContent}
         />
       </ErrorBoundary>
     );
@@ -546,6 +568,7 @@ export default function App() {
 
   // Filter for Homepage
   const breakingNews = publishedNews.filter(n => n.is_breaking);
+  const activeBreakingNews = breakingNews.length > 0 ? breakingNews : publishedNews.slice(0, 6);
   const leadStory = publishedNews.find(n => n.is_featured) || publishedNews[0];
   const subStories = publishedNews.filter(n => n.id !== leadStory?.id).slice(0, 3);
   const latestNews = publishedNews.filter(n => n.id !== leadStory?.id);
@@ -557,30 +580,32 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white text-gray-900 font-bengali-body">
-      {/* 1. Header */}
-      <Header
-        categories={categories}
-        activeCategory={activeCategorySlug}
-        onSelectCategory={handleSelectCategory}
-        onNavigateHome={handleNavigateHome}
-        onNavigateEpaper={handleNavigateEpaper}
-        onNavigateSearch={handleNavigateSearch}
-        onNavigateArchive={handleNavigateArchive}
-        onNavigateBlog={handleNavigateBlog}
-        onNavigateAppDownload={handleNavigateAppDownload}
-        isBlogActive={currentView === 'blog'}
-        onOpenArticle={handleOpenArticle}
-        onOpenAdmin={handleOpenAdmin}
-        allNews={publishedNews}
-        settings={settings}
-        disableAds={settings.disable_ads}
-      />
+      {/* 1 & 2. Fixed Sticky Header & Breaking News Container - Pinned on scroll so Breaking News never hides */}
+      <div className="sticky top-0 z-40 bg-white shadow-xs">
+        <Header
+          categories={categories}
+          activeCategory={activeCategorySlug}
+          onSelectCategory={handleSelectCategory}
+          onNavigateHome={handleNavigateHome}
+          onNavigateEpaper={handleNavigateEpaper}
+          onNavigateSearch={handleNavigateSearch}
+          onNavigateArchive={handleNavigateArchive}
+          onNavigateBlog={handleNavigateBlog}
+          onNavigateAppDownload={handleNavigateAppDownload}
+          isBlogActive={currentView === 'blog'}
+          onOpenArticle={handleOpenArticle}
+          onOpenAdmin={handleOpenAdmin}
+          allNews={publishedNews}
+          settings={settings}
+          disableAds={settings.disable_ads}
+        />
 
-      {/* 2. Breaking News Marquee Ticker */}
-      <BreakingNews
-        breakingArticles={breakingNews}
-        onOpenArticle={handleOpenArticle}
-      />
+        {/* Breaking News Marquee Ticker - Fixed position directly below navigation */}
+        <BreakingNews
+          breakingArticles={activeBreakingNews}
+          onOpenArticle={handleOpenArticle}
+        />
+      </div>
 
       {/* 3. Main Views Container */}
       <main className="flex-1">

@@ -138,13 +138,6 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
             {article.title}
           </h1>
 
-          {/* Subheadline / Summary */}
-          {article.summary && (
-            <p className="text-sm sm:text-base text-gray-700 font-medium leading-relaxed mb-5 border-l-3 border-red-700 pl-3 bg-gray-50 py-2 rounded-r">
-              {article.summary}
-            </p>
-          )}
-
           {/* Author & Publish Info Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 py-2.5 border-y border-gray-200 mb-5 text-xs text-gray-600">
             <div className="flex items-center gap-2.5">
@@ -153,8 +146,8 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
               </div>
               <div>
                 <p className="font-bold text-gray-900 text-xs sm:text-sm">{article.author_name}</p>
-                <div className="flex items-center gap-1 text-gray-400 text-[10px] mt-0.5">
-                  <Clock className="w-3 h-3" />
+                <div className="flex items-center gap-1 text-gray-500 text-[11px] mt-0.5 font-medium font-bengali-ui">
+                  <Clock className="w-3 h-3 text-gray-400" />
                   <span>প্রকাশিত: {bnDate(article.published_at)}</span>
                 </div>
               </div>
@@ -262,7 +255,7 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
 
           {/* Article Main Text Content */}
           <div 
-            className="prose max-w-none text-gray-900 text-base sm:text-lg leading-relaxed font-bengali-body prose-headings:font-bengali-display prose-headings:text-gray-900 prose-img:rounded-xl prose-img:border prose-img:border-gray-200 prose-img:shadow-sm prose-blockquote:border-l-4 prose-blockquote:border-red-700 prose-blockquote:pl-4 prose-blockquote:py-1 prose-blockquote:italic prose-blockquote:bg-gray-50 prose-blockquote:text-gray-700 prose-figcaption:text-xs prose-figcaption:text-gray-500 prose-figcaption:text-center prose-figcaption:mt-1.5 prose-a:text-red-700 prose-a:font-semibold prose-a:underline"
+            className="prose max-w-none text-gray-900 text-base sm:text-lg md:text-[19px] leading-[1.8] font-news-body article-content font-normal prose-headings:font-bengali-display prose-headings:text-gray-900 prose-img:rounded-xl prose-img:border prose-img:border-gray-200 prose-img:shadow-sm prose-blockquote:border-l-4 prose-blockquote:border-red-700 prose-blockquote:pl-4 prose-blockquote:py-1 prose-blockquote:italic prose-blockquote:bg-gray-50 prose-blockquote:text-gray-700 prose-figcaption:text-xs prose-figcaption:text-gray-500 prose-figcaption:text-center prose-figcaption:mt-1.5 prose-a:text-red-700 prose-a:font-semibold prose-a:underline"
             dangerouslySetInnerHTML={{ __html: article.content }}
           />
 
@@ -298,8 +291,10 @@ export const ArticleView: React.FC<ArticleViewProps> = ({
             </div>
           )}
 
-          {/* Reader Comments Section */}
-          <ArticleComments articleId={article.id} />
+          {/* Reader Comments Section (only rendered when comments are enabled) */}
+          {article.allow_comments !== false && (
+            <ArticleComments articleId={article.id} allowComments={true} />
+          )}
 
           {/* Related Articles Section */}
           {relatedArticles.length > 0 && (

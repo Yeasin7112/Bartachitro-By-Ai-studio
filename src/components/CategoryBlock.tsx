@@ -51,13 +51,13 @@ export const CategoryBlock: React.FC<CategoryBlockProps> = ({
               loading="lazy" 
             />
           </div>
-          <h4 className="text-sm sm:text-base font-bold text-gray-950 group-hover:text-red-700 transition-colors leading-snug">
+          <h4 className="text-sm sm:text-base font-bold text-gray-950 group-hover:text-red-700 transition-colors leading-snug font-bengali-display news-headline">
             {lead.title}
           </h4>
           <p className="text-xs text-gray-600 mt-1 line-clamp-2">
             {limitWords(lead.summary, 18)}
           </p>
-          <span className="text-[10px] text-gray-400 block mt-1">
+          <span className="text-[11px] text-gray-500 block mt-1 font-medium font-bengali-ui">
             {timeAgoBn(lead.published_at)}
           </span>
         </div>
@@ -82,10 +82,10 @@ export const CategoryBlock: React.FC<CategoryBlockProps> = ({
                 />
               </div>
               <div className="flex flex-col justify-between flex-1 min-w-0">
-                <h5 className="text-xs font-bold text-gray-900 group-hover:text-red-700 transition-colors line-clamp-2 leading-snug">
+                <h5 className="text-xs font-bold text-gray-900 group-hover:text-red-700 transition-colors line-clamp-2 leading-snug font-bengali-display news-headline">
                   {story.title}
                 </h5>
-                <span className="text-[10px] text-gray-400 mt-0.5">
+                <span className="text-[11px] text-gray-500 mt-0.5 font-medium font-bengali-ui">
                   {timeAgoBn(story.published_at)}
                 </span>
               </div>

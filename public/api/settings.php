@@ -43,6 +43,9 @@ try {
             $val = $row['key_value'];
             if ($key === 'disable_ads') {
                 $settings[$key] = ($val === '1' || $val === 'true');
+            } elseif (is_string($val) && (str_starts_with($val, '{') || str_starts_with($val, '['))) {
+                $decoded = json_decode($val, true);
+                $settings[$key] = ($decoded !== null) ? $decoded : $val;
             } else {
                 $settings[$key] = $val;
             }
@@ -64,7 +67,13 @@ try {
                               ON DUPLICATE KEY UPDATE key_value = :val");
 
         foreach ($input as $key => $val) {
-            $valStr = is_bool($val) ? ($val ? '1' : '0') : (string)$val;
+            if (is_bool($val)) {
+                $valStr = $val ? '1' : '0';
+            } elseif (is_array($val)) {
+                $valStr = json_encode($val, JSON_UNESCAPED_UNICODE);
+            } else {
+                $valStr = (string)$val;
+            }
             $stmt->execute([':key' => $key, ':val' => $valStr]);
         }
 

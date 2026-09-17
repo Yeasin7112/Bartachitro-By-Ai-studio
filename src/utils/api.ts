@@ -163,13 +163,77 @@ export async function deleteNewsArticle(id: number): Promise<void> {
   });
 }
 
-export async function recordNewsView(id: number): Promise<void> {
+// Memory cache to prevent duplicate counting on rapid re-renders within 15 seconds
+const viewedThrottleMap = new Map<string, number>();
+
+export async function recordViewEvent(event: {
+  type: 'news' | 'blog' | 'page';
+  id?: number;
+  title?: string;
+  category_id?: number;
+  category_name?: string;
+}): Promise<void> {
+  const key = `${event.type}_${event.id || 0}`;
+  const now = Date.now();
+  const lastTime = viewedThrottleMap.get(key) || 0;
+  if (now - lastTime < 15000) {
+    return; // Throttled duplicate within 15 seconds
+  }
+  viewedThrottleMap.set(key, now);
+
   try {
-    await apiRequest(`news.php?id=${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ action: 'increment_view' }),
+    // 1. Try unified analytics tracking endpoint
+    await apiRequest('analytics.php', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'record',
+        ...event
+      }),
     });
-  } catch {}
+  } catch {
+    // Fallback directly to content endpoint if analytics.php was not reachable
+    try {
+      if (event.type === 'news' && event.id) {
+        await apiRequest(`news.php?id=${event.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ action: 'increment_view' }),
+        });
+      } else if (event.type === 'blog' && event.id) {
+        await apiRequest(`blogs.php?id=${event.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ action: 'view' }),
+        });
+      }
+    } catch {}
+  }
+}
+
+export async function recordNewsView(
+  id: number,
+  title?: string,
+  category_id?: number,
+  category_name?: string
+): Promise<void> {
+  return recordViewEvent({
+    type: 'news',
+    id,
+    title,
+    category_id,
+    category_name
+  });
+}
+
+export async function recordBlogView(
+  id: number,
+  title?: string,
+  category_tag?: string
+): Promise<void> {
+  return recordViewEvent({
+    type: 'blog',
+    id,
+    title,
+    category_name: category_tag
+  });
 }
 
 // ==========================================
@@ -582,12 +646,40 @@ export async function testFacebookConnection(config: {
   page_access_token: string;
   test_mode?: boolean;
 }): Promise<{ status: string; message: string; page?: any }> {
-  const res = await fetch(`${API_BASE}/facebook/test`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(config)
-  });
-  const data = await res.json();
+  const token = getAdminAuthToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/facebook/test`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(config)
+    });
+    // If not found or html returned, try direct PHP script endpoint for cPanel
+    if (res.status === 404 || res.headers.get('content-type')?.includes('text/html')) {
+      res = await fetch(`${API_BASE}/facebook.php?action=test`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(config)
+      });
+    }
+  } catch {
+    res = await fetch(`${API_BASE}/facebook.php?action=test`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(config)
+    });
+  }
+
+  let data: any = {};
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error('ফেসবুক সার্ভার রেসপন্স পার্স করা সম্ভব হয়নি।');
+  }
+
   if (!res.ok) {
     throw new Error(data.message || 'ফেসবুক পেজ সংযোগ ব্যর্থ হয়েছে');
   }
@@ -608,15 +700,103 @@ export async function postArticleToFacebook(payload: {
   custom_message?: string;
   test_mode?: boolean;
 }): Promise<{ status: string; message: string; post_id?: string; post_url?: string; is_simulated?: boolean }> {
-  const res = await fetch(`${API_BASE}/facebook/post`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  const data = await res.json();
+  const token = getAdminAuthToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/facebook/post`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload)
+    });
+    // If not found or html returned, try direct PHP script endpoint for cPanel
+    if (res.status === 404 || res.headers.get('content-type')?.includes('text/html')) {
+      res = await fetch(`${API_BASE}/facebook.php?action=post`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+    }
+  } catch {
+    res = await fetch(`${API_BASE}/facebook.php?action=post`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload)
+    });
+  }
+
+  let data: any = {};
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error('ফেসবুক সার্ভার রেসপন্স পার্স করা সম্ভব হয়নি।');
+  }
+
   if (!res.ok) {
     throw new Error(data.message || 'ফেসবুকে পোস্ট করতে ব্যর্থ হয়েছে');
   }
   return data;
 }
+
+// ==========================================
+// 12. REAL ANALYTICS API
+// ==========================================
+
+export interface AnalyticsMetrics {
+  grand_total_views: number;
+  total_news_views: number;
+  total_blog_views: number;
+  today_views: number;
+  today_news_views: number;
+  today_blog_views: number;
+  today_unique: number;
+  weekly_views: number;
+  monthly_views: number;
+  total_news_count: number;
+  total_blog_count: number;
+}
+
+export interface AnalyticsChartPoint {
+  date: string;
+  day: string;
+  views: number;
+  news_views?: number;
+  blog_views?: number;
+}
+
+export interface AnalyticsRecentView {
+  id: number;
+  content_type: string;
+  content_id?: number | null;
+  content_title?: string;
+  category_name?: string;
+  device_type?: string;
+  created_at: string;
+}
+
+export interface AnalyticsSummary {
+  status: string;
+  metrics: AnalyticsMetrics;
+  chart_data: AnalyticsChartPoint[];
+  recent_views: AnalyticsRecentView[];
+  device_stats: { desktop: number; mobile: number; tablet: number };
+  server_time?: string;
+}
+
+export async function fetchAnalyticsSummary(range: 'today' | 'weekly' | 'monthly' | 'all' = 'weekly'): Promise<AnalyticsSummary> {
+  const res = await apiRequest<AnalyticsSummary>(`analytics.php?range=${range}`);
+  return res;
+}
+
+export async function resetAllViews(): Promise<{ status: string; message: string }> {
+  const res = await apiRequest<{ status: string; message: string }>('analytics.php', {
+    method: 'POST',
+    body: JSON.stringify({ action: 'reset_views' })
+  });
+  return res;
+}
+
+
 

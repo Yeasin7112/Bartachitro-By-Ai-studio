@@ -50,12 +50,12 @@ export const LatestGrid: React.FC<LatestGridProps> = ({
 
             {/* Right: Bold Bengali Headline + Timestamp below */}
             <div className="flex flex-col justify-between flex-1 min-w-0">
-              <h3 className="font-bold text-xs text-gray-900 leading-snug line-clamp-2 group-hover:text-red-700 transition-colors">
+              <h3 className="font-bold text-xs text-gray-900 leading-snug line-clamp-2 group-hover:text-red-700 transition-colors font-bengali-display news-headline">
                 {item.title}
               </h3>
-              <div className="flex items-center justify-between text-[10px] text-gray-400 mt-1">
+              <div className="flex items-center justify-between text-[11px] text-gray-500 mt-1 font-medium font-bengali-ui">
                 <span>{timeAgoBn(item.published_at)}</span>
-                <span className="text-red-600 font-semibold">{item.category_name}</span>
+                <span className="text-red-600 font-bold">{item.category_name}</span>
               </div>
             </div>
           </article>
@@ -83,12 +83,12 @@ export const LatestGrid: React.FC<LatestGridProps> = ({
                 <span className="text-[10px] font-bold text-red-700 block mb-1">
                   {item.category_name}
                 </span>
-                <h3 className="text-xs sm:text-sm font-bold text-gray-900 leading-snug group-hover:text-red-700 transition-colors line-clamp-2">
+                <h3 className="text-xs sm:text-sm font-bold text-gray-900 leading-snug group-hover:text-red-700 transition-colors line-clamp-2 font-bengali-display news-headline">
                   {item.title}
                 </h3>
               </div>
-              <div className="text-[11px] text-gray-400 mt-2.5 pt-1.5 border-t border-gray-100 flex items-center gap-1">
-                <Clock className="w-3 h-3" />
+              <div className="text-[11px] text-gray-500 mt-2.5 pt-1.5 border-t border-gray-100 flex items-center gap-1 font-medium font-bengali-ui">
+                <Clock className="w-3 h-3 text-gray-400" />
                 {timeAgoBn(item.published_at)}
               </div>
             </div>
