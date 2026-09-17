@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, :is(.dark *)));
+
 html {
   font-size: 120%;
 }
@@ -9,6 +11,14 @@ html {
     font-family: 'Noto Sans Bengali', 'Hind Siliguri', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
+    background-color: #ffffff;
+    color: #111827;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  body.dark {
+    background-color: #090d16;
+    color: #f1f5f9;
   }
 }
 
@@ -197,3 +207,91 @@ article h4,
 .animate-marquee-paused {
   animation-play-state: paused !important;
 }
+
+/* ==========================================================================
+   5. GLOBAL DARK MODE THEME & ENHANCED READABILITY
+   Applied when 'dark' class is present on document body
+   ========================================================================== */
+body.dark {
+  color-scheme: dark;
+}
+
+body.dark ::-webkit-scrollbar-track {
+  background: #090d16;
+}
+
+body.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+body.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Text readability enhancements in Dark Mode */
+body.dark .news-headline,
+body.dark .headline-bold,
+body.dark .font-headline,
+body.dark .font-bengali-display,
+body.dark article h1,
+body.dark article h2,
+body.dark article h3,
+body.dark article h4,
+body.dark .news-title {
+  color: #f8fafc !important;
+}
+
+body.dark .news-body,
+body.dark .article-content,
+body.dark .article-content p,
+body.dark .article-excerpt,
+body.dark .font-news-body {
+  color: #cbd5e1 !important;
+}
+
+/* Surfaces and containers */
+body.dark .bg-white:not(.keep-light):not(.admin-panel-root .bg-white) {
+  background-color: #0f172a;
+}
+
+body.dark .bg-gray-50:not(.keep-light):not(.admin-panel-root .bg-gray-50) {
+  background-color: #0b1120;
+}
+
+body.dark .bg-gray-100:not(.keep-light):not(.admin-panel-root .bg-gray-100) {
+  background-color: #1e293b;
+}
+
+body.dark .border-gray-100:not(.keep-light):not(.admin-panel-root .border-gray-100),
+body.dark .border-gray-200:not(.keep-light):not(.admin-panel-root .border-gray-200),
+body.dark .border-slate-200:not(.keep-light):not(.admin-panel-root .border-slate-200) {
+  border-color: #1e293b;
+}
+
+body.dark .border-gray-300:not(.keep-light):not(.admin-panel-root .border-gray-300) {
+  border-color: #334155;
+}
+
+body.dark .text-gray-900:not(.keep-light):not(.admin-panel-root .text-gray-900),
+body.dark .text-gray-950:not(.keep-light):not(.admin-panel-root .text-gray-950) {
+  color: #f8fafc;
+}
+
+body.dark .text-gray-800:not(.keep-light):not(.admin-panel-root .text-gray-800) {
+  color: #e2e8f0;
+}
+
+body.dark .text-gray-700:not(.keep-light):not(.admin-panel-root .text-gray-700) {
+  color: #cbd5e1;
+}
+
+body.dark .text-gray-600:not(.keep-light):not(.admin-panel-root .text-gray-600),
+body.dark .text-gray-500:not(.keep-light):not(.admin-panel-root .text-gray-500) {
+  color: #94a3b8;
+}
+
+body.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+body.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #1e293b;
+}
+

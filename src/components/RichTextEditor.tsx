@@ -127,8 +127,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     exec('insertHTML', calloutHtml);
   };
 
-  const handleInsertImage = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleInsertImage = (e?: React.SyntheticEvent) => {
+    if (e) e.preventDefault();
     if (!imageUrl.trim()) return;
 
     let alignClasses = 'w-full my-5 text-center';
@@ -159,8 +159,8 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     setShowImageModal(false);
   };
 
-  const handleInsertLink = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleInsertLink = (e?: React.SyntheticEvent) => {
+    if (e) e.preventDefault();
     if (!linkUrl.trim()) return;
 
     const label = linkText.trim() || linkUrl.trim();
@@ -488,7 +488,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleInsertImage} className="space-y-4">
+            <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1">
                   ছবির URL (ওয়েব লিংক) *
@@ -498,6 +498,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                   required
                   value={imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleInsertImage();
+                    }
+                  }}
                   placeholder="https://images.unsplash.com/..."
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500"
                 />
@@ -532,6 +538,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                   type="text"
                   value={imageCaption}
                   onChange={(e) => setImageCaption(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleInsertImage();
+                    }
+                  }}
                   placeholder="যেমন: ফাইল ছবি / সংগৃহীত"
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500"
                 />
@@ -594,13 +606,14 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                   বাতিল
                 </button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={() => handleInsertImage()}
                   className="bg-red-700 hover:bg-red-600 text-white px-5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow"
                 >
                   <Plus className="w-4 h-4" /> সংবাদের ভেতর যুক্ত করুন
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
@@ -623,7 +636,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleInsertLink} className="space-y-3">
+            <div className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1">
                   লিংক ঠিকানা (Web URL) *
@@ -633,6 +646,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                   required
                   value={linkUrl}
                   onChange={(e) => setLinkUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleInsertLink();
+                    }
+                  }}
                   placeholder="https://example.com/..."
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500"
                 />
@@ -646,6 +665,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                   type="text"
                   value={linkText}
                   onChange={(e) => setLinkText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleInsertLink();
+                    }
+                  }}
                   placeholder="যেমন: বিস্তারিত খবর পড়ুন..."
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-red-500"
                 />
@@ -660,13 +685,14 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
                   বাতিল
                 </button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={() => handleInsertLink()}
                   className="bg-red-700 hover:bg-red-600 text-white px-5 py-2 rounded-lg text-xs font-bold cursor-pointer"
                 >
                   লিংক যোগ করুন
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

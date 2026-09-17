@@ -123,6 +123,8 @@ export interface SiteSettings {
   meta_description: string;
   meta_keywords: string;
   disable_ads?: boolean;
+  fixed_breaking_news?: boolean;
+  enable_dark_mode?: boolean;
   android_app?: AndroidAppConfig;
   facebook_auto_post?: FacebookAutoPostConfig;
 }
@@ -203,3 +205,21 @@ export interface MediaItem {
   source?: 'upload' | 'news' | 'blog' | 'ad' | 'user' | 'system';
   used_in_count?: number;
 }
+
+export interface PushNotification {
+  id: string | number;
+  title: string;
+  body: string;
+  url?: string;
+  article_id?: number;
+  category_name?: string;
+  image_url?: string;
+  badge?: string;
+  sent_at: string;
+  sent_by?: string;
+  status: 'sent' | 'scheduled' | 'failed';
+  total_recipients?: number;
+  click_count?: number;
+  is_breaking?: boolean;
+}
+

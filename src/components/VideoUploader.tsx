@@ -210,7 +210,7 @@ export const VideoUploader: React.FC<VideoUploaderProps> = ({
 
       {/* URL Mode */}
       {activeMode === 'url' && (
-        <form onSubmit={handleUrlSubmit} className="space-y-2">
+        <div className="space-y-2">
           <div className="flex gap-2">
             <div className="relative flex-1">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -220,12 +220,19 @@ export const VideoUploader: React.FC<VideoUploaderProps> = ({
                 type="url"
                 value={urlInput}
                 onChange={(e) => setUrlInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleUrlSubmit();
+                  }
+                }}
                 placeholder="যেমন: https://www.youtube.com/watch?v=..."
                 className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-red-500"
               />
             </div>
             <button
-              type="submit"
+              type="button"
+              onClick={() => handleUrlSubmit()}
               className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
             >
               <Check className="w-3.5 h-3.5" /> যুক্ত করুন
@@ -234,7 +241,7 @@ export const VideoUploader: React.FC<VideoUploaderProps> = ({
           <p className="text-[10px] text-slate-400">
             টিপস: ইউটিউব ভিডিও লিংক অথবা যে কোনো পাবলিক MP4 ভিডিও ইউআরএল এখানে পেস্ট করে &quot;যুক্ত করুন&quot; বাটনে চাপুন।
           </p>
-        </form>
+        </div>
       )}
 
       {/* Upload Error Message */}

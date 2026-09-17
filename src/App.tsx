@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
   INITIAL_CATEGORIES, INITIAL_NEWS, INITIAL_ADS, 
   INITIAL_EPAPER, INITIAL_SETTINGS, INITIAL_MESSAGES,
-  INITIAL_BLOGS, INITIAL_USERS
+  INITIAL_BLOGS, INITIAL_USERS, INITIAL_PUSH_NOTIFICATIONS
 } from './data/initialData';
-import { NewsArticle, Category, SiteSettings, ContactMessage, BlogPost, AdminUser, Advertisement, Epaper } from './types';
+import { NewsArticle, Category, SiteSettings, ContactMessage, BlogPost, AdminUser, Advertisement, Epaper, PushNotification } from './types';
 import { Header } from './components/Header';
 import { BreakingNews } from './components/BreakingNews';
 import { LeadHero } from './components/LeadHero';
@@ -24,7 +24,9 @@ import { AdminPanel } from './components/AdminPanel';
 import { AdminLogin } from './components/AdminLogin';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AppDownloadView } from './components/AppDownloadView';
+import { PushNotificationToast } from './components/PushNotificationToast';
 import { Newspaper, Smartphone } from 'lucide-react';
+import { getNowBangladeshString } from './utils/bengaliHelpers';
 import { 
   fetchSiteSettings, saveSiteSettings,
   fetchNewsList, createNewsArticle, updateNewsArticle, deleteNewsArticle, recordNewsView,
@@ -47,6 +49,135 @@ export default function App() {
   const [blogs, setBlogs] = useState<BlogPost[]>(INITIAL_BLOGS);
   const [users, setUsers] = useState<AdminUser[]>(INITIAL_USERS);
   const [currentAdminUser, setCurrentAdminUser] = useState<AdminUser | null>(null);
+
+  // User-controlled Theme Mode (light / dark) - Persisted in localStorage
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    try {
+      const savedTheme = localStorage.getItem('bartachitro_user_theme');
+      if (savedTheme === 'dark' || savedTheme === 'light') return savedTheme;
+      if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        return 'dark';
+      }
+    } catch {}
+    return 'light';
+  });
+
+  const handleToggleTheme = () => {
+    setTheme(prev => {
+      const nextTheme = prev === 'dark' ? 'light' : 'dark';
+      try {
+        localStorage.setItem('bartachitro_user_theme', nextTheme);
+      } catch {}
+      return nextTheme;
+    });
+  };
+
+  // Push Notifications State
+  const [pushNotifications, setPushNotifications] = useState<PushNotification[]>(() => {
+    try {
+      const saved = localStorage.getItem('bartachitro_push_notifications');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_PUSH_NOTIFICATIONS;
+  });
+
+  // Active push toast alert for the reader
+  const [activePushToast, setActivePushToast] = useState<PushNotification | null>(null);
+
+  // Reader push notification subscription toggle
+  const [notificationSubscribed, setNotificationSubscribed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('bartachitro_notification_subscribed') === 'true';
+    } catch {}
+    return false;
+  });
+
+  const handleToggleNotificationSubscription = async () => {
+    if (!notificationSubscribed) {
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        try {
+          const perm = await Notification.requestPermission();
+          if (perm === 'granted') {
+            setNotificationSubscribed(true);
+            try {
+              localStorage.setItem('bartachitro_notification_subscribed', 'true');
+            } catch {}
+            // Send test/welcome notification
+            try {
+              new Notification('বার্তাচিত্র সরাসরি নোটিফিকেশন', {
+                body: 'পুশ নোটিফিকেশন সফলভাবে চালু হয়েছে! গুরুত্বপূর্ণ ব্রেকিং নিউজ সরাসরি পাবেন।',
+                icon: settings.favicon_url || '/logo.svg'
+              });
+            } catch {}
+            return;
+          }
+        } catch {}
+      }
+      setNotificationSubscribed(true);
+      try {
+        localStorage.setItem('bartachitro_notification_subscribed', 'true');
+      } catch {}
+    } else {
+      setNotificationSubscribed(false);
+      try {
+        localStorage.setItem('bartachitro_notification_subscribed', 'false');
+      } catch {}
+    }
+  };
+
+  const handleSendPushNotification = async (notifData: Omit<PushNotification, 'id' | 'sent_at'>): Promise<PushNotification> => {
+    const newPush: PushNotification = {
+      ...notifData,
+      id: Date.now(),
+      sent_at: getNowBangladeshString(),
+      total_recipients: notifData.total_recipients || 16500,
+      click_count: 0
+    };
+
+    const updated = [newPush, ...pushNotifications];
+    setPushNotifications(updated);
+    try {
+      localStorage.setItem('bartachitro_push_notifications', JSON.stringify(updated));
+    } catch {}
+
+    // Show toast notification banner to the reader
+    setActivePushToast(newPush);
+
+    // If native browser notification permission is granted, dispatch system notification
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification(newPush.title, {
+          body: newPush.body,
+          icon: settings.favicon_url || '/logo.svg'
+        });
+      } catch {}
+    }
+
+    return newPush;
+  };
+
+  const handleDeletePushNotification = (id: string | number) => {
+    const updated = pushNotifications.filter(p => p.id !== id);
+    setPushNotifications(updated);
+    try {
+      localStorage.setItem('bartachitro_push_notifications', JSON.stringify(updated));
+    } catch {}
+  };
+
+  const handleClickPushToast = (notification: PushNotification) => {
+    if (notification.article_id) {
+      const article = newsList.find(n => n.id === notification.article_id);
+      if (article) {
+        handleOpenArticle(article);
+      }
+    }
+    // Increment click count for analytics
+    setPushNotifications(prev => prev.map(p => p.id === notification.id ? { ...p, click_count: (p.click_count || 0) + 1 } : p));
+    setActivePushToast(null);
+  };
 
   // View routing state
   const [currentView, setCurrentView] = useState<
@@ -176,6 +307,18 @@ export default function App() {
       link.href = settings.favicon_url;
     }
   }, [settings.site_name, settings.site_tagline, settings.favicon_url]);
+
+  // 2.1 Sync User Theme Mode (Dark / Light) with Body and Document Element
+  useEffect(() => {
+    const isDark = theme === 'dark';
+    if (isDark) {
+      document.body.classList.add('dark');
+      document.documentElement.classList.add('dark');
+    } else {
+      document.body.classList.remove('dark');
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
 
   // 3. Handle cPanel friendly URL routing & Popstate (Back/Forward)
   const handleUrlRoute = useCallback(() => {
@@ -404,6 +547,9 @@ export default function App() {
   };
 
   const handleUpdateSettings = async (newSettings: SiteSettings) => {
+    try {
+      localStorage.setItem('bartachitro_settings', JSON.stringify(newSettings));
+    } catch {}
     const saved = await saveSiteSettings(newSettings);
     if (saved) {
       setSettings(prev => ({ ...prev, ...saved }));
@@ -538,6 +684,9 @@ export default function App() {
           onToggleAdStatus={handleToggleAdStatus}
           onPreviewAppPage={handleNavigateAppDownload}
           onRefreshData={handleReloadAllContent}
+          pushNotifications={pushNotifications}
+          onSendPushNotification={handleSendPushNotification}
+          onDeletePushNotification={handleDeletePushNotification}
         />
       </ErrorBoundary>
     );
@@ -579,28 +728,35 @@ export default function App() {
   const entertainmentNews = publishedNews.filter(n => n.category_slug === 'entertainment');
 
   return (
-    <div className="min-h-screen flex flex-col bg-white text-gray-900 font-bengali-body">
-      {/* 1 & 2. Fixed Sticky Header & Breaking News Container - Pinned on scroll so Breaking News never hides */}
-      <div className="sticky top-0 z-40 bg-white shadow-xs">
-        <Header
-          categories={categories}
-          activeCategory={activeCategorySlug}
-          onSelectCategory={handleSelectCategory}
-          onNavigateHome={handleNavigateHome}
-          onNavigateEpaper={handleNavigateEpaper}
-          onNavigateSearch={handleNavigateSearch}
-          onNavigateArchive={handleNavigateArchive}
-          onNavigateBlog={handleNavigateBlog}
-          onNavigateAppDownload={handleNavigateAppDownload}
-          isBlogActive={currentView === 'blog'}
-          onOpenArticle={handleOpenArticle}
-          onOpenAdmin={handleOpenAdmin}
-          allNews={publishedNews}
-          settings={settings}
-          disableAds={settings.disable_ads}
-        />
+    <div className="min-h-screen flex flex-col bg-white dark:bg-slate-950 text-gray-900 dark:text-slate-100 font-bengali-body transition-colors duration-200">
+      {/* 1. Header Navigation Bar */}
+      <Header
+        categories={categories}
+        activeCategory={activeCategorySlug}
+        onSelectCategory={handleSelectCategory}
+        onNavigateHome={handleNavigateHome}
+        onNavigateEpaper={handleNavigateEpaper}
+        onNavigateSearch={handleNavigateSearch}
+        onNavigateArchive={handleNavigateArchive}
+        onNavigateBlog={handleNavigateBlog}
+        onNavigateAppDownload={handleNavigateAppDownload}
+        isBlogActive={currentView === 'blog'}
+        onOpenArticle={handleOpenArticle}
+        onOpenAdmin={handleOpenAdmin}
+        allNews={publishedNews}
+        settings={settings}
+        disableAds={settings.disable_ads}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+        notificationSubscribed={notificationSubscribed}
+        onToggleNotificationSubscription={handleToggleNotificationSubscription}
+      />
 
-        {/* Breaking News Marquee Ticker - Fixed position directly below navigation */}
+      {/* 2. Breaking News Section - Fixed or Hide on Scroll controllable via Admin Settings */}
+      <div 
+        id="breaking-news-section"
+        className={settings.fixed_breaking_news !== false ? "sticky top-0 z-40 shadow-md transition-shadow" : "relative z-20"}
+      >
         <BreakingNews
           breakingArticles={activeBreakingNews}
           onOpenArticle={handleOpenArticle}
@@ -899,6 +1055,13 @@ export default function App() {
         onNavigateBlog={handleNavigateBlog}
         onNavigateAppDownload={handleNavigateAppDownload}
         onOpenAdmin={handleOpenAdmin}
+      />
+
+      {/* 5. Live Push Notification Toast Overlay */}
+      <PushNotificationToast
+        notification={activePushToast}
+        onClose={() => setActivePushToast(null)}
+        onClick={handleClickPushToast}
       />
     </div>
   );

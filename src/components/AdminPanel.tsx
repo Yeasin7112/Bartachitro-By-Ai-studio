@@ -7,10 +7,11 @@ import {
   Database, ShieldCheck, UserCheck, RefreshCw, Upload, Globe,
   GripVertical, ArrowUp, ArrowDown, ListOrdered, KeyRound,
   BarChart3, Calendar, ChevronLeft, ChevronRight, SlidersHorizontal, Download,
-  Menu, Smartphone, Share2, MessageSquare
+  Menu, Smartphone, Share2, MessageSquare, Moon, Sun, Bell, BellRing
 } from 'lucide-react';
 import { NewsArticle, Category, Advertisement, Epaper, 
-  SiteSettings, ContactMessage, BlogPost, AdminUser, AdminRole 
+  SiteSettings, ContactMessage, BlogPost, AdminUser, AdminRole,
+  PushNotification
 } from '../types';
 import { bnNum, bnDate, getNowBangladeshString } from '../utils/bengaliHelpers';
 import { postArticleToFacebook } from '../utils/api';
@@ -27,6 +28,7 @@ import { AdminAdsManagement } from './admin/AdminAdsManagement';
 import { AdminMessagesInbox } from './admin/AdminMessagesInbox';
 import { AdminAppManagement } from './admin/AdminAppManagement';
 import { AdminFacebookAutoPost } from './AdminFacebookAutoPost';
+import { AdminPushNotifications } from './admin/AdminPushNotifications';
 import { DeleteConfirmModal } from './common/DeleteConfirmModal';
 import { BackupData } from '../utils/zipExporter';
 import { SiteLogo } from './SiteLogo';
@@ -66,6 +68,9 @@ interface AdminPanelProps {
   onToggleAdStatus?: (id: number) => Promise<void> | void;
   onPreviewAppPage?: () => void;
   onRefreshData?: () => void;
+  pushNotifications?: PushNotification[];
+  onSendPushNotification?: (notification: Omit<PushNotification, 'id' | 'sent_at'>) => Promise<PushNotification> | PushNotification;
+  onDeletePushNotification?: (id: string | number) => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -102,11 +107,61 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   onDeleteAd,
   onToggleAdStatus,
   onPreviewAppPage,
-  onRefreshData
+  onRefreshData,
+  pushNotifications = [],
+  onSendPushNotification,
+  onDeletePushNotification
 }) => {
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'analytics' | 'news' | 'add_news' | 'media' | 'categories' | 'breaking' | 'blogs' | 'add_blog' | 'export_import' | 'ads' | 'messages' | 'settings' | 'users' | 'android_app' | 'facebook_autopost'
+    'dashboard' | 'analytics' | 'news' | 'add_news' | 'media' | 'categories' | 'breaking' | 'blogs' | 'add_blog' | 'export_import' | 'ads' | 'messages' | 'settings' | 'users' | 'android_app' | 'facebook_autopost' | 'push_notifications'
   >('dashboard');
+
+  // Push notifications state
+  const [localPushList, setLocalPushList] = useState<PushNotification[]>(pushNotifications);
+  const [selectedNewsForPush, setSelectedNewsForPush] = useState<NewsArticle | null>(null);
+
+  useEffect(() => {
+    if (pushNotifications && pushNotifications.length > 0) {
+      setLocalPushList(pushNotifications);
+    }
+  }, [pushNotifications]);
+
+  const handleSendPushNotification = async (notifData: Omit<PushNotification, 'id' | 'sent_at'>): Promise<PushNotification> => {
+    if (onSendPushNotification) {
+      const created = await onSendPushNotification(notifData);
+      setLocalPushList(prev => [created, ...prev.filter(p => p.id !== created.id)]);
+      return created;
+    }
+    const fallbackPush: PushNotification = {
+      ...notifData,
+      id: Date.now(),
+      sent_at: getNowBangladeshString(),
+      total_recipients: notifData.total_recipients || 16500,
+      click_count: 0
+    };
+    setLocalPushList(prev => [fallbackPush, ...prev]);
+    return fallbackPush;
+  };
+
+  const handleDeletePushNotification = (id: string | number) => {
+    if (onDeletePushNotification) {
+      onDeletePushNotification(id);
+    }
+    setLocalPushList(prev => prev.filter(p => p.id !== id));
+  };
+
+  const handleResendPushNotification = (item: PushNotification) => {
+    handleSendPushNotification({
+      title: item.title,
+      body: item.body,
+      article_id: item.article_id,
+      category_name: item.category_name,
+      image_url: item.image_url,
+      status: 'sent',
+      total_recipients: item.total_recipients,
+      is_breaking: item.is_breaking
+    });
+  };
 
   // Active Admin Profile User (Default to authenticated user or first)
   const [currentAdminUser, setCurrentAdminUser] = useState<AdminUser>(() => {
@@ -133,6 +188,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     analytics: 'অ্যানালিটিক্স',
     news: 'সংবাদ তালিকা',
     add_news: 'নতুন সংবাদ প্রকাশ',
+    push_notifications: 'পুশ নোটিফিকেশন',
     media: 'মিডিয়া লাইব্রেরি',
     categories: 'ক্যাটাগরি ব্যবস্থাপনা',
     breaking: 'ব্রেকিং নিউজ',
@@ -1091,6 +1147,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <PlusCircle className="w-4 h-4" /> নতুন সংবাদ প্রকাশ
                 </button>
                 <button
+                  onClick={() => { setActiveTab('push_notifications'); setIsMobileNavOpen(false); }}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
+                    activeTab === 'push_notifications' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <Bell className="w-4 h-4 text-red-400" /> পুশ নোটিফিকেশন
+                  </span>
+                  <span className="bg-red-950/80 text-red-300 border border-red-800/60 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                    {bnNum(localPushList.length)}
+                  </span>
+                </button>
+                <button
                   onClick={() => { setActiveTab('media'); setIsMobileNavOpen(false); }}
                   className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center gap-2.5 transition-colors cursor-pointer ${
                     activeTab === 'media' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
@@ -1324,6 +1393,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               }`}
             >
               <PlusCircle className="w-4 h-4" /> নতুন সংবাদ প্রকাশ
+            </button>
+
+            <button
+              onClick={() => setActiveTab('push_notifications')}
+              className={`w-full text-left px-3 py-2.5 rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
+                activeTab === 'push_notifications' ? 'bg-red-700 text-white font-bold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <Bell className="w-4 h-4 text-red-400" /> পুশ নোটিফিকেশন
+              </span>
+              <span className="bg-red-950/80 text-red-300 border border-red-800/60 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                {bnNum(localPushList.length)}
+              </span>
             </button>
 
             <button
@@ -2059,6 +2142,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                 <span>এডিট</span>
                               </button>
                               <button
+                                onClick={() => {
+                                  setSelectedNewsForPush(n);
+                                  setActiveTab('push_notifications');
+                                }}
+                                className="bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/40 px-2 py-1 rounded text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1"
+                                title="এই সংবাদের পুশ নোটিফিকেশন পাঠান"
+                              >
+                                <Bell className="w-3.5 h-3.5" />
+                                <span>পুশ</span>
+                              </button>
+                              <button
                                 onClick={() => handleDeleteNewsClick(n.id)}
                                 className="text-red-400 hover:text-red-300 p-1.5 rounded hover:bg-slate-700 cursor-pointer"
                                 title="মুছে ফেলুন"
@@ -2600,6 +2694,41 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <div>
               <h1 className="text-2xl font-black text-white font-bengali-display">ব্রেকিং নিউজ টিকার কন্ট্রোল</h1>
               <p className="text-xs text-slate-400">হেডলাইনের নিচে চলমান লাল ব্যানার টিকারের সংবাদ নিয়ন্ত্রণ করুন।</p>
+            </div>
+
+            {/* Scroll Position Banner */}
+            <div className="bg-slate-800/90 border border-slate-700 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-red-950/80 border border-red-800 flex items-center justify-center shrink-0">
+                  <Zap className="w-4 h-4 text-yellow-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-white">স্ক্রলে ব্রেকিং নিউজ পজিশন:</span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      localSettings.fixed_breaking_news !== false
+                        ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                        : 'bg-amber-950 text-amber-400 border border-amber-800'
+                    }`}>
+                      {localSettings.fixed_breaking_news !== false ? 'ফিক্সড অন (হাইড হবে না)' : 'অফ (স্ক্রলে হাইড হবে)'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {localSettings.fixed_breaking_news !== false
+                      ? 'ভিজিটর পেজের নিচের দিকে স্ক্রল করলেও ব্রেকিং নিউজটি ওপরে আটকে থাকবে।'
+                      : 'ভিজিটর পেজের নিচের দিকে স্ক্রল করলে ব্রেকিং নিউজটি স্ক্রল হয়ে স্ক্রিন থেকে হাইড হয়ে যাবে।'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('settings')}
+                className="text-[11px] bg-slate-700 hover:bg-slate-600 active:bg-slate-800 text-white font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer shrink-0 flex items-center justify-center gap-1.5"
+                title="সেটিংস ট্যাবে যান"
+              >
+                <Sliders className="w-3.5 h-3.5 text-slate-300" />
+                <span>সেটিংস থেকে পরিবর্তন করুন</span>
+              </button>
             </div>
 
             <div className="bg-slate-800/80 border border-slate-700 rounded-xl overflow-hidden shadow">
@@ -3546,6 +3675,42 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </label>
               </div>
 
+              {/* Breaking News Fixed on Scroll Toggle in Settings */}
+              <div className="bg-slate-900 border border-slate-700 p-4 rounded-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Zap className="w-4 h-4 text-yellow-400 shrink-0" />
+                      <span className="text-xs sm:text-sm font-bold text-white block">
+                        ব্রেকিং নিউজ সেকশন ফিক্সড পজিশন (Fixed Breaking News on Scroll)
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        localSettings.fixed_breaking_news !== false
+                          ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                          : 'bg-amber-950 text-amber-400 border border-amber-800'
+                      }`}>
+                        {localSettings.fixed_breaking_news !== false ? 'ফিক্সড চালু (হাইড হবে না)' : 'ফিক্সড বন্ধ (স্ক্রলে হাইড হবে)'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      {localSettings.fixed_breaking_news !== false
+                        ? 'সক্রিয় (ON): ভিজিটর পেজের নিচের দিকে স্ক্রল করলেও ব্রেকিং নিউজ সেকশনটি স্ক্রিনের শীর্ষে ফিক্সড হয়ে আটকে থাকবে, কখনোই হাইড হবে না।'
+                        : 'নিষ্ক্রিয় (OFF): ভিজিটর পেজের নিচের দিকে স্ক্রল করলে ব্রেকিং নিউজ সেকশনটি স্বাভাবিকভাবে স্ক্রল হয়ে স্ক্রিন থেকে হাইড হয়ে যাবে।'}
+                    </p>
+                  </div>
+
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input 
+                      type="checkbox"
+                      checked={localSettings.fixed_breaking_news !== false}
+                      onChange={(e) => setLocalSettings({ ...localSettings, fixed_breaking_news: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                  </label>
+                </div>
+              </div>
+
               <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-800">
                 <button 
                   type="submit"
@@ -3600,6 +3765,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             onUpdateNewsArticle={async (updatedArticle) => {
               await onUpdateNews(updatedArticle);
             }}
+          />
+        )}
+
+        {/* TAB: PUSH NOTIFICATIONS */}
+        {activeTab === 'push_notifications' && (
+          <AdminPushNotifications
+            newsList={newsList}
+            pushList={localPushList}
+            onSendPush={handleSendPushNotification}
+            onDeletePush={handleDeletePushNotification}
+            onResendPush={handleResendPushNotification}
+            selectedNewsForPush={selectedNewsForPush}
+            onClearSelectedNews={() => setSelectedNewsForPush(null)}
           />
         )}
 
@@ -4354,6 +4532,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <span className="text-slate-400">বিজ্ঞাপন অবস্থা:</span>
                 <span className={`font-semibold ${localSettings.disable_ads ? 'text-amber-400' : 'text-emerald-400'}`}>
                   {localSettings.disable_ads ? 'নিষ্ক্রিয় (Disabled)' : 'সক্রিয় (Active)'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-slate-800/80">
+                <span className="text-slate-400">ব্রেকিং নিউজ পজিশন:</span>
+                <span className={`font-semibold ${localSettings.fixed_breaking_news !== false ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  {localSettings.fixed_breaking_news !== false ? 'ফিক্সড অন (হাইড হবে না)' : 'অফ (স্ক্রলে হাইড হবে)'}
                 </span>
               </div>
               <div className="flex items-center justify-between py-1">

@@ -204,6 +204,7 @@ CREATE TABLE \`settings\` (
     ['meta_description', settings.meta_description || ''],
     ['meta_keywords', settings.meta_keywords || ''],
     ['disable_ads', settings.disable_ads ? '1' : '0'],
+    ['fixed_breaking_news', settings.fixed_breaking_news !== false ? '1' : '0'],
     ['facebook_auto_post', JSON.stringify(settings.facebook_auto_post || {
       enabled: false,
       page_id: '',
@@ -518,8 +519,6 @@ $logoUrl = !empty($settings['logo_url']) ? $settings['logo_url'] : 'assets/logo.
 </head>
 <body class="text-slate-900">
 
-<!-- Sticky Header & Breaking News Container -->
-<div class="sticky top-0 z-40 shadow-xs">
     <!-- Top Header Bar -->
     <header class="bg-white border-b border-slate-200">
         <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -545,9 +544,9 @@ $logoUrl = !empty($settings['logo_url']) ? $settings['logo_url'] : 'assets/logo.
         </nav>
     </header>
 
-    <!-- Breaking News Ticker -->
+    <!-- Breaking News Ticker (Fixed or scroll based on settings) -->
     <?php if (!empty($breakingNews)): ?>
-    <div class="bg-red-700 text-white py-2 px-3 shadow-inner border-b border-red-800">
+    <div class="<?= (!isset($settings['fixed_breaking_news']) || $settings['fixed_breaking_news'] == '1') ? 'sticky top-0 z-40 shadow-md ' : 'relative z-20 ' ?>bg-red-700 text-white py-2 px-3 shadow-inner border-b border-red-800">
         <div class="max-w-7xl mx-auto flex items-center gap-2 text-base sm:text-lg">
             <span class="bg-yellow-400 text-red-950 font-black px-2 py-0.5 rounded font-bengali-display tracking-tight text-xs shrink-0 shadow-2xs">ব্রেকিং<span class="hidden sm:inline"> নিউজ</span></span>
             <div class="truncate font-bold min-w-0 flex-1">
@@ -558,7 +557,6 @@ $logoUrl = !empty($settings['logo_url']) ? $settings['logo_url'] : 'assets/logo.
         </div>
     </div>
     <?php endif; ?>
-</div>
 
 <!-- Main Container -->
 <main class="max-w-7xl mx-auto px-4 py-6 space-y-8">

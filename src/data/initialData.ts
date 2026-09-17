@@ -1,4 +1,4 @@
-import { Category, NewsArticle, Epaper, Advertisement, SiteSettings, ContactMessage, BlogPost, AdminUser, AndroidAppConfig, FacebookAutoPostConfig } from '../types';
+import { Category, NewsArticle, Epaper, Advertisement, SiteSettings, ContactMessage, BlogPost, AdminUser, AndroidAppConfig, FacebookAutoPostConfig, PushNotification } from '../types';
 
 export const INITIAL_FACEBOOK_AUTO_POST: FacebookAutoPostConfig = {
   enabled: false,
@@ -305,6 +305,8 @@ export const INITIAL_SETTINGS: SiteSettings = {
   meta_description: 'বার্তাচিত্র-সংবাদ ও ছবি। Bartachitra - বাংলাদেশের শীর্ষস্থানীয় অনলাইন সংবাদপত্র ও ই-পত্রিকা পোর্টাল',
   meta_keywords: 'বার্তাচিত্র, বাংলা সংবাদ, বাংলাদেশ, ই-পত্রিকা, ব্রেকিং নিউজ',
   disable_ads: false,
+  fixed_breaking_news: true,
+  enable_dark_mode: false,
   android_app: INITIAL_ANDROID_APP,
   facebook_auto_post: INITIAL_FACEBOOK_AUTO_POST
 };
@@ -484,4 +486,36 @@ export const INITIAL_USERS: AdminUser[] = [
     phone: '০১৭৩৩৩৩৪৪৫৫'
   }
 ];
+
+export const INITIAL_PUSH_NOTIFICATIONS: PushNotification[] = [
+  {
+    id: 1,
+    title: 'ব্রেকিং: মেট্রোরেলের নতুন রুটের আনুষ্ঠানিক উদ্বোধন ঘোষণা',
+    body: 'রাজধানীর মতিঝিল থেকে কমলাপুর অংশের নতুন রুটের চূড়ান্ত সফল ট্রায়াল রান সম্পন্ন হয়েছে। আগামী মাসেই সর্বসাধারণের জন্য খুলে দেওয়া হবে।',
+    article_id: 1,
+    category_name: 'জাতীয়',
+    image_url: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=600&q=80',
+    sent_at: '2026-09-17 14:30:00',
+    sent_by: 'আহমেদ রফিক চৌধুরী',
+    status: 'sent',
+    total_recipients: 14850,
+    click_count: 2340,
+    is_breaking: true,
+  },
+  {
+    id: 2,
+    title: 'বিশ্বরেকর্ড গড়ে চ্যাম্পিয়ন বাংলাদেশ জাতীয় দল',
+    body: 'রোমাঞ্চকর ফাইনালে শেষ ওভারে নাটকীয় জয় তুলে নিয়ে ঐতিহাসিক শিরোপা ঘরে তুলল টাইগাররা। সারা দেশে বিজয় মিছিল।',
+    article_id: 4,
+    category_name: 'খেলাধুলা',
+    image_url: 'https://images.unsplash.com/photo-1531415074968-036ba1b575da?w=600&q=80',
+    sent_at: '2026-09-16 19:15:00',
+    sent_by: 'বার্তাচিত্র বার্তা কক্ষ',
+    status: 'sent',
+    total_recipients: 12400,
+    click_count: 3120,
+    is_breaking: false,
+  }
+];
+
 
